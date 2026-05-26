@@ -24,6 +24,37 @@ class GunwAcquisitionTimes:
     days_between: float | None
 
 
+@dataclass(frozen=True)
+class GunwLayers:
+    """Standardized NISAR GUNW layers and product metadata.
+
+    Missing layers are represented explicitly as ``None``. This avoids
+    silently changing downstream behavior when a product lacks a layer.
+    """
+
+    gunw_file: Path
+    polarization: str
+    layers: dict[str, xr.DataArray | None]
+    metadata: dict[str, Any]
+    dataset_attr_paths: dict[str, str]
+
+
+STANDARD_GUNW_LAYER_NAMES: tuple[str, ...] = (
+    "unwrapped_phase",
+    "coherence_unw",
+    "coherence_wrapped",
+    "connected_components",
+    "mask",
+    "ionosphere",
+    "ionosphere_unc",
+    "wet_tropo",
+    "hydro_tropo",
+    "incidence_angle",
+    "wrapped_ifg",
+    "corr_peak",
+)
+
+
 UNWRAPPED_GROUP_TEMPLATE = "/science/LSAR/GUNW/grids/frequencyA/unwrappedInterferogram/{pol}"
 WRAPPED_GROUP_TEMPLATE = "/science/LSAR/GUNW/grids/frequencyA/wrappedInterferogram/{pol}"
 PIXEL_OFFSET_GROUP_TEMPLATE = "/science/LSAR/GUNW/grids/frequencyA/pixelOffsets/{pol}"
@@ -345,3 +376,79 @@ def build_layers(
         "wet_tropo": f"{RADAR_GRID_GROUP}/wetTroposphericPhaseScreen",
     }
     return layers, dataset_attr_paths
+
+def read_gunw_layers(
+    gunw_file: str | Path,
+    pol: str | None = None,
+    layers: list[str] | tuple[str, ...] | None = None,
+    radar_cube_index: int = 0,
+) -> GunwLayers:
+    """Read standardized NISAR GUNW layers without plotting or transforms.
+
+    Parameters
+    ----------
+    gunw_file
+        Local path to a NISAR GUNW ``.nc`` product.
+    pol
+        Optional polarization override. If omitted, HH then VV are detected.
+    layers
+        Optional subset of standardized layer names to return. Missing requested
+        layers are included with value ``None``.
+    radar_cube_index
+        Height index for radar-grid metadata cubes such as incidence angle and
+        tropospheric screens.
+
+    Returns
+    -------
+    GunwLayers
+        Dataclass containing layer arrays, product metadata, and HDF5 dataset
+        paths used for attribute lookup.
+    """
+    gunw_path = Path(gunw_file).expanduser().resolve()
+    if not gunw_path.exists():
+        raise FileNotFoundError(f"GUNW file not found: {gunw_path}")
+
+    pol_resolved = pol or detect_pol(gunw_path)
+    if pol_resolved not in {"HH", "VV"}:
+        raise ValueError("pol must be one of 'HH', 'VV', or None.")
+
+    all_layers, dataset_attr_paths = build_layers(
+        gunw_path, pol_resolved, radar_cube_index=radar_cube_index
+    )
+
+    requested = tuple(layers) if layers is not None else STANDARD_GUNW_LAYER_NAMES
+    unknown = sorted(set(requested) - set(all_layers))
+    if unknown:
+        raise ValueError(
+            "Unknown GUNW layer name(s): "
+            + ", ".join(unknown)
+            + ". Valid names include: "
+            + ", ".join(sorted(all_layers))
+        )
+
+    selected = {name: all_layers.get(name) for name in requested}
+    selected_paths = {name: dataset_attr_paths[name] for name in requested if name in dataset_attr_paths}
+
+    metadata = read_identification_metadata(gunw_path)
+    times = parse_acquisition_times_from_filename(gunw_path)
+    metadata.update(
+        {
+            "gunw_file": str(gunw_path),
+            "gunw_name": gunw_path.name,
+            "polarization": pol_resolved,
+            "ref_start": times.ref_start,
+            "ref_end": times.ref_end,
+            "sec_start": times.sec_start,
+            "sec_end": times.sec_end,
+            "days_between": times.days_between,
+        }
+    )
+
+    return GunwLayers(
+        gunw_file=gunw_path,
+        polarization=pol_resolved,
+        layers=selected,
+        metadata=metadata,
+        dataset_attr_paths=selected_paths,
+    )
+

@@ -16,4 +16,11 @@ def plot_gunw(*args, **kwargs):
     return _plot_gunw(*args, **kwargs)
 
 
-__all__ = ["__version__", "plot_gunw"]
+def gunw_to_dswe(*args, **kwargs):
+    """Run the explicit GUNW-to-dSWE workflow scaffold."""
+    from snowin.workflows import gunw_to_dswe as _gunw_to_dswe
+
+    return _gunw_to_dswe(*args, **kwargs)
+
+
+__all__ = ["__version__", "gunw_to_dswe", "plot_gunw"]

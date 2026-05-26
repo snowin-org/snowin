@@ -11,6 +11,7 @@ import json
 import platform
 import re
 import subprocess
+from importlib.metadata import PackageNotFoundError, version
 
 import matplotlib.pyplot as plt
 from matplotlib import colors as mcolors
@@ -24,11 +25,11 @@ from snowin.diagnostics import (
     numeric_summary,
 )
 from snowin.io.gunw import (
-    build_layers,
     detect_grid_epsg,
     detect_pol,
     parse_acquisition_times_from_filename,
     read_attrs_hdf5,
+    read_gunw_layers,
     read_identification_metadata,
 )
 
@@ -457,6 +458,28 @@ def _format_dt(dt: datetime | None) -> str:
     return "NA" if dt is None else dt.strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _package_version() -> str | None:
+    try:
+        return version("snowin")
+    except PackageNotFoundError:
+        return None
+
+
+def _git_commit(path: Path) -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(path.parent), "rev-parse", "--short", "HEAD"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except Exception:
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
+
+
 def build_metadata(gunw_file: str | Path, pol: str, crop_geojson: str | Path | None = None) -> dict[str, Any]:
     """Build CSV/JSON-friendly metadata for a GUNW quick-look run."""
     gunw_file = Path(gunw_file)
@@ -472,6 +495,8 @@ def build_metadata(gunw_file: str | Path, pol: str, crop_geojson: str | Path | N
         "sec_end": _format_dt(times.sec_end),
         "days_between": times.days_between,
         "crop_geojson": str(crop_geojson) if crop_geojson is not None else None,
+        "snowin_version": _package_version(),
+        "git_commit": _git_commit(Path(__file__).resolve()),
     }
     out.update(meta)
     return out
@@ -786,7 +811,9 @@ def plot_gunw(
         )
         crop_name_suffix = f"_{safe_name_token(crop_geojson.stem)}"
 
-    layers, dataset_attr_paths = build_layers(gunw_file, pol_resolved, radar_cube_index)
+    gunw_layers = read_gunw_layers(gunw_file, pol=pol_resolved, radar_cube_index=radar_cube_index)
+    layers = gunw_layers.layers
+    dataset_attr_paths = gunw_layers.dataset_attr_paths
     metadata = build_metadata(gunw_file, pol_resolved, crop_geojson)
     header = metadata_text(metadata)
 

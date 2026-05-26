@@ -75,7 +75,32 @@ The equivalent CLI is:
 ```bash
 snowin-plot-gunw /path/to/NISAR_L2_PR_GUNW_....nc \
   --out-dir plots/gunw_quicklooks \
-  --crop-geojson /path/to/basin.geojson \
+  --crop-geojson /path/to/basin.geojson
+```
+
+
+### Local/S3 GUNW demo and dSWE scaffold
+
+The example below stages a local or `s3://` GUNW product, writes a quick-look,
+and runs an explicit raw phase-to-dSWE scaffold. This is intended to test
+package plumbing and provenance. It is not a validated SWE retrieval workflow.
+
+```bash
+python examples/demo_gunw_local_s3_dswe.py \
+  --gunw /path/to/NISAR_L2_PR_GUNW_....nc \
+  --out-dir outputs/snowin_demo \
+  --crop-geojson /path/to/basin.geojson
+```
+
+For S3 inputs, install the optional cloud dependencies and provide a cache
+directory:
+
+```bash
+python -m pip install -e ".[cloud]"
+python examples/demo_gunw_local_s3_dswe.py \
+  --gunw s3://bucket/path/NISAR_L2_PR_GUNW_....nc \
+  --out-dir outputs/snowin_demo_s3 \
+  --cache-dir outputs/snowin_s3_cache
 ```
 
 ## Current scope
