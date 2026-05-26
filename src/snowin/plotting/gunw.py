@@ -34,6 +34,8 @@ from snowin.io.gunw import (
 )
 
 AMPLITUDE_DB_EPS = 1e-12
+
+
 @dataclass(frozen=True)
 class GunwPlotResult:
     """Paths and summary records produced by ``plot_gunw``."""
@@ -80,7 +82,9 @@ def dataarray_to_array(
         return None, None, None
 
     arr = da.values
-    if getattr(arr.dtype, "fields", None) is not None and {"r", "i"}.issubset(arr.dtype.fields):
+    if getattr(arr.dtype, "fields", None) is not None and {"r", "i"}.issubset(
+        arr.dtype.fields
+    ):
         complex_arr = arr["r"] + 1j * arr["i"]
         if magnitude:
             arr = np.abs(complex_arr)
@@ -109,7 +113,9 @@ def dataarray_to_array(
     return arr, x, y
 
 
-def percentile_limits(arr: np.ndarray, p1: float = 1.0, p99: float = 99.0) -> tuple[float, float]:
+def percentile_limits(
+    arr: np.ndarray, p1: float = 1.0, p99: float = 99.0
+) -> tuple[float, float]:
     """Return robust display limits from finite array percentiles."""
     valid = arr[np.isfinite(arr)]
     if valid.size == 0:
@@ -189,7 +195,11 @@ class GeoJsonCropper:
             data = json.load(f)
 
         if data.get("type") == "FeatureCollection":
-            geoms = [shape(feat["geometry"]) for feat in data.get("features", []) if feat.get("geometry")]
+            geoms = [
+                shape(feat["geometry"])
+                for feat in data.get("features", [])
+                if feat.get("geometry")
+            ]
             geom = unary_union(geoms)
         elif data.get("type") == "Feature":
             geom = shape(data["geometry"])
@@ -286,7 +296,9 @@ class GeoJsonCropper:
     def plot_boundary(self, ax: Any, **kwargs: Any) -> None:
         """Overlay crop polygon boundary for visual QC."""
         try:
-            geoms = list(self.geom.geoms) if hasattr(self.geom, "geoms") else [self.geom]
+            geoms = (
+                list(self.geom.geoms) if hasattr(self.geom, "geoms") else [self.geom]
+            )
             for geom in geoms:
                 if hasattr(geom, "exterior") and geom.exterior is not None:
                     xs, ys = geom.exterior.xy
@@ -315,9 +327,13 @@ def _apply_crop(
     return cropper.mask_array(arr, x, y), x, y
 
 
-def add_horizontal_colorbar(im: Any, ax: Any, label: str | None = None, ticks=None, ticklabels=None):
+def add_horizontal_colorbar(
+    im: Any, ax: Any, label: str | None = None, ticks=None, ticklabels=None
+):
     """Add a compact horizontal colorbar."""
-    cbar = plt.colorbar(im, ax=ax, orientation="horizontal", fraction=0.06, pad=0.08, shrink=0.95)
+    cbar = plt.colorbar(
+        im, ax=ax, orientation="horizontal", fraction=0.06, pad=0.08, shrink=0.95
+    )
     if label:
         cbar.set_label(label)
     if ticks is not None:
@@ -379,7 +395,12 @@ def plot_continuous(
 
     arr, x, y = maybe_downsample(arr, x, y, max_dim=max_dim)
     vmin, vmax = percentile_limits(arr, 1.0, 99.0)
-    extent = [float(np.nanmin(x)), float(np.nanmax(x)), float(np.nanmin(y)), float(np.nanmax(y))]
+    extent = [
+        float(np.nanmin(x)),
+        float(np.nanmax(x)),
+        float(np.nanmin(y)),
+        float(np.nanmax(y)),
+    ]
     origin = "upper" if y[0] > y[-1] else "lower"
 
     cmap_obj = plt.get_cmap(cmap).copy()
@@ -427,9 +448,16 @@ def plot_discrete(
         return
 
     arr, x, y = maybe_downsample(arr, x, y, max_dim=max_dim)
-    extent = [float(np.nanmin(x)), float(np.nanmax(x)), float(np.nanmin(y)), float(np.nanmax(y))]
+    extent = [
+        float(np.nanmin(x)),
+        float(np.nanmax(x)),
+        float(np.nanmin(y)),
+        float(np.nanmax(y)),
+    ]
     origin = "upper" if y[0] > y[-1] else "lower"
-    cmap_obj, norm, unique_vals, ticklabels = discrete_cmap_and_norm(arr, cmap_name=cmap)
+    cmap_obj, norm, unique_vals, ticklabels = discrete_cmap_and_norm(
+        arr, cmap_name=cmap
+    )
     im = ax.imshow(
         np.ma.masked_invalid(arr),
         extent=extent,
@@ -480,7 +508,9 @@ def _git_commit(path: Path) -> str | None:
     return result.stdout.strip() or None
 
 
-def build_metadata(gunw_file: str | Path, pol: str, crop_geojson: str | Path | None = None) -> dict[str, Any]:
+def build_metadata(
+    gunw_file: str | Path, pol: str, crop_geojson: str | Path | None = None
+) -> dict[str, Any]:
     """Build CSV/JSON-friendly metadata for a GUNW quick-look run."""
     gunw_file = Path(gunw_file)
     meta = read_identification_metadata(gunw_file)
@@ -549,18 +579,93 @@ def make_compact_figure(
     fig, axes = plt.subplots(2, 5, figsize=(22, 11))
     axes = axes.ravel()
 
-    plot_continuous(axes[0], layers["unwrapped_phase"], "Unwrapped phase", "viridis", max_dim=max_plot_dim, cropper=cropper)
-    plot_continuous(axes[1], layers["wrapped_ifg"], "Wrapped IFG phase", "plasma", angle=True, max_dim=max_plot_dim, cropper=cropper)
-    plot_continuous(axes[2], layers["wrapped_ifg"], "Wrapped IFG amplitude (dB)", "cividis", magnitude=True, db=True, max_dim=max_plot_dim, cropper=cropper)
-    plot_continuous(axes[3], layers["coherence_unw"], "Coherence (unwrapped)", "plasma", max_dim=max_plot_dim, cropper=cropper)
-    plot_discrete(axes[4], layers["connected_components"], "Connected components", cmap="tab20", max_dim=max_plot_dim, cropper=cropper)
-    plot_discrete(axes[5], layers["mask"], "Mask", cmap="tab20", max_dim=max_plot_dim, cropper=cropper)
-    plot_continuous(axes[6], layers["ionosphere"], "Ionospheric phase screen", "magma", max_dim=max_plot_dim, cropper=cropper)
-    plot_continuous(axes[7], layers["ionosphere_unc"], "Ionosphere uncertainty", "cividis", max_dim=max_plot_dim, cropper=cropper)
-    plot_continuous(axes[8], layers["corr_peak"], "Correlation surface peak", "viridis", max_dim=max_plot_dim, cropper=cropper)
-    plot_continuous(axes[9], layers["wet_tropo"], "Wet tropospheric phase", "magma", max_dim=max_plot_dim, cropper=cropper)
+    plot_continuous(
+        axes[0],
+        layers["unwrapped_phase"],
+        "Unwrapped phase",
+        "viridis",
+        max_dim=max_plot_dim,
+        cropper=cropper,
+    )
+    plot_continuous(
+        axes[1],
+        layers["wrapped_ifg"],
+        "Wrapped IFG phase",
+        "plasma",
+        angle=True,
+        max_dim=max_plot_dim,
+        cropper=cropper,
+    )
+    plot_continuous(
+        axes[2],
+        layers["wrapped_ifg"],
+        "Wrapped IFG amplitude (dB)",
+        "cividis",
+        magnitude=True,
+        db=True,
+        max_dim=max_plot_dim,
+        cropper=cropper,
+    )
+    plot_continuous(
+        axes[3],
+        layers["coherence_unw"],
+        "Coherence (unwrapped)",
+        "plasma",
+        max_dim=max_plot_dim,
+        cropper=cropper,
+    )
+    plot_discrete(
+        axes[4],
+        layers["connected_components"],
+        "Connected components",
+        cmap="tab20",
+        max_dim=max_plot_dim,
+        cropper=cropper,
+    )
+    plot_discrete(
+        axes[5],
+        layers["mask"],
+        "Mask",
+        cmap="tab20",
+        max_dim=max_plot_dim,
+        cropper=cropper,
+    )
+    plot_continuous(
+        axes[6],
+        layers["ionosphere"],
+        "Ionospheric phase screen",
+        "magma",
+        max_dim=max_plot_dim,
+        cropper=cropper,
+    )
+    plot_continuous(
+        axes[7],
+        layers["ionosphere_unc"],
+        "Ionosphere uncertainty",
+        "cividis",
+        max_dim=max_plot_dim,
+        cropper=cropper,
+    )
+    plot_continuous(
+        axes[8],
+        layers["corr_peak"],
+        "Correlation surface peak",
+        "viridis",
+        max_dim=max_plot_dim,
+        cropper=cropper,
+    )
+    plot_continuous(
+        axes[9],
+        layers["wet_tropo"],
+        "Wet tropospheric phase",
+        "magma",
+        max_dim=max_plot_dim,
+        cropper=cropper,
+    )
 
-    fig.text(0.5, 0.995, header_text, ha="center", va="top", fontsize=10, family="monospace")
+    fig.text(
+        0.5, 0.995, header_text, ha="center", va="top", fontsize=10, family="monospace"
+    )
     fig.tight_layout(rect=[0.02, 0.02, 0.98, 0.83])
     fig.savefig(out_png, dpi=dpi, bbox_inches="tight")
     plt.close(fig)
@@ -616,15 +721,35 @@ def build_summary_rows(
         ("corr_peak", "corr_peak", "native", False, False, False),
         ("incidence_angle", "incidence_angle", "native", False, False, False),
         ("parallel_baseline", "parallel_baseline", "native", False, False, False),
-        ("perpendicular_baseline", "perpendicular_baseline", "native", False, False, False),
-        ("reference_slant_range", "reference_slant_range", "native", False, False, False),
+        (
+            "perpendicular_baseline",
+            "perpendicular_baseline",
+            "native",
+            False,
+            False,
+            False,
+        ),
+        (
+            "reference_slant_range",
+            "reference_slant_range",
+            "native",
+            False,
+            False,
+            False,
+        ),
         ("hydro_tropo", "hydro_tropo", "native", False, False, False),
         ("wet_tropo", "wet_tropo", "native", False, False, False),
     ]
 
     rows: list[dict[str, Any]] = []
     for layer_name, source_name, transform, magnitude, angle, db in specs:
-        arr = _summary_array(layers.get(source_name), cropper=cropper, magnitude=magnitude, angle=angle, db=db)
+        arr = _summary_array(
+            layers.get(source_name),
+            cropper=cropper,
+            magnitude=magnitude,
+            angle=angle,
+            db=db,
+        )
         row = merge_summaries(
             {
                 "layer": layer_name,
@@ -801,7 +926,9 @@ def plot_gunw(
             raise FileNotFoundError(f"Crop GeoJSON file not found: {crop_geojson}")
         grid_epsg_resolved = grid_epsg or detect_grid_epsg(gunw_file)
         if grid_epsg_resolved is None:
-            raise ValueError("Could not auto-detect GUNW grid EPSG. Pass grid_epsg explicitly.")
+            raise ValueError(
+                "Could not auto-detect GUNW grid EPSG. Pass grid_epsg explicitly."
+            )
         cropper = GeoJsonCropper.from_geojson(
             crop_geojson,
             target_epsg=grid_epsg_resolved,
@@ -811,7 +938,9 @@ def plot_gunw(
         )
         crop_name_suffix = f"_{safe_name_token(crop_geojson.stem)}"
 
-    gunw_layers = read_gunw_layers(gunw_file, pol=pol_resolved, radar_cube_index=radar_cube_index)
+    gunw_layers = read_gunw_layers(
+        gunw_file, pol=pol_resolved, radar_cube_index=radar_cube_index
+    )
     layers = gunw_layers.layers
     dataset_attr_paths = gunw_layers.dataset_attr_paths
     metadata = build_metadata(gunw_file, pol_resolved, crop_geojson)

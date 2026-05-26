@@ -23,7 +23,9 @@ def test_gunw_to_dswe_synthetic_minimal(monkeypatch, tmp_path):
         "wet_tropo": None,
         "hydro_tropo": None,
     }
-    monkeypatch.setattr("snowin.workflows.gunw_dswe.read_gunw_layers", lambda *a, **k: DummyGunw(layers))
+    monkeypatch.setattr(
+        "snowin.workflows.gunw_dswe.read_gunw_layers", lambda *a, **k: DummyGunw(layers)
+    )
     out = gunw_to_dswe("dummy.nc", out_dir=tmp_path, write_outputs=True)
     assert out.dswe.shape == (2, 2)
     assert np.isfinite(out.dswe).all()

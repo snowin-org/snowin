@@ -92,4 +92,6 @@ def write_geotiff(
 
 def write_cog_later_optional(*args, **kwargs):
     """Placeholder for future COG export after GeoTIFF behavior is tested."""
-    raise NotImplementedError("COG export is reserved for a later tested implementation.")
+    raise NotImplementedError(
+        "COG export is reserved for a later tested implementation."
+    )

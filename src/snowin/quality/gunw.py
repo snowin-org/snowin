@@ -25,7 +25,9 @@ def _true_fraction(mask: np.ndarray) -> float:
     return float(np.asarray(mask, dtype=bool).sum() / mask.size)
 
 
-def _dominant_component(connected_components: np.ndarray, base_valid: np.ndarray) -> int | None:
+def _dominant_component(
+    connected_components: np.ndarray, base_valid: np.ndarray
+) -> int | None:
     cc = np.asarray(connected_components)
     valid = base_valid & np.isfinite(cc)
     if not np.any(valid):
@@ -82,12 +84,16 @@ def build_gunw_quality_mask(
         elif isinstance(connected_component, int):
             selected_component = connected_component
         else:
-            raise ValueError("connected_component must be None, 'dominant', or an integer ID.")
+            raise ValueError(
+                "connected_component must be None, 'dominant', or an integer ID."
+            )
 
         if selected_component is None:
             invalid_cc = np.isfinite(cc)
         else:
-            invalid_cc = ~np.isfinite(cc) | (cc.astype(float) != float(selected_component))
+            invalid_cc = ~np.isfinite(cc) | (
+                cc.astype(float) != float(selected_component)
+            )
     else:
         invalid_cc = np.zeros(phase_arr.shape, dtype=bool)
     reason_masks["invalid_connected_component"] = invalid_cc
@@ -117,4 +123,6 @@ def build_gunw_quality_mask(
         diagnostics[f"{name}_pixels"] = int(mask.sum())
         diagnostics[f"{name}_fraction"] = _true_fraction(mask)
 
-    return QualityMaskResult(valid_mask=valid, reason_masks=reason_masks, diagnostics=diagnostics)
+    return QualityMaskResult(
+        valid_mask=valid, reason_masks=reason_masks, diagnostics=diagnostics
+    )

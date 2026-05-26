@@ -8,7 +8,11 @@ from typing import Any, Literal
 import numpy as np
 
 from snowin.snow import phase_to_dswe, sensor_wavelength_m
-from snowin.utils import angle_to_radians_if_needed, finite_fraction, validate_same_shape
+from snowin.utils import (
+    angle_to_radians_if_needed,
+    finite_fraction,
+    validate_same_shape,
+)
 
 OutputUnit = Literal["m", "cm"]
 IncidenceShapePolicy = Literal["fail", "median"]
@@ -83,7 +87,9 @@ def phase_raster_to_dswe(
     incidence_rad, incidence_unit_used = angle_to_radians_if_needed(
         incidence, unit=incidence_angle_unit, name="incidence_angle"
     )
-    resolved_wavelength = sensor_wavelength_m(sensor=sensor, band=band, wavelength_m=wavelength_m)
+    resolved_wavelength = sensor_wavelength_m(
+        sensor=sensor, band=band, wavelength_m=wavelength_m
+    )
 
     dswe_m = np.asarray(
         phase_to_dswe(

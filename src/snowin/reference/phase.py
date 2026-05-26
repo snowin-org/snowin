@@ -57,10 +57,14 @@ def apply_reference_phase(
         validate_same_shape(phase, ref_mask)
         ref_pixels = base_valid & ref_mask
     else:
-        raise ValueError("strategy must be 'none', 'median_valid', 'low_snow_mask', or 'user_mask'.")
+        raise ValueError(
+            "strategy must be 'none', 'median_valid', 'low_snow_mask', or 'user_mask'."
+        )
 
     if not np.any(ref_pixels):
-        raise ValueError(f"Reference strategy '{strategy}' selected zero finite pixels.")
+        raise ValueError(
+            f"Reference strategy '{strategy}' selected zero finite pixels."
+        )
 
     reference_value = float(np.nanmedian(phase[ref_pixels]))
     referenced = phase - reference_value
@@ -72,6 +76,8 @@ def apply_reference_phase(
             "strategy": strategy,
             "reference_value_rad": reference_value,
             "reference_pixels": int(ref_pixels.sum()),
-            "reference_fraction": float(ref_pixels.sum() / phase.size) if phase.size else np.nan,
+            "reference_fraction": float(ref_pixels.sum() / phase.size)
+            if phase.size
+            else np.nan,
         },
     )

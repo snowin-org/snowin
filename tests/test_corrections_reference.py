@@ -34,7 +34,9 @@ def test_apply_phase_corrections_missing_layer_raises():
     with pytest.raises(ValueError, match="no ionosphere layer"):
         apply_phase_corrections(
             np.array([[1.0]]),
-            config=PhaseCorrectionConfig(apply_ionosphere=True, ionosphere_sign="subtract"),
+            config=PhaseCorrectionConfig(
+                apply_ionosphere=True, ionosphere_sign="subtract"
+            ),
         )
 
 

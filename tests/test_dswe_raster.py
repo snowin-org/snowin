@@ -8,7 +8,14 @@ from snowin.workflows import phase_raster_to_dswe
 def test_phase_raster_to_dswe_matches_scalar_function_cm():
     phase = np.array([[-1.0, -2.0]])
     theta = np.deg2rad(np.array([[35.0, 35.0]]))
-    out = phase_raster_to_dswe(phase, theta, method="oveisgharan", sensor="nisar", band="L", incidence_angle_unit="radians")
+    out = phase_raster_to_dswe(
+        phase,
+        theta,
+        method="oveisgharan",
+        sensor="nisar",
+        band="L",
+        incidence_angle_unit="radians",
+    )
     expected_m = phase_to_dswe(phase, "oveisgharan", theta, sensor="nisar", band="L")
     assert out.unit == "cm"
     assert np.allclose(out.dswe, expected_m * 100.0)
@@ -17,14 +24,20 @@ def test_phase_raster_to_dswe_matches_scalar_function_cm():
 
 def test_phase_raster_to_dswe_degrees_equivalent_to_radians():
     phase = np.array([[-1.0]])
-    out_deg = phase_raster_to_dswe(phase, np.array([[35.0]]), incidence_angle_unit="degrees")
-    out_rad = phase_raster_to_dswe(phase, np.deg2rad(np.array([[35.0]])), incidence_angle_unit="radians")
+    out_deg = phase_raster_to_dswe(
+        phase, np.array([[35.0]]), incidence_angle_unit="degrees"
+    )
+    out_rad = phase_raster_to_dswe(
+        phase, np.deg2rad(np.array([[35.0]])), incidence_angle_unit="radians"
+    )
     assert np.allclose(out_deg.dswe, out_rad.dswe)
 
 
 def test_phase_raster_to_dswe_invalid_incidence_fails():
     with pytest.raises(ValueError):
-        phase_raster_to_dswe(np.array([[1.0]]), np.array([[100.0]]), incidence_angle_unit="radians")
+        phase_raster_to_dswe(
+            np.array([[1.0]]), np.array([[100.0]]), incidence_angle_unit="radians"
+        )
 
 
 def test_phase_raster_to_dswe_guneriussen_requires_density():
@@ -57,7 +70,12 @@ def test_phase_raster_to_dswe_shape_mismatch_median_policy_records_diagnostic():
     )
     assert out.dswe.shape == phase.shape
     assert np.isfinite(out.dswe).all()
-    assert out.diagnostics["incidence_shape_handling"] == "median_expanded_due_to_shape_mismatch"
+    assert (
+        out.diagnostics["incidence_shape_handling"]
+        == "median_expanded_due_to_shape_mismatch"
+    )
     assert out.diagnostics["incidence_original_shape"] == (2, 2)
     assert out.diagnostics["incidence_final_shape"] == (4, 5)
-    assert np.isclose(out.diagnostics["incidence_angle_median_used"], np.nanmedian(incidence))
+    assert np.isclose(
+        out.diagnostics["incidence_angle_median_used"], np.nanmedian(incidence)
+    )

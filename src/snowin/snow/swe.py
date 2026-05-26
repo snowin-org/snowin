@@ -51,35 +51,28 @@ _SENSOR_WAVELENGTHS_M: dict[tuple[str, str | None], float] = {
     # NISAR dual-band mission
     ("nisar", "L"): 0.24,
     ("nisar", "S"): 0.10,
-
     # ESA Sentinel-1
     ("sentinel1", None): 0.05546668973172988,
     ("s1", None): 0.05546668973172988,
-
     # JPL airborne
     ("uavsar", None): 0.23840354572564613,
-
     # DLR X-band
     ("terrasarx", None): 0.031066576994818654,
     ("tsx", None): 0.031066576994818654,
     ("tandemx", None): 0.031066576994818654,
     ("tdx", None): 0.031066576994818654,
-
     # RADARSAT family
     ("radarsat1", None): 0.05656461471698113,
     ("radarsat2", None): 0.05546668973172988,
     ("radarsat", None): 0.05546668973172988,
     ("rcm", None): 0.05546668973172988,
-
     # JAXA L-band family
     ("alos_palsar", None): 0.23605626614173228,
     ("palsar", None): 0.23605626614173228,
     ("alos2_palsar2", None): 0.24982704833333335,
     ("palsar2", None): 0.24982704833333335,
-
     # CONAE
     ("saocom", None): 0.23513133960784314,
-
     # Historical/common C-band missions
     ("ers1", None): 0.05656461471698113,
     ("ers2", None): 0.05656461471698113,
@@ -105,6 +98,7 @@ def list_supported_sensors() -> list[str]:
 # -----------------------------------------------------------------------------
 # Validation/helpers
 # -----------------------------------------------------------------------------
+
 
 def _as_array(value: ArrayLike) -> np.ndarray:
     return np.asarray(value, dtype=float)
@@ -170,7 +164,9 @@ def sensor_wavelength_m(
 
     if sensor_norm is not None:
         if sensor_norm == "nisar" and band_norm is None:
-            raise ValueError("band is required when sensor='nisar'. Use band='L' or band='S'.")
+            raise ValueError(
+                "band is required when sensor='nisar'. Use band='L' or band='S'."
+            )
 
         if (sensor_norm, band_norm) in _SENSOR_WAVELENGTHS_M:
             return _SENSOR_WAVELENGTHS_M[(sensor_norm, band_norm)]
@@ -188,7 +184,9 @@ def sensor_wavelength_m(
             return _GENERIC_BAND_WAVELENGTHS_M[band_norm]
         raise ValueError("band must be one of 'L', 'S', 'C', or 'X'.")
 
-    raise ValueError("Provide wavelength_m explicitly, or provide sensor, or provide band.")
+    raise ValueError(
+        "Provide wavelength_m explicitly, or provide sensor, or provide band."
+    )
 
 
 def incidence_wavenumber(wavelength_m: float) -> float:
@@ -200,6 +198,7 @@ def incidence_wavenumber(wavelength_m: float) -> float:
 # -----------------------------------------------------------------------------
 # Physics helpers
 # -----------------------------------------------------------------------------
+
 
 def maetzler_permittivity(snow_density_g_cm3: ArrayLike) -> ArrayLike:
     """
@@ -252,6 +251,7 @@ def leinss_a_theta(incidence_angle_rad: ArrayLike) -> ArrayLike:
 # -----------------------------------------------------------------------------
 # Internal method implementations
 # -----------------------------------------------------------------------------
+
 
 def _phase_to_dswe_guneriussen(
     phase_rad: ArrayLike,
@@ -322,6 +322,7 @@ def _phase_to_dswe_oveisgharan(
 # Public API
 # -----------------------------------------------------------------------------
 
+
 def phase_to_dswe(
     phase_rad: ArrayLike,
     method: MethodName,
@@ -390,9 +391,7 @@ def phase_to_dswe(
             incidence_angle_rad=incidence_angle_rad,
         )
 
-    raise ValueError(
-        "method must be one of: 'guneriussen', 'leinss', 'oveisgharan'."
-    )
+    raise ValueError("method must be one of: 'guneriussen', 'leinss', 'oveisgharan'.")
 
 
 def cm_to_m(value_cm: ArrayLike) -> ArrayLike:

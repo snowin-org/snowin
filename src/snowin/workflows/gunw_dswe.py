@@ -118,7 +118,9 @@ def _write_dswe_png(path: Path, dswe: np.ndarray, unit: str) -> Path:
     vmin, vmax = np.nanpercentile(finite, [2, 98])
     fig, ax = plt.subplots(figsize=(7, 6))
     im = ax.imshow(dswe, vmin=vmin, vmax=vmax, cmap="RdBu")
-    ax.set_title("GUNW dSWE demonstration\ncorrection/reference choices recorded in diagnostics")
+    ax.set_title(
+        "GUNW dSWE demonstration\ncorrection/reference choices recorded in diagnostics"
+    )
     ax.set_xticks([])
     ax.set_yticks([])
     cbar = fig.colorbar(im, ax=ax, shrink=0.8)
@@ -153,14 +155,26 @@ def gunw_to_dswe(
             "Use plot_gunw() for cropped quicklooks for now."
         )
 
-    qcfg = quality_config if isinstance(quality_config, QualityConfig) else QualityConfig(**(quality_config or {}))
+    qcfg = (
+        quality_config
+        if isinstance(quality_config, QualityConfig)
+        else QualityConfig(**(quality_config or {}))
+    )
     ccfg = (
         correction_config
         if isinstance(correction_config, PhaseCorrectionConfig)
         else PhaseCorrectionConfig(**(correction_config or {}))
     )
-    rcfg = reference_config if isinstance(reference_config, ReferenceConfig) else ReferenceConfig(**(reference_config or {}))
-    dcfg = dswe_config if isinstance(dswe_config, DsweConfig) else DsweConfig(**(dswe_config or {}))
+    rcfg = (
+        reference_config
+        if isinstance(reference_config, ReferenceConfig)
+        else ReferenceConfig(**(reference_config or {}))
+    )
+    dcfg = (
+        dswe_config
+        if isinstance(dswe_config, DsweConfig)
+        else DsweConfig(**(dswe_config or {}))
+    )
 
     gunw = read_gunw_layers(gunw_file, pol=pol)
     layers = gunw.layers
@@ -171,13 +185,19 @@ def gunw_to_dswe(
 
     phase_raw = dataarray_to_numpy(layers["unwrapped_phase"])
     incidence_angle = dataarray_to_numpy(layers["incidence_angle"])
-    coherence = dataarray_to_numpy(layers["coherence_unw"]) if layers.get("coherence_unw") is not None else None
+    coherence = (
+        dataarray_to_numpy(layers["coherence_unw"])
+        if layers.get("coherence_unw") is not None
+        else None
+    )
     connected = (
         dataarray_to_numpy(layers["connected_components"])
         if layers.get("connected_components") is not None
         else None
     )
-    gunw_mask = dataarray_to_numpy(layers["mask"]) if layers.get("mask") is not None else None
+    gunw_mask = (
+        dataarray_to_numpy(layers["mask"]) if layers.get("mask") is not None else None
+    )
 
     quality = build_gunw_quality_mask(
         phase_raw,
@@ -189,9 +209,21 @@ def gunw_to_dswe(
         mask_fill_values=qcfg.mask_fill_values,
     )
 
-    ionosphere = dataarray_to_numpy(layers["ionosphere"]) if layers.get("ionosphere") is not None else None
-    wet_tropo = dataarray_to_numpy(layers["wet_tropo"]) if layers.get("wet_tropo") is not None else None
-    hydro_tropo = dataarray_to_numpy(layers["hydro_tropo"]) if layers.get("hydro_tropo") is not None else None
+    ionosphere = (
+        dataarray_to_numpy(layers["ionosphere"])
+        if layers.get("ionosphere") is not None
+        else None
+    )
+    wet_tropo = (
+        dataarray_to_numpy(layers["wet_tropo"])
+        if layers.get("wet_tropo") is not None
+        else None
+    )
+    hydro_tropo = (
+        dataarray_to_numpy(layers["hydro_tropo"])
+        if layers.get("hydro_tropo") is not None
+        else None
+    )
     corrected = apply_phase_corrections(
         phase_raw,
         ionosphere=ionosphere,
@@ -235,7 +267,10 @@ def gunw_to_dswe(
         "quality": quality.diagnostics,
         "corrections": corrected.diagnostics,
         "reference": referenced.diagnostics,
-        "dswe": {**dswe_result.diagnostics, "post_quality_mask_valid_pixels": int(np.isfinite(dswe).sum())},
+        "dswe": {
+            **dswe_result.diagnostics,
+            "post_quality_mask_valid_pixels": int(np.isfinite(dswe).sum()),
+        },
     }
 
     output_paths: dict[str, Path] = {}
@@ -245,10 +280,18 @@ def gunw_to_dswe(
         out_path = Path(out_dir).expanduser().resolve()
         out_path.mkdir(parents=True, exist_ok=True)
         stem = f"{Path(gunw.gunw_file).stem}_{gunw.polarization}_dswe_demo"
-        output_paths["diagnostics_json"] = _write_json(out_path / f"{stem}_diagnostics.json", diagnostics)
-        output_paths["metadata_json"] = _write_json(out_path / f"{stem}_metadata.json", metadata)
-        output_paths["diagnostics_csv"] = _write_diagnostics_csv(out_path / f"{stem}_diagnostics.csv", diagnostics)
-        output_paths["dswe_png"] = _write_dswe_png(out_path / f"{stem}.png", dswe, dswe_result.unit)
+        output_paths["diagnostics_json"] = _write_json(
+            out_path / f"{stem}_diagnostics.json", diagnostics
+        )
+        output_paths["metadata_json"] = _write_json(
+            out_path / f"{stem}_metadata.json", metadata
+        )
+        output_paths["diagnostics_csv"] = _write_diagnostics_csv(
+            out_path / f"{stem}_diagnostics.csv", diagnostics
+        )
+        output_paths["dswe_png"] = _write_dswe_png(
+            out_path / f"{stem}.png", dswe, dswe_result.unit
+        )
 
     return GunwDsweResult(
         dswe=dswe,

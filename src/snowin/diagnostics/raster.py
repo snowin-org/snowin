@@ -77,7 +77,9 @@ def numeric_summary(arr: np.ndarray | None) -> dict[str, float | int | None]:
     }
 
 
-def connected_component_summary(arr: np.ndarray | None) -> dict[str, float | int | None]:
+def connected_component_summary(
+    arr: np.ndarray | None,
+) -> dict[str, float | int | None]:
     """Summarize a connected-component raster."""
     if arr is None:
         return {

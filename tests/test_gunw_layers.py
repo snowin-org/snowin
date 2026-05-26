@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 from snowin.io.gunw import STANDARD_GUNW_LAYER_NAMES, read_gunw_layers
@@ -14,10 +12,15 @@ def test_read_gunw_layers_polarization_override_and_metadata(monkeypatch, tmp_pa
     f.write_text("dummy")
 
     def fake_build_layers(path, pol, radar_cube_index=0):
-        return ({name: None for name in STANDARD_GUNW_LAYER_NAMES}, {name: f"/{name}" for name in STANDARD_GUNW_LAYER_NAMES})
+        return (
+            {name: None for name in STANDARD_GUNW_LAYER_NAMES},
+            {name: f"/{name}" for name in STANDARD_GUNW_LAYER_NAMES},
+        )
 
     monkeypatch.setattr("snowin.io.gunw.build_layers", fake_build_layers)
-    monkeypatch.setattr("snowin.io.gunw.read_identification_metadata", lambda path: {"trackNumber": 42})
+    monkeypatch.setattr(
+        "snowin.io.gunw.read_identification_metadata", lambda path: {"trackNumber": 42}
+    )
 
     out = read_gunw_layers(f, pol="VV")
     assert out.polarization == "VV"
@@ -31,7 +34,10 @@ def test_read_gunw_layers_subset_and_missing_layers(monkeypatch, tmp_path):
     f.write_text("dummy")
 
     def fake_build_layers(path, pol, radar_cube_index=0):
-        return ({"unwrapped_phase": None, "coherence_unw": object()}, {"unwrapped_phase": "/a", "coherence_unw": "/b"})
+        return (
+            {"unwrapped_phase": None, "coherence_unw": object()},
+            {"unwrapped_phase": "/a", "coherence_unw": "/b"},
+        )
 
     monkeypatch.setattr("snowin.io.gunw.detect_pol", lambda path: "HH")
     monkeypatch.setattr("snowin.io.gunw.build_layers", fake_build_layers)

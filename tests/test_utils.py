@@ -2,7 +2,12 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from snowin.utils import angle_to_radians_if_needed, dataarray_to_numpy, finite_fraction, validate_same_shape
+from snowin.utils import (
+    angle_to_radians_if_needed,
+    dataarray_to_numpy,
+    finite_fraction,
+    validate_same_shape,
+)
 
 
 def test_dataarray_to_numpy_complex_magnitude():

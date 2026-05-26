@@ -19,12 +19,27 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Demo SnowIn local/S3 GUNW reading, quicklook, and dSWE scaffold."
     )
-    parser.add_argument("--gunw", required=True, help="Local path or s3:// URI to a GUNW .nc product.")
+    parser.add_argument(
+        "--gunw", required=True, help="Local path or s3:// URI to a GUNW .nc product."
+    )
     parser.add_argument("--out-dir", required=True, help="Output directory.")
-    parser.add_argument("--cache-dir", default=None, help="Local cache directory for s3:// input.")
-    parser.add_argument("--crop-geojson", default=None, help="Optional AOI GeoJSON for quicklook crop/mask.")
-    parser.add_argument("--coherence-min", type=float, default=0.30, help="Minimum coherence for demo mask.")
-    parser.add_argument("--show", action="store_true", help="Display quicklook inline in notebooks.")
+    parser.add_argument(
+        "--cache-dir", default=None, help="Local cache directory for s3:// input."
+    )
+    parser.add_argument(
+        "--crop-geojson",
+        default=None,
+        help="Optional AOI GeoJSON for quicklook crop/mask.",
+    )
+    parser.add_argument(
+        "--coherence-min",
+        type=float,
+        default=0.30,
+        help="Minimum coherence for demo mask.",
+    )
+    parser.add_argument(
+        "--show", action="store_true", help="Display quicklook inline in notebooks."
+    )
     return parser.parse_args()
 
 
@@ -77,7 +92,9 @@ def main() -> int:
     print("dswe_outputs:")
     for key, value in dswe.output_paths.items():
         print(f"{key}: {value}")
-    print("WARNING: dSWE output is a scaffold demonstration, not a validated retrieval.")
+    print(
+        "WARNING: dSWE output is a scaffold demonstration, not a validated retrieval."
+    )
     return 0
 
 

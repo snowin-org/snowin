@@ -16,4 +16,3 @@ result = plot_gunw(
     show=True,  # display inline in Jupyter notebooks
     verbose=True,
 )
-

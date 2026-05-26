@@ -101,7 +101,9 @@ def sensor_wavelength_m(
 
     if sensor_norm is not None:
         if sensor_norm == "nisar" and band_norm is None:
-            raise ValueError("band is required when sensor='nisar'. Use band='L' or band='S'.")
+            raise ValueError(
+                "band is required when sensor='nisar'. Use band='L' or band='S'."
+            )
 
         if (sensor_norm, band_norm) in _SENSOR_WAVELENGTHS_M:
             return _SENSOR_WAVELENGTHS_M[(sensor_norm, band_norm)]
@@ -119,7 +121,9 @@ def sensor_wavelength_m(
             return _GENERIC_BAND_WAVELENGTHS_M[band_norm]
         raise ValueError("band must be one of 'L', 'S', 'C', or 'X'.")
 
-    raise ValueError("Provide wavelength_m explicitly, or provide sensor, or provide band.")
+    raise ValueError(
+        "Provide wavelength_m explicitly, or provide sensor, or provide band."
+    )
 
 
 def incidence_wavenumber(wavelength_m: float) -> float:

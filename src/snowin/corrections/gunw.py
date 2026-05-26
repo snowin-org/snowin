@@ -39,7 +39,9 @@ class PhaseCorrectionResult:
     diagnostics: dict[str, Any]
 
 
-def _apply_term(phase: np.ndarray, term: np.ndarray, sign: CorrectionSign, name: str) -> np.ndarray:
+def _apply_term(
+    phase: np.ndarray, term: np.ndarray, sign: CorrectionSign, name: str
+) -> np.ndarray:
     validate_same_shape(phase, term)
     if sign == "subtract":
         return phase - term
@@ -48,14 +50,22 @@ def _apply_term(phase: np.ndarray, term: np.ndarray, sign: CorrectionSign, name:
     raise ValueError(f"{name}_sign must be 'subtract' or 'add'.")
 
 
-def _stats(arr: np.ndarray, valid_mask: np.ndarray | None = None) -> dict[str, float | int]:
+def _stats(
+    arr: np.ndarray, valid_mask: np.ndarray | None = None
+) -> dict[str, float | int]:
     data = np.asarray(arr, dtype=float)
     if valid_mask is not None:
         validate_same_shape(data, valid_mask)
         data = data[np.asarray(valid_mask, dtype=bool)]
     finite = data[np.isfinite(data)]
     if finite.size == 0:
-        return {"valid_n": 0, "mean": np.nan, "std": np.nan, "min": np.nan, "max": np.nan}
+        return {
+            "valid_n": 0,
+            "mean": np.nan,
+            "std": np.nan,
+            "min": np.nan,
+            "max": np.nan,
+        }
     return {
         "valid_n": int(finite.size),
         "mean": float(np.nanmean(finite)),
@@ -96,15 +106,21 @@ def apply_phase_corrections(
         if not apply:
             continue
         if term is None:
-            raise ValueError(f"{name} correction requested but no {name} layer was provided.")
+            raise ValueError(
+                f"{name} correction requested but no {name} layer was provided."
+            )
         if sign is None:
-            raise ValueError(f"{name} correction requested but no explicit sign was provided.")
+            raise ValueError(
+                f"{name} correction requested but no explicit sign was provided."
+            )
         term_arr = np.asarray(term, dtype=float)
         corrected = _apply_term(corrected, term_arr, sign, name)
         applied[name] = term_arr
 
     if cfg.remove_planar_ramp:
-        raise NotImplementedError("Planar ramp removal is reserved for a later tested implementation.")
+        raise NotImplementedError(
+            "Planar ramp removal is reserved for a later tested implementation."
+        )
 
     diagnostics: dict[str, Any] = {
         "config": asdict(cfg),

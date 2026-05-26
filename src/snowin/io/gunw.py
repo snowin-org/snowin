@@ -55,8 +55,12 @@ STANDARD_GUNW_LAYER_NAMES: tuple[str, ...] = (
 )
 
 
-UNWRAPPED_GROUP_TEMPLATE = "/science/LSAR/GUNW/grids/frequencyA/unwrappedInterferogram/{pol}"
-WRAPPED_GROUP_TEMPLATE = "/science/LSAR/GUNW/grids/frequencyA/wrappedInterferogram/{pol}"
+UNWRAPPED_GROUP_TEMPLATE = (
+    "/science/LSAR/GUNW/grids/frequencyA/unwrappedInterferogram/{pol}"
+)
+WRAPPED_GROUP_TEMPLATE = (
+    "/science/LSAR/GUNW/grids/frequencyA/wrappedInterferogram/{pol}"
+)
 PIXEL_OFFSET_GROUP_TEMPLATE = "/science/LSAR/GUNW/grids/frequencyA/pixelOffsets/{pol}"
 UNWRAPPED_MASK_GROUP = "/science/LSAR/GUNW/grids/frequencyA/unwrappedInterferogram"
 RADAR_GRID_GROUP = "/science/LSAR/GUNW/metadata/radarGrid"
@@ -101,7 +105,9 @@ def read_attrs_hdf5(nc_file: str | Path, dataset_path: str) -> dict[str, Any]:
     with h5py.File(nc_file, "r") as h5:
         if dataset_path not in h5:
             return {}
-        return {key: decode_hdf5_scalar(val) for key, val in h5[dataset_path].attrs.items()}
+        return {
+            key: decode_hdf5_scalar(val) for key, val in h5[dataset_path].attrs.items()
+        }
 
 
 def open_group_dataset(nc_file: str | Path, group: str, var_name: str) -> xr.DataArray:
@@ -114,7 +120,9 @@ def open_group_dataset(nc_file: str | Path, group: str, var_name: str) -> xr.Dat
     )
     try:
         if var_name not in ds:
-            raise KeyError(f"{var_name} not found in {group}; found {list(ds.data_vars)}")
+            raise KeyError(
+                f"{var_name} not found in {group}; found {list(ds.data_vars)}"
+            )
         da = ds[var_name].load()
     finally:
         ds.close()
@@ -130,7 +138,9 @@ def detect_pol(nc_file: str | Path) -> str:
             return pol
         except Exception:
             continue
-    raise RuntimeError("Could not detect HH or VV polarization in unwrappedInterferogram.")
+    raise RuntimeError(
+        "Could not detect HH or VV polarization in unwrappedInterferogram."
+    )
 
 
 def squeeze_2d(da: xr.DataArray) -> xr.DataArray:
@@ -182,10 +192,14 @@ def read_radar_grid_slice(
     )
     try:
         if var_name not in ds:
-            raise KeyError(f"{var_name} not found in {group}; found {list(ds.data_vars)}")
+            raise KeyError(
+                f"{var_name} not found in {group}; found {list(ds.data_vars)}"
+            )
         da = ds[var_name]
         if da.ndim != 3:
-            raise ValueError(f"{var_name} expected 3-D cube, got dims={da.dims}, shape={da.shape}")
+            raise ValueError(
+                f"{var_name} expected 3-D cube, got dims={da.dims}, shape={da.shape}"
+            )
 
         cube_dim = da.dims[0]
         if radar_cube_index < 0 or radar_cube_index >= da.sizes[cube_dim]:
@@ -242,7 +256,13 @@ def parse_epsg_value(value: Any) -> int | None:
         return ivalue if 1000 <= ivalue <= 999999 else None
     if isinstance(value, np.floating | float):
         ivalue = int(value)
-        return ivalue if np.isfinite(value) and abs(float(value) - ivalue) < 1e-6 and 1000 <= ivalue <= 999999 else None
+        return (
+            ivalue
+            if np.isfinite(value)
+            and abs(float(value) - ivalue) < 1e-6
+            and 1000 <= ivalue <= 999999
+            else None
+        )
     if isinstance(value, str):
         for hit in re.findall(r"\d{4,6}", value):
             ivalue = int(hit)
@@ -260,7 +280,15 @@ def detect_grid_epsg(nc_file: str | Path) -> int | None:
         "/science/LSAR/GUNW/metadata/geolocationGrid/projection",
         "/science/LSAR/GUNW/metadata/radarGrid/projection",
     ]
-    attr_names = {"epsg", "EPSG", "epsgCode", "epsg_code", "projection", "spatial_ref", "crs_wkt"}
+    attr_names = {
+        "epsg",
+        "EPSG",
+        "epsgCode",
+        "epsg_code",
+        "projection",
+        "spatial_ref",
+        "crs_wkt",
+    }
     with h5py.File(nc_file, "r") as h5:
         for path in candidates:
             if path in h5:
@@ -280,7 +308,12 @@ def detect_grid_epsg(nc_file: str | Path) -> int | None:
                 return
             for key, value in obj.attrs.items():
                 key_l = str(key).lower()
-                if key in attr_names or "epsg" in key_l or "projection" in key_l or "spatial" in key_l:
+                if (
+                    key in attr_names
+                    or "epsg" in key_l
+                    or "projection" in key_l
+                    or "spatial" in key_l
+                ):
                     epsg = parse_epsg_value(value)
                     if epsg is not None:
                         found = epsg
@@ -340,7 +373,9 @@ def build_layers(
         "unwrapped_phase": try_read(gunw_file, unw_group, "unwrappedPhase"),
         "coherence_unw": try_read(gunw_file, unw_group, "coherenceMagnitude"),
         "ionosphere": try_read(gunw_file, unw_group, "ionospherePhaseScreen"),
-        "ionosphere_unc": try_read(gunw_file, unw_group, "ionospherePhaseScreenUncertainty"),
+        "ionosphere_unc": try_read(
+            gunw_file, unw_group, "ionospherePhaseScreenUncertainty"
+        ),
         "connected_components": try_read(gunw_file, unw_group, "connectedComponents"),
         "wrapped_ifg": try_read(gunw_file, wrap_group, "wrappedInterferogram"),
         "coherence_wrapped": try_read(gunw_file, wrap_group, "coherenceMagnitude"),
@@ -348,12 +383,27 @@ def build_layers(
         "slant_range_offset": try_read(gunw_file, off_group, "slantRangeOffset"),
         "corr_peak": try_read(gunw_file, off_group, "correlationSurfacePeak"),
         "mask": try_read(gunw_file, UNWRAPPED_MASK_GROUP, "mask"),
-        "incidence_angle": try_read_radar_grid(gunw_file, RADAR_GRID_GROUP, "incidenceAngle", radar_cube_index),
-        "parallel_baseline": try_read_radar_grid(gunw_file, RADAR_GRID_GROUP, "parallelBaseline", radar_cube_index),
-        "perpendicular_baseline": try_read_radar_grid(gunw_file, RADAR_GRID_GROUP, "perpendicularBaseline", radar_cube_index),
-        "reference_slant_range": try_read_radar_grid(gunw_file, RADAR_GRID_GROUP, "referenceSlantRange", radar_cube_index),
-        "hydro_tropo": try_read_radar_grid(gunw_file, RADAR_GRID_GROUP, "hydrostaticTroposphericPhaseScreen", radar_cube_index),
-        "wet_tropo": try_read_radar_grid(gunw_file, RADAR_GRID_GROUP, "wetTroposphericPhaseScreen", radar_cube_index),
+        "incidence_angle": try_read_radar_grid(
+            gunw_file, RADAR_GRID_GROUP, "incidenceAngle", radar_cube_index
+        ),
+        "parallel_baseline": try_read_radar_grid(
+            gunw_file, RADAR_GRID_GROUP, "parallelBaseline", radar_cube_index
+        ),
+        "perpendicular_baseline": try_read_radar_grid(
+            gunw_file, RADAR_GRID_GROUP, "perpendicularBaseline", radar_cube_index
+        ),
+        "reference_slant_range": try_read_radar_grid(
+            gunw_file, RADAR_GRID_GROUP, "referenceSlantRange", radar_cube_index
+        ),
+        "hydro_tropo": try_read_radar_grid(
+            gunw_file,
+            RADAR_GRID_GROUP,
+            "hydrostaticTroposphericPhaseScreen",
+            radar_cube_index,
+        ),
+        "wet_tropo": try_read_radar_grid(
+            gunw_file, RADAR_GRID_GROUP, "wetTroposphericPhaseScreen", radar_cube_index
+        ),
     }
 
     dataset_attr_paths = {
@@ -376,6 +426,7 @@ def build_layers(
         "wet_tropo": f"{RADAR_GRID_GROUP}/wetTroposphericPhaseScreen",
     }
     return layers, dataset_attr_paths
+
 
 def read_gunw_layers(
     gunw_file: str | Path,
@@ -427,7 +478,11 @@ def read_gunw_layers(
         )
 
     selected = {name: all_layers.get(name) for name in requested}
-    selected_paths = {name: dataset_attr_paths[name] for name in requested if name in dataset_attr_paths}
+    selected_paths = {
+        name: dataset_attr_paths[name]
+        for name in requested
+        if name in dataset_attr_paths
+    }
 
     metadata = read_identification_metadata(gunw_path)
     times = parse_acquisition_times_from_filename(gunw_path)
@@ -451,4 +506,3 @@ def read_gunw_layers(
         metadata=metadata,
         dataset_attr_paths=selected_paths,
     )
-

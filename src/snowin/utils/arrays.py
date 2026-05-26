@@ -32,7 +32,9 @@ def dataarray_to_numpy(
     elif arr.ndim == 1:
         arr = arr.reshape((1, arr.size))
     if arr.ndim != 2:
-        raise ValueError(f"Expected a 2-D array after squeezing, got shape {arr.shape}.")
+        raise ValueError(
+            f"Expected a 2-D array after squeezing, got shape {arr.shape}."
+        )
 
     if angle:
         arr = np.angle(arr)
@@ -42,7 +44,9 @@ def dataarray_to_numpy(
         arr = arr.astype(float, copy=False) if not np.iscomplexobj(arr) else np.abs(arr)
 
     if db:
-        arr = 20.0 * np.log10(np.maximum(np.asarray(arr, dtype=float), AMPLITUDE_DB_EPS))
+        arr = 20.0 * np.log10(
+            np.maximum(np.asarray(arr, dtype=float), AMPLITUDE_DB_EPS)
+        )
     return np.asarray(arr, dtype=float)
 
 
