@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "snowin"
+version = "0.1.0"
+description = "Snow-focused SAR and InSAR analysis tools"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [
+  { name = "SnowIn contributors" }
+]
+dependencies = [
+  "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+gunw = [
+  "h5py>=3.10",
+  "xarray>=2024.1",
+  "h5netcdf>=1.3",
+  "matplotlib>=3.8",
+  "shapely>=2",
+  "pyproj>=3.6",
+  "rasterio>=1.3",
+]
+dev = [
+  "pytest>=8",
+  "ruff>=0.4",
+  "mypy>=1.8",
+  "jupyter>=1.0",
+  "h5py>=3.10",
+  "xarray>=2024.1",
+  "h5netcdf>=1.3",
+  "matplotlib>=3.8",
+  "shapely>=2",
+  "pyproj>=3.6",
+  "rasterio>=1.3",
+]
+
+[project.scripts]
+snowin-plot-gunw = "snowin.cli:plot_gunw_cli"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
