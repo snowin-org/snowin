@@ -27,3 +27,15 @@ characterization tests, implement the smallest general version, record
 provenance, and only then replace duplicate downstream code. Study-specific
 basin choices, dates, station lists, paper metrics, and figure configuration
 remain downstream.
+
+## Stage 1 normalized-contract proposal
+
+| Field | Record |
+| --- | --- |
+| Capability | Pairwise retrieval-ready xarray Dataset contract and scientific terminology. |
+| Scientific source | `docs/snowin_architecture_v1.md`, `docs/data_model.md`, and `docs/scientific_conventions.md`, including the adopted `secondary_minus_reference` project contract; no production dSWE equation was changed. |
+| Repositories inspected | Current SnowIn prototype modules and tests at the Stage 1 baseline; no external implementation was copied. |
+| Implementation relationship | Independently specified schema and synthetic contract tests. |
+| License implications | No third-party code copied or adapted. |
+| Validation evidence | `tests/test_contracts.py` synthetic xarray objects and existing prototype characterization tests. |
+| Status | Stage 1 contract finalized; GUNW source-sign transformation and Colorado sign-lineage regression audit are deferred to later stages. |

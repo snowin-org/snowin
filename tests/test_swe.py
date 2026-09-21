@@ -43,6 +43,28 @@ def test_wavelength_override_beats_sensor():
     assert isinstance(result, float)
 
 
+def test_zero_phase_gives_zero_dswe():
+    result = phase_to_dswe(
+        phase_rad=0.0,
+        method="leinss",
+        incidence_angle_rad=math.radians(35.0),
+        sensor="nisar",
+        band="L",
+    )
+    assert result == pytest.approx(0.0)
+
+
+def test_positive_forward_phase_has_positive_dswe():
+    result = phase_to_dswe(
+        phase_rad=1.0,
+        method="leinss",
+        incidence_angle_rad=math.radians(35.0),
+        sensor="nisar",
+        band="L",
+    )
+    assert result > 0
+
+
 def test_guneriussen_requires_density():
     with pytest.raises(ValueError, match="snow_density_g_cm3 is required"):
         phase_to_dswe(
