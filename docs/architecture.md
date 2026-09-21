@@ -1,5 +1,10 @@
 # SnowIn architecture
 
+This document describes the current package boundary. The staged decisions in
+[`snowin_architecture_v1.md`](snowin_architecture_v1.md) are the design source
+of truth for the next development cycle. Stage 0 establishes packaging and
+development safeguards; it does not change the scientific architecture.
+
 ## Current package areas
 
 - `snow/`: core snow-science transforms, including phase-to-dSWE and snow-depth-change relationships.
@@ -97,3 +102,13 @@ snowin-plot-gunw /path/to/NISAR_L2_PR_GUNW_....nc \
 ```
 
 If the grid CRS cannot be auto-detected, pass `--grid-epsg 32611` or the relevant projected EPSG.
+
+## Development documentation
+
+- [`development.md`](development.md): supported Python, installation, checks,
+  and repository workflow.
+- [`data_model.md`](data_model.md): provisional xarray-centered data model.
+- [`scientific_conventions.md`](scientific_conventions.md): conventions and
+  unresolved contract work.
+- [`code_provenance.md`](code_provenance.md): provenance record framework for
+  migrated or independently reimplemented science.

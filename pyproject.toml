@@ -8,13 +8,19 @@ version = "0.1.0"
 description = "Snow-focused SAR and InSAR analysis tools"
 readme = "README.md"
 requires-python = ">=3.12"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [
   { name = "SnowIn contributors" }
 ]
 dependencies = [
   "numpy>=1.24",
 ]
+
+[project.urls]
+Homepage = "https://github.com/snowin-org/snowin"
+Repository = "https://github.com/snowin-org/snowin"
+Issues = "https://github.com/snowin-org/snowin/issues"
 
 [project.optional-dependencies]
 gunw = [
@@ -31,10 +37,9 @@ cloud = [
   "s3fs>=2024.0",
 ]
 dev = [
+  "build>=1.2",
   "pytest>=8",
   "ruff>=0.4",
-  "mypy>=1.8",
-  "jupyter>=1.0",
   "h5py>=3.10",
   "xarray>=2024.1",
   "h5netcdf>=1.3",
@@ -59,3 +64,6 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 88
 target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "RUF", "SIM", "UP"]

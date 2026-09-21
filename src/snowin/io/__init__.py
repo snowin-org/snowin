@@ -2,9 +2,9 @@
 
 from .cloud import is_s3_uri, stage_remote_file
 from .gunw import (
+    STANDARD_GUNW_LAYER_NAMES,
     GunwAcquisitionTimes,
     GunwLayers,
-    STANDARD_GUNW_LAYER_NAMES,
     build_layers,
     detect_grid_epsg,
     detect_pol,
@@ -14,9 +14,9 @@ from .gunw import (
 )
 
 __all__ = [
+    "STANDARD_GUNW_LAYER_NAMES",
     "GunwAcquisitionTimes",
     "GunwLayers",
-    "STANDARD_GUNW_LAYER_NAMES",
     "build_layers",
     "detect_grid_epsg",
     "detect_pol",

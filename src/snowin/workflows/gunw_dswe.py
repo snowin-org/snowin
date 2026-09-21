@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-from pathlib import Path
-from typing import Any
 import csv
 import json
 import subprocess
+from dataclasses import asdict, dataclass
 from importlib.metadata import PackageNotFoundError, version
+from pathlib import Path
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np

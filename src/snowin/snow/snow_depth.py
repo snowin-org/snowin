@@ -28,11 +28,10 @@ Units
 from __future__ import annotations
 
 import math
-from typing import Union
 
 import numpy as np
 
-ArrayLike = Union[float, int, np.ndarray]
+ArrayLike = float | int | np.ndarray
 
 RHO_WATER_G_CM3 = 1.0
 
@@ -55,7 +54,7 @@ _GENERIC_BAND_WAVELENGTHS_M: dict[str, float] = {
 
 def list_supported_sensors() -> list[str]:
     """Return sorted supported sensor names."""
-    return sorted({sensor for sensor, _ in _SENSOR_WAVELENGTHS_M.keys()})
+    return sorted({sensor for sensor, _ in _SENSOR_WAVELENGTHS_M})
 
 
 def _as_array(value: ArrayLike) -> np.ndarray:

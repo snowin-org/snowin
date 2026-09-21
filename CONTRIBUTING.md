@@ -5,9 +5,16 @@ Thanks for contributing.
 ## Development setup
 
 ```bash
+python --version  # Python 3.12 or newer
 python -m pip install -e ".[dev]"
 pytest
+ruff check .
+ruff format --check .
+python -m build
 ```
+
+SnowIn uses a `src/` layout. Tests and examples should import the installed
+package (`snowin`), not files by path or by modifying `sys.path`.
 
 ## Branch naming
 
@@ -33,3 +40,5 @@ A PR should:
 - keep public APIs stable and explicit
 - prefer small modules with clear roles
 - avoid copying large chunks from legacy repos without refactoring
+- keep scientific conventions and provenance explicit
+- do not commit generated caches, plots, or workflow outputs

@@ -126,7 +126,26 @@ Initial development is centered on:
 
 ## Documentation
 
-See `docs/architecture.md`, `docs/snowin_architecture_v1.md`, and `docs/team_workflow.md` for the current development model and team workflow.
+See `docs/architecture.md`, `docs/snowin_architecture_v1.md`, and the focused
+guides for [development](docs/development.md),
+[scientific conventions](docs/scientific_conventions.md),
+[the data model](docs/data_model.md), and
+[code provenance](docs/code_provenance.md).
+
+## Development checks
+
+After installing the development extra, run:
+
+```bash
+pytest -q
+ruff check .
+ruff format --check .
+python -m build
+git diff --check
+```
+
+The project uses a `src/` layout, so install SnowIn in editable mode before
+running package code from a checkout.
 
 ## Contributing
 

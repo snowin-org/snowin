@@ -2,21 +2,21 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime
-from pathlib import Path
-from typing import Any
 import csv
 import json
 import platform
 import re
 import subprocess
+from dataclasses import dataclass
+from datetime import datetime
 from importlib.metadata import PackageNotFoundError, version
+from pathlib import Path
+from typing import Any
 
 import matplotlib.pyplot as plt
-from matplotlib import colors as mcolors
 import numpy as np
 import xarray as xr
+from matplotlib import colors as mcolors
 
 from snowin.diagnostics import (
     connected_component_summary,
@@ -182,7 +182,7 @@ class GeoJsonCropper:
         source_epsg: int = 4326,
         padding: float = 0.0,
         mask_outside: bool = True,
-    ) -> "GeoJsonCropper":
+    ) -> GeoJsonCropper:
         """Build a cropper from GeoJSON, reprojecting to the GUNW grid CRS."""
         try:
             from shapely.geometry import shape
