@@ -7,7 +7,7 @@ name = "snowin"
 version = "0.1.0"
 description = "Snow-focused SAR and InSAR analysis tools"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
 authors = [
   { name = "SnowIn contributors" }
@@ -58,4 +58,4 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py310"
+target-version = "py312"
