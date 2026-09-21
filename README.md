@@ -1,7 +1,7 @@
 # SnowIn
 
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](#installation)
+[![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](#installation)
 
 SnowIn is an open-source Python package for snow-focused SAR and InSAR analysis. It is designed to make phase-based snow workflows more intuitive, reproducible, and scalable, from product access and preprocessing to dSWE, SWE, and validation-ready outputs.
 
@@ -18,6 +18,8 @@ Snow-focused InSAR workflows are often spread across scripts, notebooks, and rep
 - scaling from exploratory notebooks to reproducible package workflows
 
 ## Installation
+
+SnowIn currently targets Python 3.12 and newer.
 
 For development:
 
@@ -42,7 +44,6 @@ dswe_m = phase_to_dswe(
 )
 print(f"dSWE: {dswe_m:.3f} m")
 ```
-
 
 ## GUNW quick-look diagnostics
 
@@ -77,7 +78,6 @@ snowin-plot-gunw /path/to/NISAR_L2_PR_GUNW_....nc \
   --out-dir plots/gunw_quicklooks \
   --crop-geojson /path/to/basin.geojson
 ```
-
 
 ### Local/S3 GUNW demo and dSWE scaffold
 
@@ -126,7 +126,7 @@ Initial development is centered on:
 
 ## Documentation
 
-See `docs/architecture.md` and `docs/team_workflow.md` for the current development model and team workflow.
+See `docs/architecture.md`, `docs/snowin_architecture_v1.md`, and `docs/team_workflow.md` for the current development model and team workflow.
 
 ## Contributing
 
