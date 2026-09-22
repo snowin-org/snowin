@@ -32,7 +32,7 @@ The key rule is:
 
 Users should see stable names such as:
 
-- `phase_to_dswe`
+- `compute_dswe`
 - `plot_gunw`
 - `read_gunw_layer`
 - `read_gslc`
@@ -41,6 +41,10 @@ Users should see stable names such as:
 - `remove_planar_ramp`
 - `apply_quality_mask`
 - `run_gunw_to_dswe_workflow`
+
+`compute_dswe` is the canonical xarray-native phase-to-dSWE function. The
+legacy `phase_to_dswe` method-selector API remains only as compatibility code;
+new product adapters and workflows must use the normalized Dataset contract.
 
 Internal helpers may be specialized, but the user-facing package should feel unified.
 

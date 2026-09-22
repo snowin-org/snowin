@@ -56,6 +56,20 @@ The canonical kernel requires phase already normalized to
 wavelength. The older NumPy `phase_to_dswe` method selector remains only for
 legacy characterization and compatibility.
 
+For a NISAR GUNW, the adapter resolves wavelength from the product metadata
+and automatically downloads/caches the public COP30 tiles needed for local
+incidence when no DEM is supplied:
+
+```python
+from snowin.io import open_gunw
+
+pair = open_gunw("product.h5")
+```
+
+Use `cop30_dem="/path/to/cop30.tif"` to provide a local DEM, or
+`wavelength_m=0.238403545` only when an explicit override is scientifically
+justified.
+
 ## GUNW quick-look diagnostics
 
 Install the GUNW/plotting dependencies during development:

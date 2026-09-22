@@ -166,7 +166,10 @@ generic default.
 `incidence_angle` is a spatial variable in radians. Its
 `incidence_angle_reference` attribute is required and must distinguish at
 least `ellipsoid` from `local`. The package must not substitute one for the
-other or infer the distinction from a variable name.
+other or infer the distinction from a variable name. The Stage 3 NISAR
+adapter defaults to `local` incidence generated from a COP30 DEM and the
+product radar-grid LOS cube; the product's ellipsoid-normal `incidenceAngle`
+is available only through an explicit adapter mode.
 
 ## Reference phase and corrections
 

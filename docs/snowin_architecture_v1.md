@@ -429,6 +429,23 @@ Goals:
 - preserve relevant product metadata and provenance;
 - avoid duplicating generic NISAR HDF5 parsing unless required.
 
+Stage 3 implementation decisions:
+
+- `snowin.io.open_gunw()` is a thin xarray/h5netcdf boundary after evaluating
+  `nisar_pytools`; `nisar_pytools` is not a SnowIn runtime dependency.
+- The default retrieval incidence is COP30 DEM-derived local incidence from
+  the GUNW radar-grid LOS cube. The product ellipsoid-normal `incidenceAngle`
+  is an explicit opt-in compatibility mode, never a silent substitute.
+- If no DEM is supplied, `open_gunw()` downloads and caches the public COP30
+  tiles covering the GUNW phase-grid footprint; callers may provide a local
+  DEM or cache directory to control network and storage behavior.
+- GUNW center-frequency metadata is converted to wavelength with `c / f`;
+  `open_gunw()` resolves this automatically, while an explicit `wavelength_m`
+  override is available for documented special cases. No mission wavelength
+  default is embedded in the generic kernel.
+- The adapter rejects missing or unknown source phase conventions and records
+  the NISAR-to-SnowIn sign transformation in the normalized Dataset.
+
 ### Stage 4: geometry
 
 Goals:

@@ -1,8 +1,8 @@
 # SnowIn normalized data model
 
-Status: Stage 1 contract. This document defines the smallest
-retrieval-ready xarray representation needed before the NISAR adapter and new
-scientific kernels are developed. It is deliberately narrower than a mission
+Status: Stage 3 contract. This document defines the smallest
+retrieval-ready xarray representation used by the NISAR adapter and the
+canonical scientific kernels. It is deliberately narrower than a mission
 product schema.
 
 ## Boundary and scope
@@ -92,6 +92,14 @@ Product-specific paths and mission metadata remain adapter provenance, not
 scientific variable names.
 Attributes must remain serializable; nested Python objects should be encoded
 as JSON strings when persistence requires it.
+
+The Stage 3 NISAR adapter defaults to a local terrain-surface incidence angle
+generated from a cached or automatically downloaded COP30 DEM and the GUNW
+radar-grid look vectors. A caller may also provide a local DEM explicitly. The product's
+native ellipsoid-normal `incidenceAngle` is retained as an explicit opt-in
+compatibility mode, not silently substituted for the local retrieval angle.
+The DEM acquisition/cache path, DEM reprojection, LOS interpolation, selected
+radar-grid height, and source paths are recorded in Dataset provenance.
 
 ## Required and optional variables
 
@@ -193,30 +201,21 @@ The following remain private implementation details:
 - product-reader dataclasses such as the current `GunwLayers`;
 - source-specific fill values and metadata traversal.
 
-The current `phase_to_dswe()` and `phase_raster_to_dswe()` functions are
-prototype NumPy-oriented APIs. Stage 1 does not rewrite them or claim that
-they already satisfy this xarray preservation contract. Stage 2 must resolve
-that compatibility explicitly before using them as the normalized scientific
-kernel.
+The legacy `phase_to_dswe()` and `phase_raster_to_dswe()` functions remain
+compatibility APIs. The stable scientific boundary is the xarray-native
+`snowin.compute_dswe()` function; adapters must provide normalized xarray
+objects to scientific kernels.
 
 No custom scene/stack/product class or xarray accessor is introduced by this
 contract.
 
-## xarray dependency decision for Stage 1
+## xarray runtime dependency
 
-Two reasonable packaging choices were considered:
-
-1. make xarray a base dependency immediately, guaranteeing that every SnowIn
-   installation can construct normalized objects;
-2. keep xarray in the GUNW/development extras until a stable normalized xarray
-   API is implemented, preserving the current lightweight base installation.
-
-Stage 1 adopts option 2 provisionally. The contract tests run in the
-development environment, where xarray is already installed. No new runtime
-dependency is added while the current public scientific API remains
-NumPy-oriented. Before a normalized xarray Dataset API is released, this
-decision must be revisited; at that point xarray will likely become a base
-dependency unless the API is explicitly isolated behind an extra.
+xarray is a core SnowIn runtime dependency. The normalized Dataset contract
+and stable scientific APIs are xarray-native, so a normal SnowIn installation
+must be able to construct and process these objects. Dask remains optional;
+when Dask-backed arrays are supplied, SnowIn preserves their lazy backing
+without making Dask a required dependency.
 
 ## Canonical phase contract
 
