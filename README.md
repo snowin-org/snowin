@@ -33,17 +33,28 @@ python -m pip install -e ".[dev]"
 
 ```python
 import math
-from snowin.snow import phase_to_dswe
+import xarray as xr
+from snowin.snow import compute_dswe
 
-dswe_m = phase_to_dswe(
-    phase_rad=-1.2,
-    method="oveisgharan",
-    incidence_angle_rad=math.radians(35.0),
-    sensor="nisar",
-    band="L",
+phase = xr.DataArray(
+    1.2,
+    attrs={
+        "units": "rad",
+        "phase_difference_definition": "secondary_minus_reference",
+    },
 )
-print(f"dSWE: {dswe_m:.3f} m")
+incidence = xr.DataArray(
+    math.radians(35.0),
+    attrs={"units": "rad", "incidence_angle_reference": "local"},
+)
+dswe = compute_dswe(phase, incidence, wavelength_m=0.238403545)
+print(f"dSWE: {dswe.item():.3f} m")
 ```
+
+The canonical kernel requires phase already normalized to
+`secondary_minus_reference`, explicit radians metadata, and an explicit
+wavelength. The older NumPy `phase_to_dswe` method selector remains only for
+legacy characterization and compatibility.
 
 ## GUNW quick-look diagnostics
 

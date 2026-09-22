@@ -1,4 +1,10 @@
-"""Raster-scale phase-to-dSWE conversion helpers."""
+"""Legacy NumPy raster-scale phase-to-dSWE conversion helpers.
+
+The Stage 2 canonical API is ``snowin.snow.compute_dswe``.  This workflow
+retains the prototype's sensor defaults, shape policies, and angle-unit
+compatibility behavior for characterization only; its approximate NISAR
+wavelength default is not a normalized scientific contract.
+"""
 
 from __future__ import annotations
 

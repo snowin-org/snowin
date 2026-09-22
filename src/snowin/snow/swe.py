@@ -1,17 +1,10 @@
-"""
-Core dry-snow phase-to-dSWE relationships for SnowIn.
+"""Legacy NumPy dry-snow phase-to-dSWE relationships.
 
-This module exposes a single public entry point:
-
-    phase_to_dswe(...)
-
-Key design choices
-------------------
-- `method` selects the retrieval formulation.
-- `sensor` + optional `band` supply safe mission defaults for wavelength.
-- `wavelength_m` can be passed explicitly and overrides sensor defaults.
-- Method-specific requirements are validated at runtime
-  (for example, Guneriussen requires snow density).
+The stable Stage 2 scientific API is :func:`snowin.snow.compute_dswe`, an
+xarray-native Leinss kernel with explicit wavelength and canonical phase.  The
+``phase_to_dswe`` function in this module remains for characterization and
+compatibility with the Stage 0/1 prototype.  Its sensor registry and automatic
+mission defaults are not part of the normalized SnowIn contract.
 
 Scientific scope
 ----------------
@@ -44,9 +37,8 @@ BandName = Literal["L", "S", "C", "X"]
 
 RHO_WATER_G_CM3 = 1.0
 
-# Wavelengths in meters.
-# These are curated convenience defaults, not a claim of exhaustive support for
-# every SAR mission ever flown.
+# Wavelengths in meters.  These are legacy convenience values only; the stable
+# kernel requires wavelength_m explicitly and does not consult this registry.
 _SENSOR_WAVELENGTHS_M: dict[tuple[str, str | None], float] = {
     # NISAR dual-band mission
     ("nisar", "L"): 0.24,
@@ -234,8 +226,18 @@ def refraction_term(
 
 def leinss_a_theta(incidence_angle_rad: ArrayLike) -> ArrayLike:
     """
-    A(theta) polynomial approximation used in the density-independent
-    Leinss/Oveisgharan form.
+    Legacy compatibility alias for :func:`oveisgharan_a_theta`.
+
+    This historical helper name is retained only so the prototype API remains
+    characterizable.  The polynomial is the Oveisgharan approximation, not the
+    Leinss path-constant approximation used by the canonical Stage 2 kernel.
+
+    """
+    return oveisgharan_a_theta(incidence_angle_rad)
+
+
+def oveisgharan_a_theta(incidence_angle_rad: ArrayLike) -> ArrayLike:
+    """Return the Oveisgharan et al. (2024) fitted ``A(theta)`` polynomial.
 
     Notes
     -----
@@ -283,20 +285,21 @@ def _phase_to_dswe_leinss(
     phase_rad: ArrayLike,
     wavelength_m: float,
     incidence_angle_rad: ArrayLike,
+    alpha: float = 1.0,
 ) -> ArrayLike:
     """
-    Density-independent approximation:
+    Leinss density-independent approximation:
 
-        dphi = -2 * kappa * A(theta) * dSWE
+        dphi = kappa * alpha * (1.59 + theta**2.5) * dSWE
     """
     _validate_positive("wavelength_m", wavelength_m)
+    _validate_positive("alpha", alpha)
     _validate_incidence_angle_rad(incidence_angle_rad)
 
     phase = _as_array(phase_rad)
     theta = _as_array(incidence_angle_rad)
     kappa = incidence_wavenumber(wavelength_m)
-    a = _as_array(leinss_a_theta(theta))
-    dswe = phase / (-2.0 * kappa * a)
+    dswe = phase / (kappa * alpha * (1.59 + theta**2.5))
     return _return_scalar_if_scalar(phase_rad, dswe)
 
 
@@ -304,18 +307,27 @@ def _phase_to_dswe_oveisgharan(
     phase_rad: ArrayLike,
     wavelength_m: float,
     incidence_angle_rad: ArrayLike,
+    alpha: float = 1.0,
 ) -> ArrayLike:
     """
-    Oveisgharan-style density-independent approximation.
+    Oveisgharan et al. (2024) density-independent approximation.
 
-    For the current SnowIn core implementation, this maps to the same
-    polynomial density-independent form as the Leinss approximation wrapper.
+        dphi = -2 * kappa * A(theta) * dSWE
+
+    The optional ``alpha`` is retained for a uniform legacy call signature but
+    is not part of the Oveisgharan fit and must remain its default value.
     """
-    return _phase_to_dswe_leinss(
-        phase_rad=phase_rad,
-        wavelength_m=wavelength_m,
-        incidence_angle_rad=incidence_angle_rad,
-    )
+    _validate_positive("wavelength_m", wavelength_m)
+    if alpha != 1.0:
+        raise ValueError("alpha is not a parameter of the Oveisgharan fit")
+    _validate_incidence_angle_rad(incidence_angle_rad)
+
+    phase = _as_array(phase_rad)
+    theta = _as_array(incidence_angle_rad)
+    kappa = incidence_wavenumber(wavelength_m)
+    a = _as_array(oveisgharan_a_theta(theta))
+    dswe = phase / (-2.0 * kappa * a)
+    return _return_scalar_if_scalar(phase_rad, dswe)
 
 
 # -----------------------------------------------------------------------------
@@ -332,9 +344,14 @@ def phase_to_dswe(
     band: str | None = None,
     wavelength_m: float | None = None,
     snow_density_g_cm3: ArrayLike | None = None,
+    alpha: float = 1.0,
 ) -> ArrayLike:
     """
-    Convert interferometric phase change to dry-snow dSWE.
+    Convert interferometric phase change to dry-snow dSWE (legacy API).
+
+    Use :func:`snowin.snow.compute_dswe` for new code.  This compatibility
+    function retains the prototype's sensor/band wavelength resolution and
+    method selector; it is not the canonical normalized SnowIn API.
 
     Parameters
     ----------
@@ -353,6 +370,9 @@ def phase_to_dswe(
         sensor/band defaults.
     snow_density_g_cm3
         Required for method="guneriussen". Ignored by density-independent methods.
+    alpha
+        Legacy Leinss empirical path factor.  It is ignored for Guneriussen and
+        must remain 1 for the Oveisgharan fit.
 
     Returns
     -------
@@ -382,6 +402,7 @@ def phase_to_dswe(
             phase_rad=phase_rad,
             wavelength_m=resolved_wavelength_m,
             incidence_angle_rad=incidence_angle_rad,
+            alpha=alpha,
         )
 
     if method == "oveisgharan":
@@ -389,6 +410,7 @@ def phase_to_dswe(
             phase_rad=phase_rad,
             wavelength_m=resolved_wavelength_m,
             incidence_angle_rad=incidence_angle_rad,
+            alpha=alpha,
         )
 
     raise ValueError("method must be one of: 'guneriussen', 'leinss', 'oveisgharan'.")

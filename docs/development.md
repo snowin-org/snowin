@@ -31,10 +31,10 @@ git diff --check
 ```
 
 The test suite is data-free and should run in continuous integration. It
-covers the current prototype's public imports, numerical characterization,
-I/O helpers, diagnostics, and workflow plumbing. Scientific contract tests
-will expand in Stage 1 and later stages; this stage does not add new snow
-algorithms.
+covers the current prototype's public imports, the canonical xarray dSWE
+kernel, numerical characterization, I/O helpers, diagnostics, and workflow
+plumbing. Product adapters and study-specific retrieval orchestration remain
+outside the Stage 2 kernel.
 
 Mypy is not part of the required check set yet. The current scientific code is
 not mature enough for a strict type-checking gate, and adding a gate without a
@@ -42,11 +42,11 @@ reviewed typing boundary would create noise rather than confidence.
 
 ## Optional dependencies
 
-The base package intentionally depends only on NumPy. GUNW, xarray, plotting,
-geospatial, and cloud functionality is available through optional extras. The
-development extra installs the dependencies needed by the current test suite
-and build checks. Runtime code should not import examples, tests, scripts, or
-repository-specific study code.
+The stable scientific API depends on NumPy and xarray. Dask remains optional at
+runtime and is installed by the development extra for lazy-array regression
+tests. GUNW, plotting, geospatial, and cloud functionality is available
+through optional extras. Runtime code should not import examples, tests,
+scripts, or repository-specific study code.
 
 ## CI
 

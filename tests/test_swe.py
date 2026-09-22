@@ -99,6 +99,25 @@ def test_oveisgharan_vectorized_for_nisar_l():
     assert dswe.shape == phase.shape
 
 
+def test_legacy_leinss_and_oveisgharan_methods_are_distinct():
+    phase = 1.0
+    theta = np.radians(35.0)
+    leinss = phase_to_dswe(
+        phase,
+        "leinss",
+        theta,
+        wavelength_m=0.238403545,
+    )
+    oveisgharan = phase_to_dswe(
+        phase,
+        "oveisgharan",
+        theta,
+        wavelength_m=0.238403545,
+    )
+
+    assert leinss != pytest.approx(oveisgharan)
+
+
 def test_sensor_wavelengths_are_reasonable():
     wl_s1 = sensor_wavelength_m(sensor="s1")
     wl_tsx = sensor_wavelength_m(sensor="terrasarx")

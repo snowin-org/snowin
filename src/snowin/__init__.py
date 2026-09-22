@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from snowin.snow import compute_dswe
+
 __version__ = "0.1.0"
 
 
@@ -23,4 +25,4 @@ def gunw_to_dswe(*args, **kwargs):
     return _gunw_to_dswe(*args, **kwargs)
 
 
-__all__ = ["__version__", "gunw_to_dswe", "plot_gunw"]
+__all__ = ["__version__", "compute_dswe", "gunw_to_dswe", "plot_gunw"]
