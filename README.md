@@ -7,6 +7,62 @@ SnowIn is an open-source Python package for snow-focused SAR and InSAR analysis.
 
 The package is being developed around a snow-first, NISAR-first workflow, with early emphasis on GSLC/GUNW inputs, phase-based retrieval methods, reference phase strategies, ancillary integration, and validation workflows.
 
+## Project status and roadmap
+
+This README is the working status summary for the current development line.
+
+Completed:
+
+- Stage 0: package structure, development checks, and documentation baseline.
+- Stage 1: authoritative xarray Dataset contracts, dimensions, units, temporal
+  direction, phase sign, provenance, and support semantics.
+- Stage 2: the verified xarray-native `compute_dswe` kernel using the Leinss
+  phase-to-dSWE relation. The canonical phase is
+  `phi_secondary - phi_reference`; incidence is radians; wavelength is
+  explicit and in metres.
+- Stage 3: the NISAR GUNW adapter. `open_gunw()` resolves wavelength from
+  `centerFrequency`, normalizes the NISAR source phase convention, preserves
+  lazy phase data, and generates local incidence from GUNW LOS vectors and a
+  COP30 DEM. COP30 tiles can be downloaded and cached automatically, or a
+  local DEM can be supplied.
+- Stage 4 geometry hardening, currently active: analytic geometry tests,
+  explicit CRS/grid/interpolation validation, failure behavior, and a real
+  GUNW/COP30 regression fixture have been added.
+
+Current known limitation:
+
+- GUNW LOS heights use a WGS84 ellipsoidal height axis, while Copernicus
+  GLO-30 elevation is documented in the EGM2008 orthometric datum. SnowIn
+  records this distinction but does not yet apply a geoid correction. This
+  must be resolved before final geometry accuracy is claimed.
+
+Next planned work:
+
+1. Complete Stage 4 by deciding and validating the vertical-datum treatment,
+   and benchmark whether eager geometry should become chunk-aware/Dask-based.
+2. Stage 5: implement explicit reference-phase methods and provenance.
+3. Stage 6: implement directed temporal-edge accumulation with strict
+   chronological path validation and missing-support propagation.
+4. Stage 7: separate product, geometry, reference, temporal, evaluation, and
+   snow-state support; add reusable metrics.
+5. Stage 8: integrate stable SnowIn capabilities into the Colorado first-look
+   study without migrating study-specific configuration.
+6. Prepare release and Conda packaging after the scientific workflow is
+   stable, documented, and reproducible.
+
+Recent implementation commits:
+
+```text
+028b65d Harden Stage 4 geometry validation
+5616a61 Add NISAR GUNW adapter and COP30 incidence
+03f0f5a Merge Stage 2 dSWE kernel
+```
+
+The current validation baseline is `100 passed, 1 skipped`. The skipped test
+is the external real-product regression when its large GUNW and COP30 fixture
+files are not configured. See
+[`tests/fixtures/README.md`](tests/fixtures/README.md) for setup.
+
 ## Why SnowIn?
 
 Snow-focused InSAR workflows are often spread across scripts, notebooks, and repo-specific utilities. SnowIn provides one coherent interface for the pieces that matter most for snow analysis:
