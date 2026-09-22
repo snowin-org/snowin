@@ -483,6 +483,34 @@ Goals:
 - first production reference method should be the one required by the Colorado study;
 - retain diagnostics needed to understand contributors, weights, exclusions, and support.
 
+Stage 5 implementation decisions:
+
+- The verified Colorado frozen configuration uses `zhou_cwls_all_finite`: one
+  coherence-weighted additive phase offset per eligible frame pair. SnowIn
+  exposes this as `coherence_weighted_additive_offset` and also exposes
+  explicit `manual_offset`, `single_station_offset`, and
+  `mean_additive_offset` and `median_additive_offset` policies. The latter are
+  aggregation/input choices, not silently presented as distinct published
+  retrieval equations.
+- SnowIn implements the generic algebra as
+  `C_hat = sum(weight * (observed_phase - expected_phase)) / sum(weight)`
+  over eligible contributors, followed by
+  `phase_referenced = phase - C_hat`.
+- `reference_phase()` accepts a normalized pair Dataset plus explicit
+  contributor-level observed phase, expected phase, weights, and optional IDs
+  or exclusion reasons. Manual mode accepts a caller-supplied `offset_rad`.
+  It returns contributor diagnostics and the referenced phase in an xarray
+  Dataset.
+- Station selection, SNOTEL date matching, station windows, expected-phase
+  construction, and study allowlists remain caller-owned. Colorado’s five
+  stations and native 5x5 window are characterization evidence, not SnowIn
+  defaults.
+- Unsupported reference estimation returns explicit missing referenced phase
+  and support/status metadata; it never substitutes a zero offset.
+- The existing NumPy `apply_reference_phase()` strategies remain legacy
+  compatibility behavior. New scientific workflows should use the xarray
+  `reference_phase()` API.
+
 ### Stage 6: temporal accumulation
 
 Goals:
@@ -493,6 +521,22 @@ Goals:
 - propagate missing support instead of inserting zero;
 - add edge/path invariant tests.
 
+Stage 6 implementation decisions:
+
+- `snowin.accumulate_dswe()` accepts a sequence of xarray Datasets, each with
+  one pairwise dSWE variable and explicit `reference_time`, `secondary_time`,
+  and `temporal_edge="reference_to_secondary"` attributes.
+- Inputs must be supplied in path order. Each edge must be chronologically
+  directed and contiguous with the prior edge; SnowIn does not sort, bridge,
+  or infer missing acquisitions.
+- The result has a `time` dimension at each edge's secondary acquisition and
+  returns `cumulative_dswe` plus `temporal_path_supported`. NaN or explicitly
+  unsupported edge samples propagate through the path and are never replaced
+  with zero.
+- The accumulator works in metres water equivalent and preserves aligned
+  xarray coordinates and lazy array backing. It does not choose reference
+  phase, compute dSWE, interpolate products, or embed Colorado path choices.
+
 ### Stage 7: support and metrics
 
 Goals:
@@ -500,6 +544,28 @@ Goals:
 - separate product validity, geometry, reference support, connected components, temporal support, and evaluation support;
 - provide simple reusable metrics without embedding paper-specific evaluation choices;
 - avoid universal coherence thresholds or dominant-component assumptions.
+
+Stage 7 implementation decisions:
+
+- `snowin.build_support_dataset()` validates named xarray support layers
+  without combining them. `product_valid`, `geometry_valid`,
+  `reference_supported`, `pairwise_supported`, `temporal_path_supported`,
+  `evaluation_supported`, `snow_state_supported`, and `coherence_valid` retain
+  separate meanings.
+- `snowin.compose_support_mask()` requires callers to name the support layers
+  being conjoined. Missing layers fail clearly; unknown samples are treated as
+  unsupported in the derived mask while remaining distinguishable in the
+  source layers.
+- `snowin.summarize_support()` reports total, known, supported, support
+  fraction, and known fraction for each named category. It does not create a
+  universal `quality_mask`.
+- `snowin.compute_metrics()` provides bias (`estimated - observed`), MAE,
+  RMSE, and Pearson correlation over finite pairs and optional explicit
+  support. Metric definitions, units, support policy, counts, and statuses are
+  returned as xarray metadata and variables.
+- Existing NumPy `build_gunw_quality_mask()` behavior remains a legacy GUNW
+  compatibility helper. It is not the canonical Stage 7 support API and is
+  not used by the new support/metric functions.
 
 ### Stage 8: Colorado integration
 

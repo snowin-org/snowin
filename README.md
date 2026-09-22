@@ -28,23 +28,39 @@ Completed:
 - Stage 4 geometry hardening, currently active: analytic geometry tests,
   explicit CRS/grid/interpolation validation, failure behavior, and a real
   GUNW/COP30 regression fixture have been added.
+- Stage 5 reference-phase foundation: the public `snowin.reference_phase`
+  xarray API supports manual offsets, one-station offsets, unweighted means of
+  multiple contributors, robust medians of contributors, and the
+  Colorado/Zhou coherence-weighted additive offset. Station selection, SNOTEL
+  matching, and expected-phase construction remain explicit caller
+  responsibilities.
+- Stage 6 temporal accumulation: `snowin.accumulate_dswe()` validates directed,
+  contiguous chronological paths and propagates missing pairwise support
+  instead of substituting zero.
+- Stage 7 support and metrics foundation: named xarray support layers,
+  explicit support composition, support summaries, and reusable bias/MAE/RMSE/
+  correlation metrics with provenance are implemented. No universal quality
+  mask or study-specific evaluation threshold is applied.
 
 Current known limitation:
 
 - GUNW LOS heights use a WGS84 ellipsoidal height axis, while Copernicus
   GLO-30 elevation is documented in the EGM2008 orthometric datum. SnowIn
-  records this distinction but does not yet apply a geoid correction. This
-  must be resolved before final geometry accuracy is claimed.
+  records this distinction, accepts an explicit same-grid geoid-undulation
+  correction, and can reject uncorrected geometry with
+  `require_vertical_datum_match=True`. Results without correction remain
+  provisional until a product-backed geoid workflow is validated.
 
 Next planned work:
 
-1. Complete Stage 4 by deciding and validating the vertical-datum treatment,
-   and benchmark whether eager geometry should become chunk-aware/Dask-based.
-2. Stage 5: implement explicit reference-phase methods and provenance.
-3. Stage 6: implement directed temporal-edge accumulation with strict
-   chronological path validation and missing-support propagation.
-4. Stage 7: separate product, geometry, reference, temporal, evaluation, and
-   snow-state support; add reusable metrics.
+1. Complete Stage 4 by validating a product-backed geoid correction and
+   benchmark whether eager geometry should become chunk-aware/Dask-based.
+2. Complete Stage 5 by auditing and characterizing the Colorado SNOTEL input
+   construction without migrating its study-specific station/date policy.
+3. Complete Stage 6 by extending path characterization beyond the explicit
+   sequence API where needed.
+4. Complete Stage 7 by adding study-specific evaluation adapters only when
+   their scientific contracts are separately reviewed.
 5. Stage 8: integrate stable SnowIn capabilities into the Colorado first-look
    study without migrating study-specific configuration.
 6. Prepare release and Conda packaging after the scientific workflow is
@@ -58,7 +74,7 @@ Recent implementation commits:
 03f0f5a Merge Stage 2 dSWE kernel
 ```
 
-The current validation baseline is `100 passed, 1 skipped`. The skipped test
+The current validation baseline is `133 passed, 1 skipped`. The skipped test
 is the external real-product regression when its large GUNW and COP30 fixture
 files are not configured. See
 [`tests/fixtures/README.md`](tests/fixtures/README.md) for setup.

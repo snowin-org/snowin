@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
+from snowin.quality import (
+    build_support_dataset,
+    compose_support_mask,
+    compute_metrics,
+    summarize_support,
+)
+from snowin.reference import reference_phase
 from snowin.snow import compute_dswe
+from snowin.temporal import accumulate_dswe
 
 __version__ = "0.1.0"
 
@@ -25,4 +33,15 @@ def gunw_to_dswe(*args, **kwargs):
     return _gunw_to_dswe(*args, **kwargs)
 
 
-__all__ = ["__version__", "compute_dswe", "gunw_to_dswe", "plot_gunw"]
+__all__ = [
+    "__version__",
+    "accumulate_dswe",
+    "build_support_dataset",
+    "compose_support_mask",
+    "compute_dswe",
+    "compute_metrics",
+    "gunw_to_dswe",
+    "plot_gunw",
+    "reference_phase",
+    "summarize_support",
+]

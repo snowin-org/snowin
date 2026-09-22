@@ -52,7 +52,13 @@ def build_gunw_quality_mask(
     connected_component: str | int | None = "dominant",
     mask_fill_values: tuple[int | float, ...] = (255,),
 ) -> QualityMaskResult:
-    """Build an explicit quality mask for GUNW dSWE demonstrations/workflows."""
+    """Build the legacy NumPy GUNW quality mask.
+
+    This compatibility helper retains its historical coherence and dominant
+    connected-component options. New scientific workflows should use the
+    xarray-native named support helpers in :mod:`snowin.quality.support`
+    instead; those helpers never create an implicit universal quality mask.
+    """
     phase_arr = np.asarray(phase, dtype=float)
     arrays = [phase_arr]
     if coherence is not None:

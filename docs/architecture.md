@@ -8,6 +8,8 @@ development safeguards; it does not change the scientific architecture.
 ## Current package areas
 
 - `snow/`: core snow-science transforms, including phase-to-dSWE and snow-depth-change relationships.
+- `temporal.py`: strict chronological accumulation of pairwise dSWE edges.
+- `reference/`: xarray-native phase-reference estimation and provenance.
 - `io/`: mission/product readers and normalized loading interfaces. First implemented target: NISAR GUNW.
 - `plotting/`: user-facing quick-look and publication-adjacent plotting functions. First implemented target: `plot_gunw()`.
 - `diagnostics/`: reusable raster and workflow summary statistics. These are intentionally independent of a specific product where possible.
@@ -33,6 +35,8 @@ The key rule is:
 Users should see stable names such as:
 
 - `compute_dswe`
+- `reference_phase`
+- `accumulate_dswe`
 - `plot_gunw`
 - `read_gunw_layer`
 - `read_gslc`

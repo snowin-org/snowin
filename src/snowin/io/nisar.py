@@ -73,6 +73,8 @@ def compute_cop30_local_incidence(
     y_radar: np.ndarray,
     *,
     epsg_code: int | None = None,
+    vertical_correction_m: xr.DataArray | None = None,
+    require_vertical_datum_match: bool = False,
 ) -> xr.DataArray:
     """Compute terrain-surface incidence from a COP30 DEM and GUNW LOS.
 
@@ -89,7 +91,48 @@ def compute_cop30_local_incidence(
     """
     if dem.dims != ("y", "x"):
         raise ValueError("COP30 DEM must use dimensions ('y', 'x')")
-    elevation = np.asarray(dem.data, dtype=float)
+    dem_height_reference = str(dem.attrs.get("height_reference", "unknown")).lower()
+    correction_applied = vertical_correction_m is not None
+    if (
+        require_vertical_datum_match
+        and not correction_applied
+        and dem_height_reference
+        not in {
+            "ellipsoid",
+            "ellipsoidal",
+            "wgs84 ellipsoid",
+        }
+    ):
+        raise ValueError(
+            "COP30 DEM heights are not declared WGS84 ellipsoidal; provide "
+            "vertical_correction_m (geoid undulation added to orthometric height) "
+            "or disable require_vertical_datum_match for provisional geometry"
+        )
+    if vertical_correction_m is not None:
+        if not isinstance(vertical_correction_m, xr.DataArray):
+            raise TypeError("vertical_correction_m must be an xarray.DataArray")
+        if vertical_correction_m.dims != ("y", "x"):
+            raise ValueError("vertical_correction_m must use dimensions ('y', 'x')")
+        if vertical_correction_m.sizes != dem.sizes:
+            raise ValueError("vertical_correction_m must match the DEM grid")
+        if not vertical_correction_m.coords["x"].equals(dem.coords["x"]):
+            raise ValueError("vertical_correction_m x coordinates must match the DEM")
+        if not vertical_correction_m.coords["y"].equals(dem.coords["y"]):
+            raise ValueError("vertical_correction_m y coordinates must match the DEM")
+        correction_units = vertical_correction_m.attrs.get("units")
+        if correction_units not in {"m", "meter", "meters"}:
+            raise ValueError("vertical_correction_m must declare units of metres")
+        elevation = np.asarray(dem.data, dtype=float) + np.asarray(
+            vertical_correction_m.data, dtype=float
+        )
+        vertical_datum_status = "corrected_with_supplied_geoid_undulation"
+    else:
+        elevation = np.asarray(dem.data, dtype=float)
+        vertical_datum_status = (
+            "matched"
+            if dem_height_reference in {"ellipsoid", "ellipsoidal", "wgs84 ellipsoid"}
+            else "mismatch_not_corrected"
+        )
     x = np.asarray(dem.coords["x"].data, dtype=float)
     y = np.asarray(dem.coords["y"].data, dtype=float)
     if elevation.shape != (y.size, x.size) or x.size < 2 or y.size < 2:
@@ -173,6 +216,12 @@ def compute_cop30_local_incidence(
             "los_vector_direction": "target_to_sensor",
             "dem_vertical_datum": dem.attrs.get("vertical_datum", "unknown"),
             "los_height_reference": "WGS84 ellipsoid",
+            "vertical_datum_status": vertical_datum_status,
+            "vertical_correction_definition": (
+                "ellipsoidal_height = orthometric_height + geoid_undulation"
+                if correction_applied
+                else "not applied"
+            ),
             "definition": (
                 "angle between target-to-sensor GUNW LOS and COP30 DEM-derived "
                 "local terrain normal"
@@ -778,6 +827,8 @@ def open_gunw(
     *,
     cop30_dem: str | Path | xr.DataArray | Literal["auto"] | None = "auto",
     cop30_cache_dir: str | Path | None = None,
+    cop30_vertical_correction_m: xr.DataArray | None = None,
+    require_vertical_datum_match: bool = False,
     wavelength_m: float | None = None,
     incidence_source: str = "cop30_local",
     polarization: str | None = None,
@@ -800,6 +851,13 @@ def open_gunw(
 
     ``chunks='auto'`` preserves lazy Dask-backed arrays.  Pass ``chunks=None``
     for an eager read when Dask is not installed.
+
+    COP30/GUNW vertical references differ in the public product path: COP30
+    heights are EGM2008 orthometric while GUNW radar-grid heights are WGS84
+    ellipsoidal.  By default this remains explicitly provisional.  Supply a
+    same-grid ``cop30_vertical_correction_m`` containing geoid undulation
+    (added to COP30 height), or set ``require_vertical_datum_match=True`` to
+    reject uncorrected COP30 geometry.
     """
     path = Path(gunw_file).expanduser().resolve()
     if not path.exists():
@@ -909,6 +967,8 @@ def open_gunw(
                 x_radar,
                 y_radar,
                 epsg_code=int(epsg_code),
+                vertical_correction_m=cop30_vertical_correction_m,
+                require_vertical_datum_match=require_vertical_datum_match,
             )
             incidence_provenance = {
                 "incidence_angle_source": "COP30 DEM plus NISAR GUNW radar-grid LOS",
@@ -916,7 +976,12 @@ def open_gunw(
                 "incidence_angle_reference": "local terrain surface",
                 "gunw_height_reference": "WGS84 ellipsoid",
                 "cop30_vertical_datum": "EGM2008 orthometric",
-                "vertical_datum_transform": "not applied",
+                "vertical_datum_transform": incidence.attrs.get(
+                    "vertical_correction_definition", "not applied"
+                ),
+                "vertical_datum_status": incidence.attrs.get(
+                    "vertical_datum_status", "unknown"
+                ),
                 "coordinate_orientation": "GUNW projected x/y phase-grid coordinates",
                 "cop30_dem": str(cop30_dem)
                 if not isinstance(cop30_dem, xr.DataArray)

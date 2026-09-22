@@ -186,6 +186,40 @@ step. A result must retain the method, signed offset, contributors,
 observations, weights, exclusions, support, and status. A scalar offset with
 no provenance is insufficient for validation or reproducibility.
 
+The Stage 5 reference API supports several explicit ways to obtain the
+additive offset. The coherence-weighted method is the one characterized by the
+verified Colorado frozen configuration and described by Zhou et al. (2025),
+Eq. 6:
+
+```text
+C_hat = sum_i[weight_i * (observed_phase_i - expected_phase_i)]
+        / sum_i[weight_i]
+phase_referenced = phase - C_hat
+```
+
+The xarray-native public function is `snowin.reference_phase()`. It supports:
+
+- `method="manual_offset"` with an explicit `offset_rad`;
+- `method="single_station_offset"` with exactly one eligible contributor;
+- `method="mean_additive_offset"` with an unweighted mean of eligible
+  contributor residuals;
+- `method="median_additive_offset"` with the robust median residual; and
+- `method="coherence_weighted_additive_offset"` using the Colorado/Zhou
+  calibration weights.
+
+The non-coherence-weighted methods are explicit input/aggregation policies,
+not claims of additional published physical retrieval equations.
+Contributor-level observed phase, expected phase, weights, IDs, and exclusion
+reasons remain explicit inputs. SnowIn does not decide how stations are
+selected, how dates are matched, or how expected phase is constructed. Those
+are caller-owned scientific inputs and must be recorded in provenance.
+
+This operation is distinct from `reference_time`: `reference_time` identifies
+one acquisition in the directed temporal pair, while the Stage 5 reference
+phase defines the spatial/physical phase baseline applied before dSWE
+interpretation. It does not change the pair’s temporal edge or canonical phase
+direction.
+
 Likewise, correction layers such as ionospheric and tropospheric phase are not
 applied merely because they are present. The operation and sign must be
 explicit and recorded.
@@ -209,11 +243,14 @@ provenance rather than an implicit package default.
 
 ## Scientific debt carried forward
 
-Stage 2 does not implement product adapters or temporal accumulation. The
-following remain for later stages:
+Stage 2 does not implement product adapters. Temporal accumulation is provided
+by the Stage 6 `snowin.accumulate_dswe()` path API, and Stage 7 provides named
+support and metrics helpers. The following remain for later stages:
 
 - implement the GUNW source-to-canonical phase transformation;
 - regression-audit the GUNW source sign lineage against authoritative product
   behavior;
 - validate mission wavelength provenance in a product adapter;
-- define graph/path representation for temporal accumulation.
+- define a general graph/edge-table representation beyond one explicit path;
+- define study-specific evaluation subsets and validation metrics outside the
+  reusable metric primitives.

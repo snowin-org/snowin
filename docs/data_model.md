@@ -25,9 +25,9 @@ The pair Dataset is not:
 - a custom `SnowScene`, `SnowStack`, or `SnowProduct` object.
 
 The pair-first boundary is intentional. It lets the NISAR adapter and the
-pairwise dSWE contract become testable before Stage 6 chooses how a collection
-of directed edges should be represented. A stack/edge-table contract is
-deferred rather than guessed here.
+pairwise dSWE contract remain testable while Stage 6 consumes an explicit
+sequence of directed pair Datasets for accumulation. A general stack/edge-table
+contract remains deferred rather than guessed here.
 
 ## Required dimensions and coordinates
 
@@ -101,8 +101,10 @@ compatibility mode, not silently substituted for the local retrieval angle.
 The DEM acquisition/cache path, DEM reprojection, LOS interpolation, selected
 radar-grid height, coordinate orientation, and source paths are recorded in
 Dataset provenance. The adapter also records the GUNW ellipsoidal height
-reference and COP30 vertical datum; it currently does not apply a geoid
-correction between them.
+reference and COP30 vertical datum. Because those references differ, callers
+may provide a same-grid geoid-undulation correction (added to orthometric
+COP30 heights), or require the adapter to reject uncorrected geometry. The
+default remains explicitly provisional when no correction is supplied.
 
 ## Required and optional variables
 
@@ -131,6 +133,20 @@ The following variables are optional and retain distinct scientific roles:
 | `evaluation_supported` | boolean | Whether independent evaluation data support the sample. |
 | `snow_state_supported` | boolean | Whether declared snow-state evidence supports the sample. |
 | `coherence_valid` | boolean | A separately declared coherence-support policy, when one is needed. |
+| `pairwise_supported` | boolean | Explicit support for the pairwise dSWE edge at each sample; temporal accumulation combines this with finite dSWE and never treats unsupported samples as zero. |
+
+Reference-phase outputs are optional and are not implicit quality masks:
+
+| Variable | Dimensions | Meaning |
+| --- | --- | --- |
+| `phase_referenced` | `("y", "x")` | Canonical phase after subtraction of the explicitly estimated reference offset, in radians. It remains missing when reference estimation is unsupported. |
+| `reference_estimate_supported` | scalar | Whether the global reference estimate is supported for the pair. Its `scope` attribute identifies it as a reference-estimate status, not a pixelwise validity mask. The separate optional `reference_supported` variable remains available for spatial support. |
+
+An auditable reference estimate may also carry a
+`reference_contributor` dimension containing observed phase, expected phase,
+weight, residual, weighted contribution, eligibility, exclusion reason, and
+contributor ID. These variables preserve how the scalar offset was estimated;
+they must not be collapsed into one undocumented scalar or universal mask.
 
 Support variables are optional because an upstream product may not provide
 that kind of evidence. When present, they have dimensions `("y", "x")` and
@@ -160,6 +176,12 @@ provenance. `_FillValue` is an I/O encoding detail, not a scientific value.
 No support variable is implicitly created with all `True` values. Absence of
 support evidence means unknown support.
 
+Stage 7 support helpers preserve these variables as named xarray layers. A
+derived conjunction is allowed only when the caller explicitly names its
+components; it is recorded as a policy and is not stored as a universal
+`quality_mask`. Support summaries distinguish supported samples from known
+samples so unknown evidence is not silently counted as false or true.
+
 ## CRS and grid validation rules
 
 Before a scientific operation uses multiple spatial variables, validation must
@@ -188,7 +210,9 @@ At minimum, a later reference-phase result must retain the reference method,
 offset and units, contributors, observations, weights, exclusions, support,
 and status. A later temporal result must retain the edge/path policy and
 whether support was complete. These details must not be reduced to a scalar
-offset or one universal mask.
+offset or one universal mask. Temporal accumulation must additionally retain
+the edge order, path interval, support policy, and whether support is complete
+at each endpoint.
 
 ## Public and private API boundary
 

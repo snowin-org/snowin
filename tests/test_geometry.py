@@ -63,6 +63,70 @@ def test_sloped_dem_returns_known_incidence_angle():
     np.testing.assert_allclose(incidence, np.arctan(0.1), atol=1e-6)
 
 
+def test_vertical_correction_is_explicit_and_additive():
+    dem = _dem(
+        np.full((3, 3), 100.0),
+        attrs={"vertical_datum": "EGM2008", "height_reference": "orthometric"},
+    )
+    correction = xr.DataArray(
+        np.full((3, 3), 10.0),
+        dims=("y", "x"),
+        coords=dem.coords,
+        attrs={"units": "m"},
+    )
+    incidence = compute_cop30_local_incidence(
+        dem,
+        *_constant_los(np.deg2rad(30.0), (2, 3, 3)),
+        heights=np.array([105.0, 115.0]),
+        x_radar=np.array([0.0, 1.0, 2.0]),
+        y_radar=np.array([0.0, 1.0, 2.0]),
+        vertical_correction_m=correction,
+        require_vertical_datum_match=True,
+    )
+    np.testing.assert_allclose(incidence, np.deg2rad(30.0), atol=1e-6)
+    assert incidence.attrs["vertical_datum_status"] == (
+        "corrected_with_supplied_geoid_undulation"
+    )
+
+
+def test_vertical_datum_match_can_be_required():
+    dem = _dem(
+        np.full((3, 3), 100.0),
+        attrs={"vertical_datum": "EGM2008", "height_reference": "orthometric"},
+    )
+    with pytest.raises(ValueError, match="vertical_correction_m"):
+        compute_cop30_local_incidence(
+            dem,
+            *_constant_los(np.deg2rad(30.0), (2, 3, 3)),
+            heights=np.array([0.0, 200.0]),
+            x_radar=np.array([0.0, 1.0, 2.0]),
+            y_radar=np.array([0.0, 1.0, 2.0]),
+            require_vertical_datum_match=True,
+        )
+
+
+def test_vertical_correction_requires_metre_units():
+    dem = _dem(
+        np.full((3, 3), 100.0),
+        attrs={"vertical_datum": "EGM2008", "height_reference": "orthometric"},
+    )
+    correction = xr.DataArray(
+        np.zeros((3, 3)),
+        dims=("y", "x"),
+        coords=dem.coords,
+        attrs={"units": "feet"},
+    )
+    with pytest.raises(ValueError, match="units of metres"):
+        compute_cop30_local_incidence(
+            dem,
+            *_constant_los(np.deg2rad(30.0), (2, 3, 3)),
+            heights=np.array([0.0, 200.0]),
+            x_radar=np.array([0.0, 1.0, 2.0]),
+            y_radar=np.array([0.0, 1.0, 2.0]),
+            vertical_correction_m=correction,
+        )
+
+
 def test_non_monotonic_los_coordinates_fail():
     with pytest.raises(ValueError, match="strictly monotonic"):
         compute_cop30_local_incidence(
