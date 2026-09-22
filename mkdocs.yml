@@ -10,6 +10,7 @@ nav:
   - Data model: data_model.md
   - Scientific conventions: scientific_conventions.md
   - DEM vertical datums: vertical_datums.md
+  - Colorado downstream evidence: colorado_downstream_evidence.md
   - Development: development.md
   - Release process: release.md
   - Code provenance: code_provenance.md

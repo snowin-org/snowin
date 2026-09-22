@@ -24,16 +24,28 @@ general package contract.
   source requiring correction.
 - Continue real-product geometry characterization. The v0.1 decision is to
   keep geometry eager while phase/product arrays remain Dask-compatible; revisit
-  chunk-aware geometry only after a representative benchmark.
+  chunk-aware geometry only after a representative benchmark. The first full
+  Colorado benchmark completed on the real 4,347 × 4,410 product; retain the
+  decision unless a larger production case changes the memory/performance
+  result.
 - Keep regression evidence reproducible without storing large external GUNW or
   DEM files in the repository.
 
 ## Next
 
 - Characterize reference-phase inputs and support rules using Colorado as
-  downstream evidence, without importing its station/date policy.
-- Run the isolated wheel-install and CLI smoke checks, publish the source docs
-  site through the repository workflow, and add release-oriented metadata.
+  downstream evidence, without importing its station/date policy. The generic
+  input/support characterization is recorded in
+  `docs/colorado_downstream_evidence.md`; the remaining gate is an explicit
+  Colorado declaration of whether `T0_DELIVERED` is raw or pre-normalized
+  GUNW phase.
+- Resolve the explicit Colorado declaration of whether `T0_DELIVERED` is raw
+  or pre-normalized GUNW phase, reproduce the downstream output comparison
+  with that declaration, and only then remove duplicate retrieval code.
+- Publish the source docs site through the repository workflow and create the
+  annotated release tag after the phase-lineage gate is closed. The local
+  Python 3.12 wheel install, CLI help smoke test, strict docs build, package
+  build, and release metadata checks now pass.
 
 ## Later
 
