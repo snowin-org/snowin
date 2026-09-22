@@ -28,6 +28,10 @@ Important limits remain:
 - SnowIn has no published PyPI or Conda release and no hosted documentation
   site yet. Install from a checkout while the public API is still evolving.
 
+Read the [API policy](docs/api_policy.md) for the distinction between the
+stable root-level facade, domain-specific submodules, and legacy compatibility
+paths.
+
 The active implementation plan is in [`ROADMAP.md`](ROADMAP.md). Scientific
 contracts and limitations are documented in the [data model](docs/data_model.md),
 [scientific conventions](docs/scientific_conventions.md),
@@ -172,6 +176,11 @@ See the [fixture notes](tests/fixtures/README.md) and the
 - GUNW diagnostics, quick-look plotting, and a CLI where the optional
   dependencies are installed.
 
+The older `gunw_to_dswe` workflow remains available for compatibility but is
+legacy. New NISAR workflows should use `open_gunw`, `add_gunw_incidence`, and
+`compute_dswe` explicitly; the two paths are not yet scientifically
+interchangeable.
+
 SnowIn does not silently convert missing support to zero, apply a universal
 quality mask, or move Colorado study-specific station/date policy into the
 general package.
@@ -199,6 +208,7 @@ uncertainties.
 - [Architecture and design status](docs/architecture.md)
 - [Detailed architecture plan](docs/snowin_architecture_v1.md)
 - [Development guide](docs/development.md)
+- [API policy](docs/api_policy.md)
 - [GUNW quick-look example](examples/plot_gunw_quickview.py)
 - [Local/S3 GUNW example](examples/demo_gunw_local_s3_dswe.py)
 - [Notebook training materials](notebooks/README.md)
@@ -226,7 +236,7 @@ metrics, diagnostics, cloud/raster I/O, and workflow/fixture behavior. The
 current CI job runs on Ubuntu with Python 3.12 and performs pytest, Ruff, and
 package-build checks; it does not yet publish coverage or documentation.
 
-At the time of this update, the local baseline is **137 passed and 3 skipped**
+At the time of this update, the local baseline is **140 passed and 3 skipped**
 with the optional external real-product geometry regression unavailable. The
 skipped-test setup is documented in
 [`tests/fixtures/README.md`](tests/fixtures/README.md); the number should be

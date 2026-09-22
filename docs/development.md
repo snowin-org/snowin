@@ -18,6 +18,16 @@ The editable installation makes changes under `src/snowin/` visible while
 keeping the repository root itself out of the import namespace. Do not add
 `sys.path` manipulation to tests, examples, or package code.
 
+## API policy
+
+The stable, recommended facade is the small set of generic scientific
+functions exported from `snowin`. Product and domain-specific operations are
+public through named submodules such as `snowin.io`, `snowin.reference`, and
+`snowin.corrections`. Underscore-prefixed names are internal. Legacy submodule
+APIs remain for compatibility but are not recommended for new work. Only the
+root-level facade receives long-term stability guarantees. See the full
+[API policy](api_policy.md).
+
 ## Quality checks
 
 The intentionally small required check set is:

@@ -12,6 +12,7 @@ nav:
   - DEM vertical datums: vertical_datums.md
   - Colorado downstream evidence: colorado_downstream_evidence.md
   - Development: development.md
+  - API policy: api_policy.md
   - Release process: release.md
   - Code provenance: code_provenance.md
   - Detailed architecture: snowin_architecture_v1.md

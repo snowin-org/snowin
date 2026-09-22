@@ -6,5 +6,6 @@ keeping units, coordinates, support, and scientific provenance explicit.
 
 SnowIn is pre-release software. Start with the [data model](data_model.md),
 [scientific conventions](scientific_conventions.md), and
-[development guide](development.md). The real-product Colorado comparison is
+[development guide](development.md), and [API policy](api_policy.md). The
+real-product Colorado comparison is
 summarized in [downstream evidence](colorado_downstream_evidence.md).

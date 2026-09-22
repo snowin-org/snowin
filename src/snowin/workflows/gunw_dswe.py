@@ -1,10 +1,15 @@
-"""Controlled NISAR GUNW-to-dSWE workflow scaffold."""
+"""Legacy NISAR GUNW-to-dSWE workflow compatibility scaffold.
+
+New workflows should compose ``snowin.io.open_gunw()``,
+``snowin.io.add_gunw_incidence()``, and ``snowin.compute_dswe()`` instead.
+"""
 
 from __future__ import annotations
 
 import csv
 import json
 import subprocess
+import warnings
 from dataclasses import asdict, dataclass
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
@@ -143,12 +148,21 @@ def gunw_to_dswe(
     dswe_config: DsweConfig | dict[str, Any] | None = None,
     write_outputs: bool = True,
 ) -> GunwDsweResult:
-    """Run an explicit, provenance-heavy GUNW-to-dSWE scaffold.
+    """Run the legacy provenance-heavy GUNW-to-dSWE scaffold.
 
     This is not a validated production SWE algorithm. It wires together tested
     IO, quality-mask, correction, reference, and phase-to-dSWE functions while
-    preserving every assumption in diagnostics.
+    preserving every assumption in diagnostics. It uses the older NumPy
+    reader and configuration path and is not interchangeable with the
+    canonical ``open_gunw()`` -> ``add_gunw_incidence()`` -> ``compute_dswe()``
+    workflow. The function remains temporarily available for compatibility.
     """
+    warnings.warn(
+        "gunw_to_dswe() is a legacy compatibility workflow; use open_gunw(), "
+        "add_gunw_incidence(), and compute_dswe() for new NISAR workflows",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     if crop_geojson is not None:
         raise NotImplementedError(
             "crop_geojson is reserved for a later centralized raster crop/mask utility. "

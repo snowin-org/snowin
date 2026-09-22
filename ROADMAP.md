@@ -22,12 +22,10 @@ general package contract.
 - Use the NISAR-modified Copernicus DEM by default for real products; retain
   the original public orthometric COP30 path as an explicit compatibility
   source requiring correction.
-- Continue real-product geometry characterization. The v0.1 decision is to
-  keep geometry eager while phase/product arrays remain Dask-compatible; revisit
-  chunk-aware geometry only after a representative benchmark. The first full
-  Colorado benchmark completed on the real 4,347 × 4,410 product; retain the
-  decision unless a larger production case changes the memory/performance
-  result.
+- Continue real-product geometry characterization. The v0.1 default remains
+  eager while phase/product arrays remain Dask-compatible. An opt-in
+  `geometry_chunks` prototype now has an exact real-product comparison and a
+  modest memory reduction, but it is not yet fully out-of-core.
 - Keep regression evidence reproducible without storing large external GUNW or
   DEM files in the repository.
 
@@ -36,12 +34,13 @@ general package contract.
 - Characterize reference-phase inputs and support rules using Colorado as
   downstream evidence, without importing its station/date policy. The generic
   input/support characterization is recorded in
-  `docs/colorado_downstream_evidence.md`; the remaining gate is an explicit
-  Colorado declaration of whether `T0_DELIVERED` is raw or pre-normalized
-  GUNW phase.
-- Resolve the explicit Colorado declaration of whether `T0_DELIVERED` is raw
-  or pre-normalized GUNW phase, reproduce the downstream output comparison
-  with that declaration, and only then remove duplicate retrieval code.
+  `docs/colorado_downstream_evidence.md`; current evidence resolves
+  `T0_DELIVERED` as raw delivered GUNW phase.
+- Treat `gunw_to_dswe` as a legacy compatibility workflow and decide whether
+  to rewire or retire it only after an explicit Colorado migration decision.
+- Reproduce the downstream output comparison after Colorado decides whether to
+  adopt SnowIn's canonical phase; until then, retain the duplicate retrieval
+  path and do not silently change its frozen sign semantics.
 - Publish the source docs site through the repository workflow and create the
   annotated release tag after the phase-lineage gate is closed. The local
   Python 3.12 wheel install, CLI help smoke test, strict docs build, package

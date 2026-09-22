@@ -47,12 +47,15 @@ retrieval were exact negatives: maximum absolute residual of
 `1.14e-13 mm` after adding the two arrays. This is an explicit lineage
 result, not a sign inferred from numerical values.
 
-Therefore duplicate downstream retrieval code must not be deleted yet. The
-Colorado workflow must first declare whether its `T0_DELIVERED` input is raw
-GUNW phase or a phase-normalized intermediate. If it is raw, the current
-`phase_sign=+1` path is opposite to SnowIn's product-normalized path; if it
-is already normalized upstream, that normalization must be made explicit and
-tested at the boundary.
+This resolves the current Colorado boundary: `T0_DELIVERED` is the raw
+delivered GUNW `unwrappedPhase` field, not a phase-normalized intermediate.
+Consequently, the frozen Colorado `phase_sign=+1` retrieval is opposite to
+SnowIn's product-normalized canonical phase. The duplicate downstream
+retrieval code must therefore remain in place until Colorado deliberately
+changes its boundary/configuration to consume SnowIn's canonical phase (or
+explicitly retains the raw-product convention) and compares outputs under
+that new declaration. SnowIn must not silently rewire `gunw_to_dswe()` to
+change the sign semantics of the frozen Colorado workflow.
 
 ## Downstream pair reproduction
 

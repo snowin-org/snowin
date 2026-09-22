@@ -18,11 +18,12 @@ The first release must continue to describe pairwise/cumulative dSWE as change
 relative to a radar epoch, not as absolute SWE, and must retain explicit phase,
 vertical-datum, support, and provenance metadata.
 
-## Current staged validation
+## Previously completed internal validation
 
-The current staged push has completed the clean Python 3.12 wheel install,
+Earlier internal validation completed the clean Python 3.12 wheel install,
 package import, CLI help smoke test, strict MkDocs build, package build, and
-real Colorado GUNW/NISAR-DEM geometry and phase-lineage checks. The remaining
-release gate is the explicit Colorado `T0_DELIVERED` phase-normalization
-decision and its downstream output comparison. Documentation publication and
-the annotated release tag follow that scientific gate.
+real Colorado GUNW/NISAR-DEM geometry and phase-lineage checks. Public release
+work is intentionally deferred while collaborators review the notebooks and
+the canonical-versus-legacy GUNW workflow boundary. The remaining scientific
+gate is the explicit Colorado `T0_DELIVERED` phase-normalization decision and
+its downstream output comparison.
