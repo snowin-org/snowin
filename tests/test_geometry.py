@@ -127,6 +127,45 @@ def test_vertical_correction_requires_metre_units():
         )
 
 
+def test_vertical_correction_raster_is_reprojected(tmp_path):
+    rasterio = pytest.importorskip("rasterio")
+    from rasterio.transform import from_origin
+
+    correction_path = tmp_path / "egm2008_geoid_undulation.tif"
+    with rasterio.open(
+        correction_path,
+        "w",
+        driver="GTiff",
+        height=3,
+        width=3,
+        count=1,
+        dtype="float32",
+        crs="EPSG:32613",
+        transform=from_origin(-0.5, 2.5, 1.0, 1.0),
+        nodata=-9999.0,
+    ) as dst:
+        dst.write(np.full((3, 3), 10.0, dtype="float32"), 1)
+
+    dem = _dem(
+        np.full((3, 3), 100.0),
+        attrs={"vertical_datum": "EGM2008", "height_reference": "orthometric"},
+    )
+    incidence = compute_cop30_local_incidence(
+        dem,
+        *_constant_los(np.deg2rad(30.0), (2, 3, 3)),
+        heights=np.array([105.0, 115.0]),
+        x_radar=np.array([0.0, 1.0, 2.0]),
+        y_radar=np.array([0.0, 1.0, 2.0]),
+        vertical_correction_m=correction_path,
+        require_vertical_datum_match=True,
+    )
+    np.testing.assert_allclose(incidence, np.deg2rad(30.0), atol=1e-6)
+    assert incidence.attrs["vertical_datum_status"] == (
+        "corrected_with_supplied_geoid_undulation"
+    )
+    assert incidence.attrs["vertical_correction_source"] == str(correction_path)
+
+
 def test_non_monotonic_los_coordinates_fail():
     with pytest.raises(ValueError, match="strictly monotonic"):
         compute_cop30_local_incidence(

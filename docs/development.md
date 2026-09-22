@@ -70,3 +70,30 @@ known optional-dependency boundary to review as the I/O API is redesigned. The
 current angle helper also retains an explicit `auto` compatibility path, and
 the GUNW timestamp parser returns naive datetimes. These are documented debt,
 not silently changed during package stabilization.
+
+## Geometry execution decision
+
+For the first public release, NISAR-modified Copernicus DEM reprojection and
+LOS interpolation remain eager. The LOS lookup cube is a compact geometry
+input relative to a full GUNW
+phase layer, while the interpolation couples each output cell to the complete
+height/y/x lookup axes. The phase and normalized product layers remain
+Dask-compatible and lazy. Chunk-aware geometry should be added only after a
+representative real-product benchmark demonstrates a memory or throughput need;
+it must preserve the current out-of-range and vertical-datum checks.
+
+## Release checks
+
+The release candidate must pass the normal quality checks plus an isolated wheel
+installation and CLI help smoke test:
+
+```bash
+python -m build
+python -m venv /tmp/snowin-wheel-smoke
+/tmp/snowin-wheel-smoke/bin/python -m pip install dist/*.whl
+/tmp/snowin-wheel-smoke/bin/python -c "import snowin; print(snowin.__version__)"
+/tmp/snowin-wheel-smoke/bin/snowin-plot-gunw --help
+```
+
+The wheel smoke test verifies that the built artifact, rather than the checkout,
+contains the package and console entry point.

@@ -20,16 +20,18 @@ Important limits remain:
 
 - The canonical retrieval produces pairwise or accumulated dSWE. It is not an
   absolute SWE product or a universal validation workflow.
-- The default GUNW geometry path is explicitly provisional until the
-  COP30-orthometric versus GUNW-ellipsoidal vertical-datum relationship is
-  validated for the product workflow. Geometry is currently eagerly
+- The default GUNW geometry path uses the NISAR-modified Copernicus DEM, whose
+  heights are WGS84 ellipsoidal like the GUNW radar-grid heights. The original
+  public COP30 compatibility path remains orthometric and requires an explicit
+  EGM2008 geoid-undulation correction. Geometry is currently eagerly
   materialized; phase data can remain lazy.
 - SnowIn has no published PyPI or Conda release and no hosted documentation
   site yet. Install from a checkout while the public API is still evolving.
 
 The active implementation plan is in [`ROADMAP.md`](ROADMAP.md). Scientific
 contracts and limitations are documented in the [data model](docs/data_model.md),
-[scientific conventions](docs/scientific_conventions.md), and
+[scientific conventions](docs/scientific_conventions.md),
+[DEM vertical-datum notes](docs/vertical_datums.md), and
 [architecture](docs/architecture.md) documents.
 
 ## Installation
@@ -85,8 +87,8 @@ print(f"dSWE: {dswe.item():.3f} m")
 ```
 
 For a NISAR GUNW, `open_gunw` resolves wavelength from product metadata and,
-by default, computes local incidence from the GUNW LOS vectors and a downloaded
-or cached COP30 DEM:
+by default, computes local incidence from the GUNW LOS vectors and the
+modified Copernicus DEM used by NISAR:
 
 ```python
 from snowin.io import open_gunw
@@ -99,8 +101,44 @@ The default GUNW path uses Dask for lazy loading; the `dev` extra includes it.
 Without Dask, pass `chunks=None` for an eager read. The `gunw` extra supplies
 the product, raster, geometry, and plotting dependencies.
 
-Use `cop30_dem="/path/to/cop30.tif"` to provide a local DEM, or provide an
-explicit `wavelength_m` override only when its scientific provenance is known.
+Use `nisar_cop30_dem="/path/to/dem.tif"` to provide a local NISAR DEM and
+avoid network access:
+
+```python
+pair = open_gunw(
+    "product.h5",
+    nisar_cop30_dem="/path/to/nisar_dem.tif",
+    require_vertical_datum_match=True,
+)
+```
+
+The default `dem_source="nisar_cop30"` downloads and caches the modified
+Copernicus DEM used by NISAR. Use `dem_cache_dir=...` to control that cache.
+The ASF Earthdata service may require standard Earthdata credentials in
+`~/.netrc`. Other named local sources can be selected explicitly:
+
+```python
+pair = open_gunw(
+    "product.h5",
+    dem_source="tandem30",
+    tandem30_dem="/path/to/tandem30.tif",
+    require_vertical_datum_match=True,
+)
+```
+
+Supported sources are `nisar_cop30`, `cop30`, `tandem30`, and `srtm30`.
+Only `nisar_cop30` and `cop30` have automatic download paths. TanDEM-X 30 m
+and SRTM 30 m inputs must be provided locally; SnowIn does not silently
+substitute one source for another. TanDEM-X is treated as ellipsoidal
+WGS84-G1150, while SRTM30 is treated as orthometric and normally requires a
+geoid correction for strict matching.
+
+For public orthometric COP30 tiles selected with `dem_source="cop30"`, pass
+`dem_vertical_correction_m="/path/to/egm2008_geoid.tif"` or a same-grid
+xarray DataArray. The legacy `cop30_vertical_correction_m` spelling remains
+accepted. Set `require_vertical_datum_match=True` to fail rather than run
+provisionally. An explicit `wavelength_m` override should only be used when
+its scientific provenance is known.
 See the [fixture notes](tests/fixtures/README.md) and the
 [GUNW example](examples/demo_gunw_local_s3_dswe.py) for fuller workflows.
 
@@ -173,7 +211,7 @@ metrics, diagnostics, cloud/raster I/O, and workflow/fixture behavior. The
 current CI job runs on Ubuntu with Python 3.12 and performs pytest, Ruff, and
 package-build checks; it does not yet publish coverage or documentation.
 
-At the time of this update, the local baseline is **133 passed and 1 skipped**
+At the time of this update, the local baseline is **137 passed and 3 skipped**
 with the optional external real-product geometry regression unavailable. The
 skipped-test setup is documented in
 [`tests/fixtures/README.md`](tests/fixtures/README.md); the number should be
@@ -190,11 +228,11 @@ feature discussion.
 
 ## Citation
 
-SnowIn does not yet have a tagged release, DOI, or `CITATION.cff`. Until those
-are available, cite the repository and the commit used, and cite the primary
-scientific publications listed in [`docs/code_provenance.md`](docs/code_provenance.md)
-for the relevant retrieval methods. A formal software citation file should be
-added before the first tagged release.
+SnowIn does not yet have a tagged release or DOI. Until those are available,
+cite the repository and the commit used, and cite the primary scientific
+publications listed in [`docs/code_provenance.md`](docs/code_provenance.md) for
+the relevant retrieval methods. `CITATION.cff` provides machine-readable
+software citation metadata for the pre-release package.
 
 ## License
 

@@ -31,3 +31,13 @@ jobs:
 
       - name: Build distributions
         run: python -m build
+
+      - name: Install wheel in isolated environment
+        run: |
+          python -m venv /tmp/snowin-wheel-smoke
+          /tmp/snowin-wheel-smoke/bin/python -m pip install --upgrade pip
+          /tmp/snowin-wheel-smoke/bin/python -m pip install dist/*.whl
+          /tmp/snowin-wheel-smoke/bin/python -c "import snowin; print(snowin.__version__)"
+
+      - name: Smoke-test console entry point
+        run: /tmp/snowin-wheel-smoke/bin/snowin-plot-gunw --help

@@ -45,6 +45,45 @@ _KNOWN_PHASE_DEFINITIONS = {
 }
 _KNOWN_SOURCE_ANGLE_UNITS = {"degree", "degrees", "deg"}
 _COP30_S3_BASE_URL = "https://copernicus-dem-30m.s3.amazonaws.com"
+_NISAR_DEM_BASE_URL = (
+    "https://nisar.asf.earthdatacloud.nasa.gov/NISAR/DEM/v1.2/EPSG4326"
+)
+DEMSource = Literal["nisar_cop30", "cop30", "tandem30", "srtm30"]
+"""Named DEM inputs supported by the NISAR adapter."""
+
+_DEM_SOURCE_METADATA: dict[DEMSource, dict[str, str]] = {
+    "nisar_cop30": {
+        "label": "NISAR Copernicus DEM",
+        "product": "Modified Copernicus DEM for NISAR",
+        "vertical_datum": "WGS84 ellipsoid",
+        "height_reference": "ellipsoidal",
+    },
+    "cop30": {
+        "label": "COP30 DEM",
+        "product": "Copernicus DEM GLO-30",
+        "vertical_datum": "EGM2008",
+        "height_reference": "orthometric",
+    },
+    "tandem30": {
+        "label": "TanDEM-X 30 m DEM",
+        "product": "TanDEM-X 30 m DEM",
+        "vertical_datum": "WGS84-G1150",
+        "height_reference": "ellipsoidal",
+    },
+    "srtm30": {
+        "label": "SRTM 30 m DEM",
+        "product": "SRTM 30 m DEM",
+        "vertical_datum": "EGM96",
+        "height_reference": "orthometric",
+    },
+}
+
+
+def _validate_dem_source(source: str) -> DEMSource:
+    if source not in _DEM_SOURCE_METADATA:
+        supported = ", ".join(_DEM_SOURCE_METADATA)
+        raise ValueError(f"dem_source must be one of: {supported}")
+    return source  # type: ignore[return-value]
 
 
 def _sorted_axis(
@@ -73,10 +112,11 @@ def compute_cop30_local_incidence(
     y_radar: np.ndarray,
     *,
     epsg_code: int | None = None,
-    vertical_correction_m: xr.DataArray | None = None,
+    vertical_correction_m: xr.DataArray | str | Path | None = None,
     require_vertical_datum_match: bool = False,
+    dem_source: DEMSource = "cop30",
 ) -> xr.DataArray:
-    """Compute terrain-surface incidence from a COP30 DEM and GUNW LOS.
+    """Compute terrain-surface incidence from a named DEM and GUNW LOS.
 
     The calculation is an independent xarray-facing reimplementation of the
     verified Colorado method: a projected-metre DEM supplies a local surface
@@ -89,9 +129,20 @@ def compute_cop30_local_incidence(
     primitive.  The phase and other product layers remain lazy in
     :func:`open_gunw`.
     """
+    dem_source = _validate_dem_source(dem_source)
+    source_label = _DEM_SOURCE_METADATA[dem_source]["label"]
     if dem.dims != ("y", "x"):
-        raise ValueError("COP30 DEM must use dimensions ('y', 'x')")
+        raise ValueError(f"{source_label} must use dimensions ('y', 'x')")
     dem_height_reference = str(dem.attrs.get("height_reference", "unknown")).lower()
+    if vertical_correction_m is not None and isinstance(
+        vertical_correction_m, (str, Path)
+    ):
+        vertical_correction_m = _open_vertical_correction(
+            vertical_correction_m,
+            x=np.asarray(dem.coords["x"].data, dtype=float),
+            y=np.asarray(dem.coords["y"].data, dtype=float),
+            epsg_code=dem.attrs.get("epsg_code"),
+        )
     correction_applied = vertical_correction_m is not None
     if (
         require_vertical_datum_match
@@ -104,7 +155,7 @@ def compute_cop30_local_incidence(
         }
     ):
         raise ValueError(
-            "COP30 DEM heights are not declared WGS84 ellipsoidal; provide "
+            f"{source_label} heights are not declared WGS84 ellipsoidal; provide "
             "vertical_correction_m (geoid undulation added to orthometric height) "
             "or disable require_vertical_datum_match for provisional geometry"
         )
@@ -137,7 +188,7 @@ def compute_cop30_local_incidence(
     y = np.asarray(dem.coords["y"].data, dtype=float)
     if elevation.shape != (y.size, x.size) or x.size < 2 or y.size < 2:
         raise ValueError(
-            "COP30 DEM coordinates must match a 2-D grid with at least two cells"
+            f"{source_label} coordinates must match a 2-D grid with at least two cells"
         )
 
     arrays = [np.asarray(value, dtype=float) for value in (los_x, los_y, los_z)]
@@ -163,7 +214,7 @@ def compute_cop30_local_incidence(
         for point_axis, lookup_axis in zip(point_axes, lookup_axes)
     ):
         raise ValueError(
-            "COP30 DEM surface or target grid extends outside the GUNW LOS lookup cube"
+            f"{source_label} surface or target grid extends outside the GUNW LOS lookup cube"
         )
 
     interpolated = []
@@ -182,7 +233,7 @@ def compute_cop30_local_incidence(
     dx = float(x[1] - x[0])
     dy = float(y[1] - y[0])
     if dx == 0 or dy == 0:
-        raise ValueError("COP30 DEM coordinates must have nonzero spacing")
+        raise ValueError(f"{source_label} coordinates must have nonzero spacing")
     dz_dy, dz_dx = np.gradient(elevation, dy, dx)
     normal_x = -dz_dx
     normal_y = -dz_dy
@@ -210,7 +261,7 @@ def compute_cop30_local_incidence(
             "units": "rad",
             "incidence_angle_reference": "local",
             "source_units": "degrees",
-            "long_name": "COP30 terrain-surface local incidence angle",
+            "long_name": f"{source_label} terrain-surface local incidence angle",
             "valid_min": 0.0,
             "valid_max": float(np.pi),
             "los_vector_direction": "target_to_sensor",
@@ -222,8 +273,13 @@ def compute_cop30_local_incidence(
                 if correction_applied
                 else "not applied"
             ),
+            "vertical_correction_source": (
+                vertical_correction_m.attrs.get("source", "supplied DataArray")
+                if correction_applied
+                else "none"
+            ),
             "definition": (
-                "angle between target-to-sensor GUNW LOS and COP30 DEM-derived "
+                f"angle between target-to-sensor GUNW LOS and {source_label}-derived "
                 "local terrain normal"
             ),
         },
@@ -250,26 +306,139 @@ def _coordinate_transform(x: np.ndarray, y: np.ndarray):
     return from_origin(float(np.min(x) - dx / 2), float(np.max(y) + dy / 2), dx, dy)
 
 
-def _open_cop30_dem(
+def _open_vertical_correction(
+    correction: str | Path | xr.DataArray,
+    *,
+    x: np.ndarray,
+    y: np.ndarray,
+    epsg_code: int | None,
+) -> xr.DataArray:
+    """Load geoid undulation and align it to the DEM grid.
+
+    The correction is an elevation difference in metres, not an alternate DEM.
+    A positive EGM2008 geoid undulation is added to COP30 orthometric height
+    according to ``h = H + N``.  Raster inputs must carry a CRS; xarray inputs
+    must carry ``epsg_code`` and metre units.
+    """
+    if isinstance(correction, xr.DataArray):
+        if correction.dims != ("y", "x"):
+            raise ValueError("vertical_correction_m must use dimensions ('y', 'x')")
+        if correction.attrs.get("units") not in {"m", "meter", "meters"}:
+            raise ValueError("vertical_correction_m must declare units of metres")
+        if epsg_code is None:
+            raise ValueError(
+                "DEM must declare epsg_code when loading a vertical correction"
+            )
+        correction_epsg = correction.attrs.get("epsg_code")
+        if correction_epsg is None:
+            raise ValueError("vertical_correction_m DataArray must declare epsg_code")
+        if (
+            int(correction_epsg) == int(epsg_code)
+            and np.array_equal(correction.coords["x"].data, x)
+            and np.array_equal(correction.coords["y"].data, y)
+        ):
+            return correction
+        source_values = np.asarray(correction.data, dtype=float)
+        source_x = np.asarray(correction.coords["x"].data, dtype=float)
+        source_y = np.asarray(correction.coords["y"].data, dtype=float)
+        source_crs = int(correction_epsg)
+        source_transform = _coordinate_transform(source_x, source_y)
+        source_label = "xarray.DataArray"
+    else:
+        import rasterio
+
+        with rasterio.open(Path(correction).expanduser()) as source:
+            source_values = source.read(1).astype(float)
+            source_crs = source.crs
+            source_transform = source.transform
+            source_nodata = source.nodata
+            if source_crs is None:
+                raise ValueError("vertical correction raster is missing its CRS")
+            if source_nodata is not None and np.isfinite(source_nodata):
+                source_values[source_values == source_nodata] = np.nan
+        source_label = str(Path(correction).expanduser().resolve())
+
+    if epsg_code is None:
+        raise ValueError(
+            "DEM must declare epsg_code when loading a vertical correction"
+        )
+    import rasterio
+    from rasterio.crs import CRS
+    from rasterio.enums import Resampling
+    from rasterio.warp import reproject
+
+    target = np.full((y.size, x.size), np.nan, dtype=float)
+    valid_source = np.isfinite(source_values).astype("float32")
+    source_filled = np.where(np.isfinite(source_values), source_values, 0.0)
+    target_transform = _coordinate_transform(x, y)
+    weights = np.zeros_like(target, dtype="float32")
+    reproject(
+        source_filled,
+        target,
+        src_transform=source_transform,
+        src_crs=source_crs,
+        dst_transform=target_transform,
+        dst_crs=CRS.from_epsg(int(epsg_code)),
+        resampling=Resampling.bilinear,
+    )
+    reproject(
+        valid_source,
+        weights,
+        src_transform=source_transform,
+        src_crs=source_crs,
+        dst_transform=target_transform,
+        dst_crs=CRS.from_epsg(int(epsg_code)),
+        resampling=Resampling.bilinear,
+    )
+    with np.errstate(divide="ignore", invalid="ignore"):
+        target = target / weights
+    target[weights <= 0] = np.nan
+    if not np.isfinite(target).any():
+        raise ValueError("vertical correction raster does not overlap the DEM grid")
+    return xr.DataArray(
+        target,
+        dims=("y", "x"),
+        coords={"y": y, "x": x},
+        name="geoid_undulation",
+        attrs={
+            "units": "m",
+            "epsg_code": int(epsg_code),
+            "vertical_datum": "EGM2008 geoid undulation",
+            "source": source_label,
+        },
+    )
+
+
+def _open_dem(
     dem: str | Path | xr.DataArray,
     *,
     x: np.ndarray,
     y: np.ndarray,
     epsg_code: int,
+    dem_source: DEMSource = "cop30",
 ) -> xr.DataArray:
-    """Read/reproject a COP30 DEM onto the exact GUNW phase grid."""
+    """Read/reproject a named DEM onto the exact GUNW phase grid."""
+    dem_source = _validate_dem_source(dem_source)
+    metadata = _DEM_SOURCE_METADATA[dem_source]
+    source_label = metadata["label"]
     if isinstance(dem, xr.DataArray):
         if dem.dims != ("y", "x"):
-            raise ValueError("COP30 DEM must use dimensions ('y', 'x')")
+            raise ValueError(f"{source_label} must use dimensions ('y', 'x')")
         dem_epsg = dem.attrs.get("epsg_code")
         if dem_epsg is None:
-            raise ValueError("COP30 DEM DataArray must declare epsg_code")
+            raise ValueError(f"{source_label} DataArray must declare epsg_code")
         if (
             int(dem_epsg) == epsg_code
             and dem.coords["x"].equals(xr.DataArray(x))
             and dem.coords["y"].equals(xr.DataArray(y))
         ):
-            return dem
+            result = dem.copy()
+            result.attrs.setdefault("horizontal_datum", "WGS84")
+            result.attrs.setdefault("vertical_datum", metadata["vertical_datum"])
+            result.attrs.setdefault("height_reference", metadata["height_reference"])
+            result.attrs.setdefault("dem_source", dem_source)
+            result.attrs.setdefault("dem_product", metadata["product"])
+            return result
         source_values = np.asarray(dem.data, dtype=float)
         source_x = np.asarray(dem.coords["x"].data, dtype=float)
         source_y = np.asarray(dem.coords["y"].data, dtype=float)
@@ -285,7 +454,7 @@ def _open_cop30_dem(
             source_transform = source.transform
             source_nodata = source.nodata
             if source_crs is None:
-                raise ValueError("COP30 DEM raster is missing its CRS")
+                raise ValueError(f"{source_label} raster is missing its CRS")
             if source_nodata is not None and np.isfinite(source_nodata):
                 source_values[source_values == source_nodata] = np.nan
 
@@ -324,21 +493,33 @@ def _open_cop30_dem(
         destination = destination / weights
     destination[weights <= 0] = np.nan
     if not np.isfinite(destination).any():
-        raise ValueError("COP30 DEM does not overlap the GUNW phase grid")
+        raise ValueError(f"{source_label} does not overlap the GUNW phase grid")
     return xr.DataArray(
         destination,
         dims=("y", "x"),
         coords={"y": y, "x": x},
-        name="cop30_elevation",
+        name=f"{dem_source}_elevation",
         attrs={
             "units": "m",
             "epsg_code": epsg_code,
             "horizontal_datum": "WGS84",
-            "vertical_datum": "EGM2008",
-            "vertical_datum_epsg": 3855,
-            "height_reference": "orthometric",
+            "vertical_datum": metadata["vertical_datum"],
+            "height_reference": metadata["height_reference"],
+            "dem_source": dem_source,
+            "dem_product": metadata["product"],
         },
     )
+
+
+def _open_cop30_dem(
+    dem: str | Path | xr.DataArray,
+    *,
+    x: np.ndarray,
+    y: np.ndarray,
+    epsg_code: int,
+) -> xr.DataArray:
+    """Backward-compatible COP30-specific DEM opener."""
+    return _open_dem(dem, x=x, y=y, epsg_code=epsg_code, dem_source="cop30")
 
 
 def _read_radar_los(gunw_file: Path) -> tuple[np.ndarray, ...]:
@@ -392,6 +573,184 @@ def _cop30_tile_name(latitude: int, longitude: int) -> str:
         f"Copernicus_DSM_COG_10_{lat_prefix}{abs(latitude):02d}_00_"
         f"{lon_prefix}{abs(longitude):03d}_00_DEM"
     )
+
+
+def _nisar_dem_tile_name(latitude: int, longitude: int) -> str:
+    lat_prefix = "N" if latitude >= 0 else "S"
+    lon_prefix = "E" if longitude >= 0 else "W"
+    return (
+        f"DEM_{lat_prefix}{abs(latitude):02d}_00_"
+        f"{lon_prefix}{abs(longitude):03d}_00_C01.tif"
+    )
+
+
+def _nisar_dem_tile_url(latitude: int, longitude: int) -> str:
+    latitude_band = math.floor(latitude / 10) * 10
+    longitude_band = math.floor((longitude + 180) / 20) * 20 - 180
+    lat_prefix = "N" if latitude_band >= 0 else "S"
+    lon_prefix = "E" if longitude_band >= 0 else "W"
+    latitude_directory = f"{lat_prefix}{abs(latitude_band):02d}"
+    longitude_directory = f"{lon_prefix}{abs(longitude_band):03d}"
+    directory = f"{latitude_directory}_{longitude_directory}"
+    tile_name = _nisar_dem_tile_name(latitude, longitude)
+    return f"{_NISAR_DEM_BASE_URL}/{latitude_directory}/{directory}/{tile_name}"
+
+
+def _open_nisar_dem_url(url: str, *, timeout: int = 120):
+    """Open an ASF Earthdata URL, using a standard netrc when available."""
+    from urllib.parse import urlparse
+
+    hostname = urlparse(url).hostname
+    if hostname is None:
+        raise ValueError(f"invalid DEM URL: {url}")
+    try:
+        import netrc
+
+        credential_file = netrc.netrc()
+    except (FileNotFoundError, OSError, netrc.NetrcParseError):
+        credential_file = None
+    if credential_file is None or not any(
+        credential_file.authenticators(auth_host) is not None
+        for auth_host in (hostname, "urs.earthdata.nasa.gov")
+    ):
+        return urllib.request.urlopen(url, timeout=timeout)
+
+    manager = urllib.request.HTTPPasswordMgrWithDefaultRealm()
+    for auth_host in (hostname, "urs.earthdata.nasa.gov"):
+        auth = credential_file.authenticators(auth_host)
+        if auth is not None:
+            login, _, password = auth
+            manager.add_password(None, f"https://{auth_host}", login, password)
+    opener = urllib.request.build_opener(urllib.request.HTTPBasicAuthHandler(manager))
+    return opener.open(url, timeout=timeout)
+
+
+def _download_nisar_dem_tile(url: str, destination: Path) -> None:
+    """Download one NISAR tile using Earthdata auth when available."""
+    try:
+        import earthaccess
+    except ImportError:
+        earthaccess = None
+
+    if earthaccess is not None:
+        try:
+            earthaccess.login(strategy="netrc", persist=False)
+            downloaded = earthaccess.download(
+                url,
+                local_path=destination.parent,
+                threads=1,
+                show_progress=False,
+            )
+            if downloaded:
+                downloaded_path = Path(downloaded[0])
+                if downloaded_path != destination:
+                    downloaded_path.replace(destination)
+                return
+        except Exception:
+            # Fall through to the lightweight urllib/netrc path.  The caller
+            # adds the URL and credential guidance to the final error.
+            pass
+
+    partial = destination.with_suffix(".part")
+    with (
+        _open_nisar_dem_url(url) as response,
+        partial.open("wb") as output,
+    ):
+        shutil.copyfileobj(response, output)
+    partial.replace(destination)
+
+
+def download_nisar_cop30_dem_for_gunw(
+    gunw_file: str | Path,
+    *,
+    cache_dir: str | Path | None = None,
+    output_path: str | Path | None = None,
+    frequency: str = "frequencyA",
+    polarization: str | None = None,
+) -> Path:
+    """Download and mosaic the modified Copernicus DEM used by NISAR.
+
+    The ASF/NASA NISAR DEM is a WGS84 EPSG:4326, 1-degree tiled COG dataset.
+    Its elevations are re-referenced to the WGS84 ellipsoid for SAR
+    processing.  Earthdata credentials may be supplied through the standard
+    ``~/.netrc`` file; callers may also provide a local ``nisar_cop30_dem``
+    path to avoid network access.
+    """
+    import rasterio
+    from rasterio.merge import merge
+
+    path = Path(gunw_file).expanduser().resolve()
+    pol = polarization or _detect_pol_without_loading(path)
+    min_lon, min_lat, max_lon, max_lat = _gunw_geographic_bounds(
+        path,
+        frequency=frequency,
+        polarization=pol,
+    )
+    latitudes = range(math.floor(min_lat), math.floor(max_lat) + 1)
+    longitudes = range(math.floor(min_lon), math.floor(max_lon) + 1)
+    root = (
+        Path(cache_dir).expanduser()
+        if cache_dir is not None
+        else Path("~/.cache/snowin/nisar_cop30").expanduser()
+    )
+    root.mkdir(parents=True, exist_ok=True)
+    tile_paths: list[Path] = []
+    for latitude in latitudes:
+        for longitude in longitudes:
+            tile_name = _nisar_dem_tile_name(latitude, longitude)
+            tile_path = root / tile_name
+            if not tile_path.exists():
+                url = _nisar_dem_tile_url(latitude, longitude)
+                try:
+                    _download_nisar_dem_tile(url, tile_path)
+                except Exception as exc:
+                    tile_path.unlink(missing_ok=True)
+                    tile_path.with_suffix(".part").unlink(missing_ok=True)
+                    raise RuntimeError(
+                        f"could not download NISAR DEM tile {tile_name} from {url}; "
+                        "provide Earthdata credentials in ~/.netrc or a local "
+                        "nisar_cop30_dem raster"
+                    ) from exc
+            tile_paths.append(tile_path)
+
+    destination = (
+        Path(output_path).expanduser()
+        if output_path is not None
+        else root / f"{path.stem}_nisar_cop30.tif"
+    )
+    if destination.exists():
+        return destination
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    sources = [rasterio.open(tile_path) for tile_path in tile_paths]
+    try:
+        mosaic, transform = merge(
+            sources,
+            bounds=(min_lon, min_lat, max_lon, max_lat),
+        )
+        profile = sources[0].profile.copy()
+        profile.update(
+            height=mosaic.shape[1],
+            width=mosaic.shape[2],
+            transform=transform,
+            compress="deflate",
+            tiled=True,
+        )
+        partial = destination.with_suffix(".part")
+        with rasterio.open(partial, "w", **profile) as output:
+            output.write(mosaic)
+            output.update_tags(
+                source_product="Modified Copernicus DEM for NISAR",
+                source_url=_NISAR_DEM_BASE_URL,
+                source_gunw=str(path),
+                vertical_datum="WGS84 ellipsoid",
+                height_reference="ellipsoidal",
+                footprint="GUNW projected phase-grid footprint transformed to EPSG:4326",
+            )
+        partial.replace(destination)
+    finally:
+        for source in sources:
+            source.close()
+    return destination
 
 
 def _gunw_geographic_bounds(
@@ -825,9 +1184,15 @@ def _detect_pol_without_loading(gunw_file: Path) -> str:
 def open_gunw(
     gunw_file: str | Path,
     *,
-    cop30_dem: str | Path | xr.DataArray | Literal["auto"] | None = "auto",
+    dem_source: DEMSource = "nisar_cop30",
+    nisar_cop30_dem: str | Path | xr.DataArray | Literal["auto"] | None = "auto",
+    cop30_dem: str | Path | xr.DataArray | Literal["auto"] | None = None,
+    tandem30_dem: str | Path | xr.DataArray | None = None,
+    srtm30_dem: str | Path | xr.DataArray | None = None,
+    dem_cache_dir: str | Path | None = None,
     cop30_cache_dir: str | Path | None = None,
-    cop30_vertical_correction_m: xr.DataArray | None = None,
+    dem_vertical_correction_m: xr.DataArray | str | Path | None = None,
+    cop30_vertical_correction_m: xr.DataArray | str | Path | None = None,
     require_vertical_datum_match: bool = False,
     wavelength_m: float | None = None,
     incidence_source: str = "cop30_local",
@@ -839,11 +1204,15 @@ def open_gunw(
 ) -> xr.Dataset:
     """Open and normalize a NISAR GUNW as a lazy SnowIn Dataset.
 
-    By default, the incidence field is generated from a downloaded or cached
-    COP30 DEM and the GUNW radar-grid LOS vectors using
+    By default, the incidence field is generated from the downloaded or cached
+    modified Copernicus DEM used by NISAR and the GUNW radar-grid LOS vectors using
     :func:`compute_cop30_local_incidence`.  Pass a local DEM path or DataArray
-    to avoid network access, or pass ``incidence_source='product_ellipsoid'``
-    to explicitly select the native ellipsoid angle.
+    to avoid network access. ``cop30_dem`` remains a compatibility input for
+    the original public orthometric Copernicus tiles; set
+    ``dem_source='cop30'`` when using it. TanDEM-X and SRTM remain explicit
+    local-only alternatives and are not part of the default path. Use
+    ``dem_cache_dir`` to control the cache location; the legacy
+    ``cop30_cache_dir`` spelling remains accepted.
     This is the terrain-surface angle required by the snow retrieval.  The
     product's ellipsoid-normal ``incidenceAngle`` is available only through
     the explicit ``incidence_source='product_ellipsoid'`` compatibility path;
@@ -852,18 +1221,48 @@ def open_gunw(
     ``chunks='auto'`` preserves lazy Dask-backed arrays.  Pass ``chunks=None``
     for an eager read when Dask is not installed.
 
-    COP30/GUNW vertical references differ in the public product path: COP30
-    heights are EGM2008 orthometric while GUNW radar-grid heights are WGS84
-    ellipsoidal.  By default this remains explicitly provisional.  Supply a
-    same-grid ``cop30_vertical_correction_m`` containing geoid undulation
-    (added to COP30 height), or set ``require_vertical_datum_match=True`` to
-    reject uncorrected COP30 geometry.
+    The default NISAR-modified Copernicus DEM is already re-referenced to the
+    WGS84 ellipsoid used by GUNW. Raw COP30 heights are EGM2008 orthometric,
+    while SRTM30 is also orthometric (normally EGM96), and TanDEM-X 30 m is
+    ellipsoidal WGS84-G1150. For orthometric inputs, supply a
+    ``dem_vertical_correction_m`` same-grid xarray DataArray or a
+    CRS-bearing raster containing EGM2008 geoid undulation in metres. The
+    correction is added to the selected orthometric height as ``h = H + N``.
+    ``cop30_vertical_correction_m`` is retained as a COP30-compatible alias;
+    use ``dem_vertical_correction_m`` for a generic named source. Set
+    ``require_vertical_datum_match=True`` to reject uncorrected geometry.
     """
     path = Path(gunw_file).expanduser().resolve()
     if not path.exists():
         raise FileNotFoundError(f"GUNW file not found: {path}")
     if polarization is not None and polarization not in {"HH", "VV"}:
         raise ValueError("polarization must be 'HH', 'VV', or None")
+    dem_source = _validate_dem_source(dem_source)
+    if (
+        dem_source == "nisar_cop30"
+        and nisar_cop30_dem == "auto"
+        and cop30_dem is not None
+        and (isinstance(cop30_dem, xr.DataArray) or cop30_dem != "auto")
+    ):
+        # Preserve the pre-source-selection API for callers that passed a
+        # local COP30 path without an explicit dem_source.
+        dem_source = "cop30"
+    if (
+        dem_vertical_correction_m is not None
+        and cop30_vertical_correction_m is not None
+    ):
+        raise ValueError(
+            "provide only one of dem_vertical_correction_m and "
+            "cop30_vertical_correction_m"
+        )
+    vertical_correction_m = (
+        dem_vertical_correction_m
+        if dem_vertical_correction_m is not None
+        else cop30_vertical_correction_m
+    )
+    if dem_cache_dir is not None and cop30_cache_dir is not None:
+        raise ValueError("provide only one of dem_cache_dir and cop30_cache_dir")
+    cache_dir = dem_cache_dir if dem_cache_dir is not None else cop30_cache_dir
     if incidence_source not in {"cop30_local", "product_ellipsoid"}:
         raise ValueError(
             "incidence_source must be 'cop30_local' or 'product_ellipsoid'"
@@ -942,20 +1341,45 @@ def open_gunw(
                 raise ValueError("GUNW projection metadata is missing epsg_code")
             target_x = np.asarray(phase_ds["xCoordinates"].load().data, dtype=float)
             target_y = np.asarray(phase_ds["yCoordinates"].load().data, dtype=float)
-            if cop30_dem is None or (
-                isinstance(cop30_dem, str) and cop30_dem == "auto"
+            dem_inputs = {
+                "nisar_cop30": nisar_cop30_dem,
+                "cop30": cop30_dem,
+                "tandem30": tandem30_dem,
+                "srtm30": srtm30_dem,
+            }
+            selected_dem = dem_inputs[dem_source]
+            if dem_source in {"nisar_cop30", "cop30"} and (
+                selected_dem is None
+                or (isinstance(selected_dem, str) and selected_dem == "auto")
             ):
-                cop30_dem = download_cop30_dem_for_gunw(
-                    path,
-                    cache_dir=cop30_cache_dir,
-                    frequency=frequency,
-                    polarization=pol,
+                if dem_source == "nisar_cop30":
+                    selected_dem = download_nisar_cop30_dem_for_gunw(
+                        path,
+                        cache_dir=cache_dir,
+                        frequency=frequency,
+                        polarization=pol,
+                    )
+                else:
+                    selected_dem = download_cop30_dem_for_gunw(
+                        path,
+                        cache_dir=cache_dir,
+                        frequency=frequency,
+                        polarization=pol,
+                    )
+            elif selected_dem is None or (
+                isinstance(selected_dem, str) and selected_dem == "auto"
+            ):
+                raise ValueError(
+                    f"dem_source={dem_source!r} requires a local "
+                    f"{dem_source}_dem path or DataArray; SnowIn does not "
+                    "download that source automatically"
                 )
-            dem = _open_cop30_dem(
-                cop30_dem,
+            dem = _open_dem(
+                selected_dem,
                 x=target_x,
                 y=target_y,
                 epsg_code=int(epsg_code),
+                dem_source=dem_source,
             )
             heights, x_radar, y_radar, los_x, los_y, los_z = _read_radar_los(path)
             incidence = compute_cop30_local_incidence(
@@ -967,26 +1391,38 @@ def open_gunw(
                 x_radar,
                 y_radar,
                 epsg_code=int(epsg_code),
-                vertical_correction_m=cop30_vertical_correction_m,
+                vertical_correction_m=vertical_correction_m,
                 require_vertical_datum_match=require_vertical_datum_match,
+                dem_source=dem_source,
             )
+            source_metadata = _DEM_SOURCE_METADATA[dem_source]
             incidence_provenance = {
-                "incidence_angle_source": "COP30 DEM plus NISAR GUNW radar-grid LOS",
+                "incidence_angle_source": (
+                    f"{source_metadata['label']} plus NISAR GUNW radar-grid LOS"
+                ),
                 "incidence_angle_algorithm": "snowin.io.nisar.compute_cop30_local_incidence",
                 "incidence_angle_reference": "local terrain surface",
                 "gunw_height_reference": "WGS84 ellipsoid",
-                "cop30_vertical_datum": "EGM2008 orthometric",
+                "dem_source": dem_source,
+                "dem_product": source_metadata["product"],
+                "dem_vertical_datum": source_metadata["vertical_datum"],
+                "dem_height_reference": source_metadata["height_reference"],
                 "vertical_datum_transform": incidence.attrs.get(
                     "vertical_correction_definition", "not applied"
                 ),
                 "vertical_datum_status": incidence.attrs.get(
                     "vertical_datum_status", "unknown"
                 ),
+                "vertical_correction_source": incidence.attrs.get(
+                    "vertical_correction_source", "none"
+                ),
                 "coordinate_orientation": "GUNW projected x/y phase-grid coordinates",
-                "cop30_dem": str(cop30_dem)
-                if not isinstance(cop30_dem, xr.DataArray)
+                "dem_input": str(selected_dem)
+                if not isinstance(selected_dem, xr.DataArray)
                 else "xarray.DataArray",
-                "incidence_angle_resampling": "COP30 DEM bilinear reprojection to GUNW phase grid",
+                "incidence_angle_resampling": (
+                    f"{source_metadata['label']} bilinear reprojection to GUNW phase grid"
+                ),
             }
 
         additional: dict[str, xr.DataArray] = {}
@@ -1059,6 +1495,7 @@ __all__ = [
     "SPEED_OF_LIGHT_M_S",
     "compute_cop30_local_incidence",
     "download_cop30_dem_for_gunw",
+    "download_nisar_cop30_dem_for_gunw",
     "normalize_gunw_pair",
     "open_gunw",
     "read_gunw_wavelength_m",

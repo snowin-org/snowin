@@ -10,7 +10,8 @@ general package contract.
   provenance conventions.
 - Canonical xarray-native `compute_dswe` using the reviewed Leinss relation.
 - NISAR GUNW reading, source-phase normalization, product wavelength
-  resolution, lazy phase handling, and COP30/local-DEM incidence geometry.
+  resolution, lazy phase handling, and NISAR-modified Copernicus/local-DEM
+  incidence geometry.
 - Reference-phase methods, directed temporal accumulation, named support
   layers, support summaries, and reusable metrics.
 - GUNW diagnostics, plotting, CLI scaffolding, and a downstream Colorado
@@ -18,10 +19,12 @@ general package contract.
 
 ## Now
 
-- Resolve the documented COP30 orthometric versus GUNW ellipsoidal vertical
-  datum limitation with product-backed evidence.
-- Continue real-product geometry characterization and decide whether geometry
-  should become chunk-aware/Dask-compatible.
+- Use the NISAR-modified Copernicus DEM by default for real products; retain
+  the original public orthometric COP30 path as an explicit compatibility
+  source requiring correction.
+- Continue real-product geometry characterization. The v0.1 decision is to
+  keep geometry eager while phase/product arrays remain Dask-compatible; revisit
+  chunk-aware geometry only after a representative benchmark.
 - Keep regression evidence reproducible without storing large external GUNW or
   DEM files in the repository.
 
@@ -29,10 +32,8 @@ general package contract.
 
 - Characterize reference-phase inputs and support rules using Colorado as
   downstream evidence, without importing its station/date policy.
-- Expand optional-dependency and installation checks, including wheel
-  installation and explicit CLI smoke coverage.
-- Add release-oriented metadata such as `CITATION.cff` before the first tagged
-  release.
+- Run the isolated wheel-install and CLI smoke checks, publish the source docs
+  site through the repository workflow, and add release-oriented metadata.
 
 ## Later
 

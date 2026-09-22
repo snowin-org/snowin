@@ -1,0 +1,22 @@
+site_name: SnowIn
+site_description: Snow-focused SAR and InSAR analysis tools
+site_url: https://snowin-org.github.io/snowin/
+repo_url: https://github.com/snowin-org/snowin
+theme:
+  name: material
+nav:
+  - Home: index.md
+  - Architecture: architecture.md
+  - Data model: data_model.md
+  - Scientific conventions: scientific_conventions.md
+  - DEM vertical datums: vertical_datums.md
+  - Development: development.md
+  - Release process: release.md
+  - Code provenance: code_provenance.md
+  - Detailed architecture: snowin_architecture_v1.md
+  - Roadmap: roadmap.md
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true

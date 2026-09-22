@@ -14,6 +14,7 @@ from snowin.io import (
     open_gunw,
     read_gunw_wavelength_m,
 )
+from snowin.io.nisar import _nisar_dem_tile_url
 
 
 def _pair_inputs() -> tuple[xr.DataArray, xr.DataArray, xr.DataArray]:
@@ -107,6 +108,12 @@ def test_nisar_wavelength_is_derived_from_center_frequency(tmp_path):
     assert read_gunw_wavelength_m(path) == pytest.approx(0.299792458)
 
 
+def test_nisar_dem_tile_url_uses_documented_band_directories():
+    assert _nisar_dem_tile_url(36, -109).endswith(
+        "/EPSG4326/N30/N30_W120/DEM_N36_00_W109_00_C01.tif"
+    )
+
+
 def test_nisar_adapter_opens_lazy_normalized_gunw(tmp_path):
     pytest.importorskip("scipy")
     h5netcdf = pytest.importorskip("h5netcdf")
@@ -145,7 +152,7 @@ def test_product_ellipsoid_incidence_requires_explicit_opt_in(tmp_path):
         result.close()
 
 
-def test_cop30_local_incidence_downloads_dem_by_default(tmp_path, monkeypatch):
+def test_nisar_cop30_local_incidence_downloads_dem_by_default(tmp_path, monkeypatch):
     h5netcdf = pytest.importorskip("h5netcdf")
     path = tmp_path / "test_gunw_default.h5"
     _write_synthetic_gunw(h5netcdf, path)
@@ -156,11 +163,14 @@ def test_cop30_local_incidence_downloads_dem_by_default(tmp_path, monkeypatch):
         calls.append((args, kwargs))
         return _synthetic_dem()
 
-    monkeypatch.setattr("snowin.io.nisar.download_cop30_dem_for_gunw", fake_download)
+    monkeypatch.setattr(
+        "snowin.io.nisar.download_nisar_cop30_dem_for_gunw", fake_download
+    )
     result = open_gunw(path, chunks=None)
     try:
         assert len(calls) == 1
         assert result.attrs["incidence_angle_reference"] == "local terrain surface"
+        assert result.attrs["dem_source"] == "nisar_cop30"
         assert result.attrs["wavelength_m"] == pytest.approx(0.299792458)
     finally:
         result.close()
@@ -182,6 +192,44 @@ def test_gunw_wavelength_can_be_explicitly_overridden(tmp_path):
         assert result.attrs["wavelength_source"] == "explicit wavelength_m override"
     finally:
         result.close()
+
+
+def test_tandem30_dem_source_uses_local_ellipsoidal_input(tmp_path):
+    pytest.importorskip("scipy")
+    h5netcdf = pytest.importorskip("h5netcdf")
+    path = tmp_path / "test_gunw_tandem30.h5"
+    _write_synthetic_gunw(h5netcdf, path)
+
+    result = open_gunw(
+        path,
+        dem_source="tandem30",
+        tandem30_dem=_synthetic_dem(),
+        require_vertical_datum_match=True,
+        chunks=None,
+    )
+    try:
+        assert result.attrs["dem_source"] == "tandem30"
+        assert result.attrs["dem_product"] == "TanDEM-X 30 m DEM"
+        assert result.attrs["dem_height_reference"] == "ellipsoidal"
+        assert result.attrs["vertical_datum_status"] == "matched"
+    finally:
+        result.close()
+
+
+def test_srtm30_requires_vertical_correction_for_strict_matching(tmp_path):
+    pytest.importorskip("scipy")
+    h5netcdf = pytest.importorskip("h5netcdf")
+    path = tmp_path / "test_gunw_srtm30.h5"
+    _write_synthetic_gunw(h5netcdf, path)
+
+    with pytest.raises(ValueError, match="SRTM 30 m DEM heights"):
+        open_gunw(
+            path,
+            dem_source="srtm30",
+            srtm30_dem=_synthetic_dem(),
+            require_vertical_datum_match=True,
+            chunks=None,
+        )
 
 
 def test_nisar_adapter_preserves_dask_backing_when_available(tmp_path):

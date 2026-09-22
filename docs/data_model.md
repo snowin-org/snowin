@@ -94,17 +94,18 @@ Attributes must remain serializable; nested Python objects should be encoded
 as JSON strings when persistence requires it.
 
 The Stage 3 NISAR adapter defaults to a local terrain-surface incidence angle
-generated from a cached or automatically downloaded COP30 DEM and the GUNW
-radar-grid look vectors. A caller may also provide a local DEM explicitly. The product's
+generated from a cached or automatically downloaded NISAR-modified Copernicus
+DEM and the GUNW radar-grid look vectors. A caller may also provide a local
+DEM explicitly. The product's
 native ellipsoid-normal `incidenceAngle` is retained as an explicit opt-in
 compatibility mode, not silently substituted for the local retrieval angle.
 The DEM acquisition/cache path, DEM reprojection, LOS interpolation, selected
 radar-grid height, coordinate orientation, and source paths are recorded in
 Dataset provenance. The adapter also records the GUNW ellipsoidal height
-reference and COP30 vertical datum. Because those references differ, callers
-may provide a same-grid geoid-undulation correction (added to orthometric
-COP30 heights), or require the adapter to reject uncorrected geometry. The
-default remains explicitly provisional when no correction is supplied.
+reference and DEM vertical datum. The default NISAR-modified Copernicus DEM is
+ellipsoidal; the original orthometric COP30 compatibility source requires a
+same-grid geoid-undulation correction or strict rejection of uncorrected
+geometry.
 
 ## Required and optional variables
 

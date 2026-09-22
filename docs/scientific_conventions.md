@@ -167,17 +167,16 @@ generic default.
 `incidence_angle_reference` attribute is required and must distinguish at
 least `ellipsoid` from `local`. The package must not substitute one for the
 other or infer the distinction from a variable name. The Stage 3 NISAR
-adapter defaults to `local` incidence generated from a COP30 DEM and the
+adapter defaults to `local` incidence generated from the NISAR-modified
+Copernicus DEM and the
 product radar-grid LOS cube; the product's ellipsoid-normal `incidenceAngle`
 is available only through an explicit adapter mode.
 
 The geometry boundary also records reference-system assumptions explicitly.
 GUNW radar-grid height coordinates are heights above the WGS84 ellipsoid.
-Copernicus GLO-30 elevation is documented against the EGM2008 orthometric
-datum. The current Stage 3 implementation uses the COP30 surface for terrain
-normals and LOS lookup, records the two references, and does not silently apply
-a geoid correction. A final geometry release must either provide and validate
-that correction or formally justify the bounded effect for this operation.
+The NISAR-modified Copernicus DEM is re-referenced to the WGS84 ellipsoid for
+SAR processing. The original Copernicus GLO-30 elevation is documented against
+the EGM2008 orthometric datum and remains an explicit compatibility source.
 
 ## Reference phase and corrections
 
