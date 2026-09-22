@@ -1,0 +1,39 @@
+{
+  "fixture_id": "nisar-gunw-cop30-local-incidence-006-019-a-020",
+  "gunw_filename": "NISAR_L2_PR_GUNW_006_019_A_020_008_4000_SH_20251123T121042_20251123T121117_20251217T121043_20251217T121118_X05010_N_F_J_001.h5",
+  "cop30_tile_filename": "Copernicus_DSM_COG_10_N36_00_W106_00_DEM.tif",
+  "frequency": "frequencyA",
+  "polarization": "HH",
+  "epsg_code": 32613,
+  "target_grid": {
+    "x_start": 450000.0,
+    "x_stop": 460000.0,
+    "y_start": 4050000.0,
+    "y_stop": 4040000.0,
+    "width": 128,
+    "height": 128
+  },
+  "expected_incidence_rad": {
+    "valid_fraction": 1.0,
+    "min": 0.07950305193662643,
+    "max": 1.5504974126815796,
+    "mean": 0.8790057301521301,
+    "std": 0.2595740556716919,
+    "p50": 0.902168869972229
+  },
+  "tolerance_rad": 2e-6,
+  "independent_reference": {
+    "implementation": "nisar_firstlook.analysis.incidence.local_incidence_angle",
+    "repository": "jacktarricone/nisar-grl-colorado-firstlook",
+    "commit": "f5c17ef",
+    "comparison_max_abs_rad": 1.1920928955078125e-7,
+    "comparison_mean_abs_rad": 1.9765138858929276e-8
+  },
+  "vertical_reference": {
+    "gunw_los_height_axis": "heightAboveEllipsoid / WGS84 ellipsoid",
+    "cop30_dem": "EGM2008 orthometric height",
+    "conversion_applied": false,
+    "status": "explicit Stage 4 assumption requiring future geoid-correction decision"
+  },
+  "provenance": "Real GUNW and public Copernicus GLO-30 tile; no ASO tuning. Expected values were independently generated with the verified Colorado implementation and compared in radians."
+}

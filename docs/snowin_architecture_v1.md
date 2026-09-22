@@ -450,10 +450,29 @@ Stage 3 implementation decisions:
 
 Goals:
 
-- define and implement local-incidence handling required by dSWE retrieval;
-- validate CRS, grid, units, and source semantics;
-- compare candidate implementation with Colorado and `nisar_pytools`;
-- add synthetic and regression tests.
+- harden and scientifically validate the Stage 3 local-incidence path rather
+  than create a second incidence implementation;
+- validate the terrain-normal/LOS equation against the verified Colorado
+  implementation, NISAR/JPL product documentation, and analytic flat/sloped
+  DEM cases;
+- make projected CRS, DEM/GUNW vertical references, pixel-center alignment,
+  x/y orientation, radar-grid height interpolation, LOS direction, and
+  incidence range explicit;
+- reject missing CRS, non-overlapping DEMs, out-of-range LOS interpolation,
+  non-monotonic coordinates, invalid source angle units, and incompatible
+  grids;
+- retain the NISAR convention that a missing LOS Z is derived from valid X/Y
+  unit-vector components, while rejecting cases where that derivation is not
+  physically possible;
+- add a real GUNW/COP30 regression fixture with saved incidence statistics,
+  declared tolerances, and no ASO-based tuning;
+- decide whether the current eagerly materialized SciPy geometry operation is
+  acceptable or should become chunk-aware/Dask-compatible;
+- record the validated equation, CRS and vertical-reference assumptions,
+  interpolation rules, limitations, and regression evidence in provenance.
+
+Stage 4 does not include reference phase, temporal accumulation, Colorado
+workflow integration, or validation metrics. Those remain later stages.
 
 ### Stage 5: reference phase
 

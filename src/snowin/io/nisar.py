@@ -112,6 +112,16 @@ def compute_cop30_local_incidence(
     sorted_x, _ = _sorted_axis(x_radar, arrays[0], 2)
     yy, xx = np.meshgrid(y, x, indexing="ij")
     points = np.column_stack((elevation.ravel(), yy.ravel(), xx.ravel()))
+    point_axes = (points[:, 0], points[:, 1], points[:, 2])
+    lookup_axes = (sorted_height, sorted_y, sorted_x)
+    if any(
+        np.nanmin(point_axis) < lookup_axis[0]
+        or np.nanmax(point_axis) > lookup_axis[-1]
+        for point_axis, lookup_axis in zip(point_axes, lookup_axes)
+    ):
+        raise ValueError(
+            "COP30 DEM surface or target grid extends outside the GUNW LOS lookup cube"
+        )
 
     interpolated = []
     for values in arrays:
@@ -158,6 +168,11 @@ def compute_cop30_local_incidence(
             "incidence_angle_reference": "local",
             "source_units": "degrees",
             "long_name": "COP30 terrain-surface local incidence angle",
+            "valid_min": 0.0,
+            "valid_max": float(np.pi),
+            "los_vector_direction": "target_to_sensor",
+            "dem_vertical_datum": dem.attrs.get("vertical_datum", "unknown"),
+            "los_height_reference": "WGS84 ellipsoid",
             "definition": (
                 "angle between target-to-sensor GUNW LOS and COP30 DEM-derived "
                 "local terrain normal"
@@ -172,6 +187,13 @@ def compute_cop30_local_incidence(
 def _coordinate_transform(x: np.ndarray, y: np.ndarray):
     from rasterio.transform import from_origin
 
+    for name, coordinate in (("x", x), ("y", y)):
+        coordinate = np.asarray(coordinate, dtype=float)
+        if coordinate.ndim != 1 or coordinate.size < 2:
+            raise ValueError(f"{name} coordinates must be 1-D with at least two values")
+        difference = np.diff(coordinate)
+        if not (np.all(difference > 0) or np.all(difference < 0)):
+            raise ValueError(f"{name} coordinates must be strictly monotonic")
     dx = float(np.median(np.abs(np.diff(x))))
     dy = float(np.median(np.abs(np.diff(y))))
     if not np.isfinite(dx) or not np.isfinite(dy) or dx <= 0 or dy <= 0:
@@ -213,6 +235,8 @@ def _open_cop30_dem(
             source_crs = source.crs
             source_transform = source.transform
             source_nodata = source.nodata
+            if source_crs is None:
+                raise ValueError("COP30 DEM raster is missing its CRS")
             if source_nodata is not None and np.isfinite(source_nodata):
                 source_values[source_values == source_nodata] = np.nan
 
@@ -250,12 +274,21 @@ def _open_cop30_dem(
     with np.errstate(divide="ignore", invalid="ignore"):
         destination = destination / weights
     destination[weights <= 0] = np.nan
+    if not np.isfinite(destination).any():
+        raise ValueError("COP30 DEM does not overlap the GUNW phase grid")
     return xr.DataArray(
         destination,
         dims=("y", "x"),
         coords={"y": y, "x": x},
         name="cop30_elevation",
-        attrs={"units": "m", "epsg_code": epsg_code},
+        attrs={
+            "units": "m",
+            "epsg_code": epsg_code,
+            "horizontal_datum": "WGS84",
+            "vertical_datum": "EGM2008",
+            "vertical_datum_epsg": 3855,
+            "height_reference": "orthometric",
+        },
     )
 
 
@@ -284,7 +317,13 @@ def _read_radar_los(gunw_file: Path) -> tuple[np.ndarray, ...]:
         if "losUnitVectorZ" in group:
             los_z = np.asarray(group["losUnitVectorZ"][...], dtype=float)
         else:
-            los_z = np.sqrt(np.maximum(1.0 - los_x**2 - los_y**2, 0.0))
+            horizontal_squared = los_x**2 + los_y**2
+            if np.any(horizontal_squared > 1.0 + 1e-6):
+                raise ValueError(
+                    "GUNW is missing losUnitVectorZ and its X/Y vectors cannot "
+                    "define a real unit-vector Z component"
+                )
+            los_z = np.sqrt(np.maximum(1.0 - horizontal_squared, 0.0))
     return heights, x_radar, y_radar, los_x, los_y, los_z
 
 
@@ -875,6 +914,10 @@ def open_gunw(
                 "incidence_angle_source": "COP30 DEM plus NISAR GUNW radar-grid LOS",
                 "incidence_angle_algorithm": "snowin.io.nisar.compute_cop30_local_incidence",
                 "incidence_angle_reference": "local terrain surface",
+                "gunw_height_reference": "WGS84 ellipsoid",
+                "cop30_vertical_datum": "EGM2008 orthometric",
+                "vertical_datum_transform": "not applied",
+                "coordinate_orientation": "GUNW projected x/y phase-grid coordinates",
                 "cop30_dem": str(cop30_dem)
                 if not isinstance(cop30_dem, xr.DataArray)
                 else "xarray.DataArray",

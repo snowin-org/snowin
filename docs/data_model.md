@@ -99,7 +99,10 @@ radar-grid look vectors. A caller may also provide a local DEM explicitly. The p
 native ellipsoid-normal `incidenceAngle` is retained as an explicit opt-in
 compatibility mode, not silently substituted for the local retrieval angle.
 The DEM acquisition/cache path, DEM reprojection, LOS interpolation, selected
-radar-grid height, and source paths are recorded in Dataset provenance.
+radar-grid height, coordinate orientation, and source paths are recorded in
+Dataset provenance. The adapter also records the GUNW ellipsoidal height
+reference and COP30 vertical datum; it currently does not apply a geoid
+correction between them.
 
 ## Required and optional variables
 
