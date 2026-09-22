@@ -433,10 +433,14 @@ Stage 3 implementation decisions:
 
 - `snowin.io.open_gunw()` is a thin xarray/h5netcdf boundary after evaluating
   `nisar_pytools`; `nisar_pytools` is not a SnowIn runtime dependency.
+- `open_gunw()` intentionally stops before incidence geometry so callers can
+  inspect a GUNW without waiting for DEM access or LOS interpolation.
+  `compute_gunw_incidence(gunw_file, target)` requires the explicit GUNW path,
+  and `add_gunw_incidence(target, gunw_file)` appends the result and provenance.
 - The default retrieval incidence is NISAR-modified Copernicus DEM-derived local incidence from
   the GUNW radar-grid LOS cube. The product ellipsoid-normal `incidenceAngle`
   is an explicit opt-in compatibility mode, never a silent substitute.
-- If no DEM is supplied, `open_gunw()` downloads and caches the
+- If no DEM is supplied, `add_gunw_incidence()` downloads and caches the
   NISAR-modified Copernicus DEM tiles covering the GUNW phase-grid footprint;
   callers may provide a local DEM or cache directory to control network and
   storage behavior. The original public orthometric COP30 path remains an

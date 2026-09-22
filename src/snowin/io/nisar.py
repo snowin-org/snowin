@@ -79,6 +79,12 @@ _DEM_SOURCE_METADATA: dict[DEMSource, dict[str, str]] = {
 }
 
 
+def _progress(message: str, enabled: bool) -> None:
+    """Emit a small user-facing progress message for slow I/O/geometry work."""
+    if enabled:
+        print(f"[snowin] {message}", flush=True)
+
+
 def _validate_dem_source(source: str) -> DEMSource:
     if source not in _DEM_SOURCE_METADATA:
         supported = ", ".join(_DEM_SOURCE_METADATA)
@@ -115,6 +121,7 @@ def compute_cop30_local_incidence(
     vertical_correction_m: xr.DataArray | str | Path | None = None,
     require_vertical_datum_match: bool = False,
     dem_source: DEMSource = "cop30",
+    progress: bool = True,
 ) -> xr.DataArray:
     """Compute terrain-surface incidence from a named DEM and GUNW LOS.
 
@@ -130,6 +137,7 @@ def compute_cop30_local_incidence(
     :func:`open_gunw`.
     """
     dem_source = _validate_dem_source(dem_source)
+    _progress("computing terrain-surface incidence from DEM and GUNW LOS", progress)
     source_label = _DEM_SOURCE_METADATA[dem_source]["label"]
     if dem.dims != ("y", "x"):
         raise ValueError(f"{source_label} must use dimensions ('y', 'x')")
@@ -217,6 +225,7 @@ def compute_cop30_local_incidence(
             f"{source_label} surface or target grid extends outside the GUNW LOS lookup cube"
         )
 
+    _progress("interpolating GUNW LOS vectors onto the DEM surface", progress)
     interpolated = []
     for values in arrays:
         _, values = _sorted_axis(heights, values, 0)
@@ -230,6 +239,7 @@ def compute_cop30_local_incidence(
         )
         interpolated.append(interpolator(points).reshape(elevation.shape))
 
+    _progress("deriving terrain normals and incidence angles", progress)
     dx = float(x[1] - x[0])
     dy = float(y[1] - y[0])
     if dx == 0 or dy == 0:
@@ -667,6 +677,7 @@ def download_nisar_cop30_dem_for_gunw(
     output_path: str | Path | None = None,
     frequency: str = "frequencyA",
     polarization: str | None = None,
+    progress: bool = True,
 ) -> Path:
     """Download and mosaic the modified Copernicus DEM used by NISAR.
 
@@ -680,6 +691,7 @@ def download_nisar_cop30_dem_for_gunw(
     from rasterio.merge import merge
 
     path = Path(gunw_file).expanduser().resolve()
+    _progress("locating NISAR Copernicus DEM tiles for GUNW", progress)
     pol = polarization or _detect_pol_without_loading(path)
     min_lon, min_lat, max_lon, max_lat = _gunw_geographic_bounds(
         path,
@@ -701,6 +713,7 @@ def download_nisar_cop30_dem_for_gunw(
             tile_path = root / tile_name
             if not tile_path.exists():
                 url = _nisar_dem_tile_url(latitude, longitude)
+                _progress(f"downloading DEM tile {tile_name}", progress)
                 try:
                     _download_nisar_dem_tile(url, tile_path)
                 except Exception as exc:
@@ -719,7 +732,9 @@ def download_nisar_cop30_dem_for_gunw(
         else root / f"{path.stem}_nisar_cop30.tif"
     )
     if destination.exists():
+        _progress(f"using cached NISAR DEM mosaic {destination}", progress)
         return destination
+    _progress("mosaicking NISAR DEM tiles", progress)
     destination.parent.mkdir(parents=True, exist_ok=True)
     sources = [rasterio.open(tile_path) for tile_path in tile_paths]
     try:
@@ -803,6 +818,7 @@ def download_cop30_dem_for_gunw(
     output_path: str | Path | None = None,
     frequency: str = "frequencyA",
     polarization: str | None = None,
+    progress: bool = True,
 ) -> Path:
     """Download and mosaic public COP30 tiles covering a GUNW phase grid.
 
@@ -820,6 +836,7 @@ def download_cop30_dem_for_gunw(
     from rasterio.merge import merge
 
     path = Path(gunw_file).expanduser().resolve()
+    _progress("locating public COP30 tiles for GUNW", progress)
     pol = polarization or _detect_pol_without_loading(path)
     min_lon, min_lat, max_lon, max_lat = _gunw_geographic_bounds(
         path,
@@ -846,6 +863,7 @@ def download_cop30_dem_for_gunw(
             tile_path = tile_dir / f"{tile_name}.tif"
             if not tile_path.exists():
                 url = f"{_COP30_S3_BASE_URL}/{tile_name}/{tile_name}.tif"
+                _progress(f"downloading DEM tile {tile_name}", progress)
                 partial = tile_path.with_suffix(".part")
                 try:
                     with (
@@ -867,7 +885,9 @@ def download_cop30_dem_for_gunw(
         else root / f"{path.stem}_cop30.tif"
     )
     if destination.exists():
+        _progress(f"using cached COP30 DEM mosaic {destination}", progress)
         return destination
+    _progress("mosaicking COP30 DEM tiles", progress)
     destination.parent.mkdir(parents=True, exist_ok=True)
     sources = [rasterio.open(tile_path) for tile_path in tile_paths]
     try:
@@ -942,7 +962,9 @@ def _require_aligned(phase: xr.DataArray, incidence_angle: xr.DataArray) -> None
     if phase.sizes != incidence_angle.sizes:
         raise ValueError("phase and incidence_angle must have the same grid shape")
     for dim in ("y", "x"):
-        if not phase.coords[dim].equals(incidence_angle.coords[dim]):
+        if not np.array_equal(
+            phase.coords[dim].data, incidence_angle.coords[dim].data
+        ):
             raise ValueError(
                 f"phase and incidence_angle coordinates differ for {dim!r}"
             )
@@ -1184,108 +1206,37 @@ def _detect_pol_without_loading(gunw_file: Path) -> str:
 def open_gunw(
     gunw_file: str | Path,
     *,
-    dem_source: DEMSource = "nisar_cop30",
-    nisar_cop30_dem: str | Path | xr.DataArray | Literal["auto"] | None = "auto",
-    cop30_dem: str | Path | xr.DataArray | Literal["auto"] | None = None,
-    tandem30_dem: str | Path | xr.DataArray | None = None,
-    srtm30_dem: str | Path | xr.DataArray | None = None,
-    dem_cache_dir: str | Path | None = None,
-    cop30_cache_dir: str | Path | None = None,
-    dem_vertical_correction_m: xr.DataArray | str | Path | None = None,
-    cop30_vertical_correction_m: xr.DataArray | str | Path | None = None,
-    require_vertical_datum_match: bool = False,
     wavelength_m: float | None = None,
-    incidence_source: str = "cop30_local",
     polarization: str | None = None,
     frequency: str = "frequencyA",
-    radar_cube_index: int = 0,
-    incidence_resampling: str = "linear",
     chunks: dict[str, int] | str | None = "auto",
+    progress: bool = True,
 ) -> xr.Dataset:
-    """Open and normalize a NISAR GUNW as a lazy SnowIn Dataset.
+    """Open and normalize a NISAR GUNW without computing incidence geometry.
 
-    By default, the incidence field is generated from the downloaded or cached
-    modified Copernicus DEM used by NISAR and the GUNW radar-grid LOS vectors using
-    :func:`compute_cop30_local_incidence`.  Pass a local DEM path or DataArray
-    to avoid network access. ``cop30_dem`` remains a compatibility input for
-    the original public orthometric Copernicus tiles; set
-    ``dem_source='cop30'`` when using it. TanDEM-X and SRTM remain explicit
-    local-only alternatives and are not part of the default path. Use
-    ``dem_cache_dir`` to control the cache location; the legacy
-    ``cop30_cache_dir`` spelling remains accepted.
-    This is the terrain-surface angle required by the snow retrieval.  The
-    product's ellipsoid-normal ``incidenceAngle`` is available only through
-    the explicit ``incidence_source='product_ellipsoid'`` compatibility path;
-    it is not silently substituted for local incidence.
+    This fast product-inspection step opens the phase, coherence, connected
+    components, coordinates, metadata, and wavelength.  It deliberately does
+    not download a DEM or read the radar-grid LOS cube.  Call
+    :func:`add_gunw_incidence` with the same explicit GUNW path when the
+    terrain-surface incidence angle is needed.
 
     ``chunks='auto'`` preserves lazy Dask-backed arrays.  Pass ``chunks=None``
     for an eager read when Dask is not installed.
-
-    The default NISAR-modified Copernicus DEM is already re-referenced to the
-    WGS84 ellipsoid used by GUNW. Raw COP30 heights are EGM2008 orthometric,
-    while SRTM30 is also orthometric (normally EGM96), and TanDEM-X 30 m is
-    ellipsoidal WGS84-G1150. For orthometric inputs, supply a
-    ``dem_vertical_correction_m`` same-grid xarray DataArray or a
-    CRS-bearing raster containing EGM2008 geoid undulation in metres. The
-    correction is added to the selected orthometric height as ``h = H + N``.
-    ``cop30_vertical_correction_m`` is retained as a COP30-compatible alias;
-    use ``dem_vertical_correction_m`` for a generic named source. Set
-    ``require_vertical_datum_match=True`` to reject uncorrected geometry.
     """
     path = Path(gunw_file).expanduser().resolve()
     if not path.exists():
         raise FileNotFoundError(f"GUNW file not found: {path}")
     if polarization is not None and polarization not in {"HH", "VV"}:
         raise ValueError("polarization must be 'HH', 'VV', or None")
-    dem_source = _validate_dem_source(dem_source)
-    if (
-        dem_source == "nisar_cop30"
-        and nisar_cop30_dem == "auto"
-        and cop30_dem is not None
-        and (isinstance(cop30_dem, xr.DataArray) or cop30_dem != "auto")
-    ):
-        # Preserve the pre-source-selection API for callers that passed a
-        # local COP30 path without an explicit dem_source.
-        dem_source = "cop30"
-    if (
-        dem_vertical_correction_m is not None
-        and cop30_vertical_correction_m is not None
-    ):
-        raise ValueError(
-            "provide only one of dem_vertical_correction_m and "
-            "cop30_vertical_correction_m"
-        )
-    vertical_correction_m = (
-        dem_vertical_correction_m
-        if dem_vertical_correction_m is not None
-        else cop30_vertical_correction_m
-    )
-    if dem_cache_dir is not None and cop30_cache_dir is not None:
-        raise ValueError("provide only one of dem_cache_dir and cop30_cache_dir")
-    cache_dir = dem_cache_dir if dem_cache_dir is not None else cop30_cache_dir
-    if incidence_source not in {"cop30_local", "product_ellipsoid"}:
-        raise ValueError(
-            "incidence_source must be 'cop30_local' or 'product_ellipsoid'"
-        )
-    if incidence_resampling not in {"linear", "nearest"}:
-        raise ValueError("incidence_resampling must be 'linear' or 'nearest'")
-
+    _progress(f"opening GUNW phase data from {path.name}", progress)
     pol = polarization or _detect_pol_without_loading(path)
     phase_group = f"/science/LSAR/GUNW/grids/{frequency}/unwrappedInterferogram/{pol}"
-    radar_group = RADAR_GRID_GROUP
     phase_ds = _open_group(path, phase_group, chunks=chunks)
-    radar_ds = (
-        _open_group(path, radar_group, chunks=chunks)
-        if incidence_source == "product_ellipsoid"
-        else None
-    )
     try:
         if "unwrappedPhase" not in phase_ds:
             raise ValueError(
                 f"GUNW phase layer is missing at {phase_group}/unwrappedPhase"
             )
-        if incidence_source == "product_ellipsoid" and "incidenceAngle" not in radar_ds:
-            raise ValueError(f"GUNW incidenceAngle is missing at {radar_group}")
         if "projection" not in phase_ds:
             raise ValueError("GUNW phase group is missing its projection metadata")
 
@@ -1295,135 +1246,6 @@ def open_gunw(
         raw_phase.attrs["units"] = raw_phase.attrs.get("units", "").lower()
         if raw_phase.attrs["units"] not in {"radians", "radian", "rad"}:
             raise ValueError("GUNW unwrappedPhase has missing or unknown angle units")
-
-        if incidence_source == "product_ellipsoid":
-            raw_incidence = _radar_grid_slice(
-                radar_ds["incidenceAngle"],
-                radar_ds,
-                radar_cube_index=radar_cube_index,
-            )
-            source_incidence_units = raw_incidence.attrs.get("units")
-            if source_incidence_units not in _KNOWN_SOURCE_ANGLE_UNITS:
-                raise ValueError(
-                    "GUNW incidenceAngle has missing or unknown source angle units; "
-                    "expected degrees metadata"
-                )
-            incidence = raw_incidence * (math.pi / 180.0)
-            incidence.attrs = _serializable_attrs(raw_incidence.attrs)
-            incidence.attrs.update(
-                {
-                    "units": "rad",
-                    "incidence_angle_reference": "ellipsoid",
-                    "source_units": source_incidence_units,
-                    "source_variable": "incidenceAngle",
-                }
-            )
-            if np.array_equal(
-                incidence.coords["x"].data, raw_phase.coords["x"].data
-            ) and np.array_equal(
-                incidence.coords["y"].data, raw_phase.coords["y"].data
-            ):
-                incidence = incidence.assign_coords(
-                    x=raw_phase.coords["x"], y=raw_phase.coords["y"]
-                )
-            else:
-                incidence = incidence.interp_like(
-                    raw_phase, method=incidence_resampling
-                )
-            incidence_provenance = {
-                "incidence_angle_source": "NISAR GUNW radarGrid ellipsoid incidenceAngle",
-                "incidence_angle_resampling": incidence_resampling,
-                "incidence_angle_radar_cube_index": radar_cube_index,
-            }
-        else:
-            epsg_code = phase_ds["projection"].attrs.get("epsg_code")
-            if epsg_code is None:
-                raise ValueError("GUNW projection metadata is missing epsg_code")
-            target_x = np.asarray(phase_ds["xCoordinates"].load().data, dtype=float)
-            target_y = np.asarray(phase_ds["yCoordinates"].load().data, dtype=float)
-            dem_inputs = {
-                "nisar_cop30": nisar_cop30_dem,
-                "cop30": cop30_dem,
-                "tandem30": tandem30_dem,
-                "srtm30": srtm30_dem,
-            }
-            selected_dem = dem_inputs[dem_source]
-            if dem_source in {"nisar_cop30", "cop30"} and (
-                selected_dem is None
-                or (isinstance(selected_dem, str) and selected_dem == "auto")
-            ):
-                if dem_source == "nisar_cop30":
-                    selected_dem = download_nisar_cop30_dem_for_gunw(
-                        path,
-                        cache_dir=cache_dir,
-                        frequency=frequency,
-                        polarization=pol,
-                    )
-                else:
-                    selected_dem = download_cop30_dem_for_gunw(
-                        path,
-                        cache_dir=cache_dir,
-                        frequency=frequency,
-                        polarization=pol,
-                    )
-            elif selected_dem is None or (
-                isinstance(selected_dem, str) and selected_dem == "auto"
-            ):
-                raise ValueError(
-                    f"dem_source={dem_source!r} requires a local "
-                    f"{dem_source}_dem path or DataArray; SnowIn does not "
-                    "download that source automatically"
-                )
-            dem = _open_dem(
-                selected_dem,
-                x=target_x,
-                y=target_y,
-                epsg_code=int(epsg_code),
-                dem_source=dem_source,
-            )
-            heights, x_radar, y_radar, los_x, los_y, los_z = _read_radar_los(path)
-            incidence = compute_cop30_local_incidence(
-                dem,
-                los_x,
-                los_y,
-                los_z,
-                heights,
-                x_radar,
-                y_radar,
-                epsg_code=int(epsg_code),
-                vertical_correction_m=vertical_correction_m,
-                require_vertical_datum_match=require_vertical_datum_match,
-                dem_source=dem_source,
-            )
-            source_metadata = _DEM_SOURCE_METADATA[dem_source]
-            incidence_provenance = {
-                "incidence_angle_source": (
-                    f"{source_metadata['label']} plus NISAR GUNW radar-grid LOS"
-                ),
-                "incidence_angle_algorithm": "snowin.io.nisar.compute_cop30_local_incidence",
-                "incidence_angle_reference": "local terrain surface",
-                "gunw_height_reference": "WGS84 ellipsoid",
-                "dem_source": dem_source,
-                "dem_product": source_metadata["product"],
-                "dem_vertical_datum": source_metadata["vertical_datum"],
-                "dem_height_reference": source_metadata["height_reference"],
-                "vertical_datum_transform": incidence.attrs.get(
-                    "vertical_correction_definition", "not applied"
-                ),
-                "vertical_datum_status": incidence.attrs.get(
-                    "vertical_datum_status", "unknown"
-                ),
-                "vertical_correction_source": incidence.attrs.get(
-                    "vertical_correction_source", "none"
-                ),
-                "coordinate_orientation": "GUNW projected x/y phase-grid coordinates",
-                "dem_input": str(selected_dem)
-                if not isinstance(selected_dem, xr.DataArray)
-                else "xarray.DataArray",
-                "incidence_angle_resampling": (
-                    f"{source_metadata['label']} bilinear reprojection to GUNW phase grid"
-                ),
-            }
 
         additional: dict[str, xr.DataArray] = {}
         for source_name, normalized_name in {
@@ -1445,7 +1267,6 @@ def open_gunw(
             "source_dataset_paths": json.dumps(
                 {
                     "phase": f"{phase_group}/unwrappedPhase",
-                    "incidence_angle": f"{radar_group}/incidenceAngle",
                     "center_frequency": f"/science/LSAR/GUNW/grids/{frequency}/centerFrequency",
                 },
                 sort_keys=True,
@@ -1456,44 +1277,316 @@ def open_gunw(
                 if wavelength_m is not None
                 else "NISAR GUNW centerFrequency metadata via c/f"
             ),
+            "incidence_angle_status": "not_computed",
         }
-        source_provenance.update(incidence_provenance)
-        result = normalize_gunw_pair(
-            raw_phase,
-            incidence,
-            wavelength_m=(
+        canonical_phase = (-raw_phase).rename("phase")
+        phase_attrs = _serializable_attrs(raw_phase.attrs)
+        phase_attrs.update(
+            {
+                "units": "rad",
+                "phase_difference_definition": _CANONICAL_PHASE_DEFINITION,
+                "source_phase_difference_definition": NISAR_GUNW_SOURCE_PHASE_DEFINITION,
+                "phase_transform": NISAR_GUNW_PHASE_TRANSFORM,
+                "source_variable": raw_phase.name or "unwrappedPhase",
+                "grid_mapping": "spatial_ref",
+            }
+        )
+        canonical_phase.attrs = phase_attrs
+        attrs: dict[str, Any] = {
+            "snowin_schema_version": "0.1-draft",
+            "product_kind": "pairwise_interferogram",
+            "reference_time": _identification_time(path, "reference"),
+            "secondary_time": _identification_time(path, "secondary"),
+            "temporal_edge": "reference_to_secondary",
+            "phase_difference_definition": _CANONICAL_PHASE_DEFINITION,
+            "source_phase_difference_definition": NISAR_GUNW_SOURCE_PHASE_DEFINITION,
+            "phase_transform": NISAR_GUNW_PHASE_TRANSFORM,
+            "wavelength_m": (
                 _positive_scalar("wavelength_m", wavelength_m)
                 if wavelength_m is not None
                 else read_gunw_wavelength_m(path, frequency=frequency)
             ),
-            reference_time=_identification_time(path, "reference"),
-            secondary_time=_identification_time(path, "secondary"),
-            source_phase_difference_definition=NISAR_GUNW_SOURCE_PHASE_DEFINITION,
-            spatial_ref=spatial_ref,
-            source_granule_id=str(granule_id) if granule_id is not None else None,
-            additional_variables=additional,
-            provenance=source_provenance,
+            "source_product_type": "NISAR_GUNW",
+            "source_reader": "snowin.io.nisar.open_gunw",
+        }
+        if granule_id is not None:
+            attrs["source_granule_id"] = str(granule_id)
+        attrs.update(source_provenance)
+        variables: dict[str, xr.DataArray] = {"phase": canonical_phase}
+        for name, variable in additional.items():
+            copied = variable.rename(name)
+            copied.attrs = _serializable_attrs(variable.attrs)
+            copied.attrs.setdefault("grid_mapping", "spatial_ref")
+            variables[name] = copied
+        result = xr.Dataset(
+            variables,
+            coords={
+                "y": raw_phase.coords["y"],
+                "x": raw_phase.coords["x"],
+                "spatial_ref": spatial_ref,
+            },
+            attrs=attrs,
         )
+        result["x"].attrs.setdefault("units", "m")
+        result["y"].attrs.setdefault("units", "m")
     except Exception:
         phase_ds.close()
-        if radar_ds is not None:
-            radar_ds.close()
         raise
 
     def close() -> None:
         phase_ds.close()
-        if radar_ds is not None:
-            radar_ds.close()
 
     result.set_close(close)
     return result
+
+
+def compute_gunw_incidence(
+    gunw_file: str | Path,
+    target: xr.Dataset,
+    *,
+    dem_source: DEMSource = "nisar_cop30",
+    nisar_cop30_dem: str | Path | xr.DataArray | Literal["auto"] | None = "auto",
+    cop30_dem: str | Path | xr.DataArray | Literal["auto"] | None = None,
+    tandem30_dem: str | Path | xr.DataArray | None = None,
+    srtm30_dem: str | Path | xr.DataArray | None = None,
+    dem_cache_dir: str | Path | None = None,
+    cop30_cache_dir: str | Path | None = None,
+    dem_vertical_correction_m: xr.DataArray | str | Path | None = None,
+    cop30_vertical_correction_m: xr.DataArray | str | Path | None = None,
+    require_vertical_datum_match: bool = False,
+    incidence_source: str = "cop30_local",
+    frequency: str = "frequencyA",
+    polarization: str | None = None,
+    radar_cube_index: int = 0,
+    incidence_resampling: str = "linear",
+    chunks: dict[str, int] | str | None = None,
+    progress: bool = True,
+) -> xr.DataArray:
+    """Compute incidence for an explicit GUNW and an already-open target.
+
+    The explicit ``gunw_file`` requirement prevents a slow geometry request
+    from being inferred from, or silently substituted for, another product.
+    The returned two-dimensional DataArray is aligned to ``target.phase``;
+    :func:`add_gunw_incidence` appends it to the target Dataset.
+    """
+    if not isinstance(target, xr.Dataset) or "phase" not in target:
+        raise TypeError("target must be an xarray.Dataset containing 'phase'")
+    _require_2d("phase", target["phase"])
+    path = Path(gunw_file).expanduser().resolve()
+    if not path.exists():
+        raise FileNotFoundError(f"GUNW file not found: {path}")
+    if polarization is not None and polarization not in {"HH", "VV"}:
+        raise ValueError("polarization must be 'HH', 'VV', or None")
+    dem_source = _validate_dem_source(dem_source)
+    if dem_vertical_correction_m is not None and cop30_vertical_correction_m is not None:
+        raise ValueError(
+            "provide only one of dem_vertical_correction_m and "
+            "cop30_vertical_correction_m"
+        )
+    vertical_correction_m = (
+        dem_vertical_correction_m
+        if dem_vertical_correction_m is not None
+        else cop30_vertical_correction_m
+    )
+    if dem_cache_dir is not None and cop30_cache_dir is not None:
+        raise ValueError("provide only one of dem_cache_dir and cop30_cache_dir")
+    cache_dir = dem_cache_dir if dem_cache_dir is not None else cop30_cache_dir
+    if incidence_source not in {"cop30_local", "product_ellipsoid"}:
+        raise ValueError(
+            "incidence_source must be 'cop30_local' or 'product_ellipsoid'"
+        )
+    if incidence_resampling not in {"linear", "nearest"}:
+        raise ValueError("incidence_resampling must be 'linear' or 'nearest'")
+    epsg_code = target.spatial_ref.attrs.get("epsg_code")
+    if epsg_code is None:
+        raise ValueError("target spatial_ref is missing epsg_code")
+    pol = polarization or _detect_pol_without_loading(path)
+    radar_group = RADAR_GRID_GROUP
+
+    if incidence_source == "product_ellipsoid":
+        _progress("opening GUNW ellipsoid incidence field", progress)
+        radar_ds = _open_group(path, radar_group, chunks=chunks)
+        try:
+            if "incidenceAngle" not in radar_ds:
+                raise ValueError(f"GUNW incidenceAngle is missing at {radar_group}")
+            raw_incidence = _radar_grid_slice(
+                radar_ds["incidenceAngle"],
+                radar_ds,
+                radar_cube_index=radar_cube_index,
+            )
+            source_incidence_units = raw_incidence.attrs.get("units")
+            if source_incidence_units not in _KNOWN_SOURCE_ANGLE_UNITS:
+                raise ValueError(
+                    "GUNW incidenceAngle has missing or unknown source angle units; "
+                    "expected degrees metadata"
+                )
+            incidence = raw_incidence * (math.pi / 180.0)
+            incidence.attrs = _serializable_attrs(raw_incidence.attrs)
+            incidence.attrs.update(
+                {
+                    "units": "rad",
+                    "incidence_angle_reference": "ellipsoid",
+                    "source_units": source_incidence_units,
+                    "source_variable": "incidenceAngle",
+                }
+            )
+            phase = target["phase"]
+            if np.array_equal(incidence.coords["x"].data, phase.coords["x"].data) and np.array_equal(
+                incidence.coords["y"].data, phase.coords["y"].data
+            ):
+                incidence = incidence.assign_coords(x=phase.coords["x"], y=phase.coords["y"])
+            else:
+                incidence = incidence.interp_like(phase, method=incidence_resampling)
+            incidence.attrs.update(
+                {
+                    "incidence_angle_source": "NISAR GUNW radarGrid ellipsoid incidenceAngle",
+                    "incidence_angle_resampling": incidence_resampling,
+                    "incidence_angle_radar_cube_index": radar_cube_index,
+                }
+            )
+            # Geometry is intentionally materialized before the temporary
+            # radar-grid file handle is closed.
+            incidence = incidence.load()
+        finally:
+            radar_ds.close()
+        return incidence.rename("incidence_angle")
+
+    _progress("preparing DEM for local incidence", progress)
+    target_x = np.asarray(target.coords["x"].data, dtype=float)
+    target_y = np.asarray(target.coords["y"].data, dtype=float)
+    dem_inputs = {
+        "nisar_cop30": nisar_cop30_dem,
+        "cop30": cop30_dem,
+        "tandem30": tandem30_dem,
+        "srtm30": srtm30_dem,
+    }
+    selected_dem = dem_inputs[dem_source]
+    if dem_source in {"nisar_cop30", "cop30"} and (
+        selected_dem is None or (isinstance(selected_dem, str) and selected_dem == "auto")
+    ):
+        selected_dem = (
+            download_nisar_cop30_dem_for_gunw(
+                path,
+                cache_dir=cache_dir,
+                frequency=frequency,
+                polarization=pol,
+                progress=progress,
+            )
+            if dem_source == "nisar_cop30"
+            else download_cop30_dem_for_gunw(
+                path,
+                cache_dir=cache_dir,
+                frequency=frequency,
+                polarization=pol,
+                progress=progress,
+            )
+        )
+    elif selected_dem is None or (isinstance(selected_dem, str) and selected_dem == "auto"):
+        raise ValueError(
+            f"dem_source={dem_source!r} requires a local {dem_source}_dem path or "
+            "DataArray; SnowIn does not download that source automatically"
+        )
+    dem = _open_dem(
+        selected_dem,
+        x=target_x,
+        y=target_y,
+        epsg_code=int(epsg_code),
+        dem_source=dem_source,
+    )
+    _progress("reading GUNW radar-grid LOS vectors", progress)
+    heights, x_radar, y_radar, los_x, los_y, los_z = _read_radar_los(path)
+    incidence = compute_cop30_local_incidence(
+        dem,
+        los_x,
+        los_y,
+        los_z,
+        heights,
+        x_radar,
+        y_radar,
+        epsg_code=int(epsg_code),
+        vertical_correction_m=vertical_correction_m,
+        require_vertical_datum_match=require_vertical_datum_match,
+        dem_source=dem_source,
+        progress=progress,
+    )
+    source_metadata = _DEM_SOURCE_METADATA[dem_source]
+    incidence.attrs.update(
+        {
+            "incidence_angle_source": f"{source_metadata['label']} plus NISAR GUNW radar-grid LOS",
+            "incidence_angle_algorithm": "snowin.io.nisar.compute_cop30_local_incidence",
+            "incidence_angle_reference": "local",
+            "gunw_height_reference": "WGS84 ellipsoid",
+            "dem_source": dem_source,
+            "dem_product": source_metadata["product"],
+            "dem_vertical_datum": source_metadata["vertical_datum"],
+            "dem_height_reference": source_metadata["height_reference"],
+            "vertical_datum_transform": incidence.attrs.get(
+                "vertical_correction_definition", "not applied"
+            ),
+            "vertical_datum_status": incidence.attrs.get(
+                "vertical_datum_status", "unknown"
+            ),
+            "vertical_correction_source": incidence.attrs.get(
+                "vertical_correction_source", "none"
+            ),
+            "coordinate_orientation": "GUNW projected x/y phase-grid coordinates",
+            "dem_input": str(selected_dem)
+            if not isinstance(selected_dem, xr.DataArray)
+            else "xarray.DataArray",
+            "incidence_angle_resampling": (
+                f"{source_metadata['label']} bilinear reprojection to GUNW phase grid"
+            ),
+        }
+    )
+    return incidence.rename("incidence_angle")
+
+
+def add_gunw_incidence(
+    target: xr.Dataset,
+    gunw_file: str | Path,
+    **kwargs: Any,
+) -> xr.Dataset:
+    """Compute incidence for ``gunw_file`` and append it to ``target``."""
+    progress = kwargs.get("progress", True)
+    _progress("starting explicit GUNW incidence calculation", progress)
+    incidence = compute_gunw_incidence(gunw_file, target, **kwargs)
+    _require_aligned(target["phase"], incidence)
+    target["incidence_angle"] = incidence
+    target["incidence_angle"].attrs = _serializable_attrs(incidence.attrs)
+    target.attrs.update(
+        {
+            key: value
+            for key, value in _serializable_attrs(incidence.attrs).items()
+            if key not in {"units", "long_name", "definition"}
+        }
+    )
+    target.attrs["incidence_angle_status"] = "computed"
+    if incidence.attrs.get("incidence_angle_reference") == "local":
+        target.attrs["incidence_angle_reference"] = "local terrain surface"
+    target.attrs["incidence_angle_source"] = incidence.attrs.get(
+        "incidence_angle_source", "explicit GUNW incidence calculation"
+    )
+    paths = target.attrs.get("source_dataset_paths")
+    if paths is not None:
+        try:
+            source_paths = json.loads(str(paths))
+            source_paths["incidence_angle"] = f"{RADAR_GRID_GROUP}/incidenceAngle"
+            target.attrs["source_dataset_paths"] = json.dumps(
+                source_paths, sort_keys=True
+            )
+        except (TypeError, json.JSONDecodeError):
+            pass
+    _progress("incidence_angle appended to SnowIn dataset", progress)
+    return target
 
 
 __all__ = [
     "NISAR_GUNW_PHASE_TRANSFORM",
     "NISAR_GUNW_SOURCE_PHASE_DEFINITION",
     "SPEED_OF_LIGHT_M_S",
+    "add_gunw_incidence",
     "compute_cop30_local_incidence",
+    "compute_gunw_incidence",
     "download_cop30_dem_for_gunw",
     "download_nisar_cop30_dem_for_gunw",
     "normalize_gunw_pair",

@@ -86,16 +86,21 @@ dswe = compute_dswe(phase, incidence, wavelength_m=0.238403545)
 print(f"dSWE: {dswe.item():.3f} m")
 ```
 
-For a NISAR GUNW, `open_gunw` resolves wavelength from product metadata and,
-by default, computes local incidence from the GUNW LOS vectors and the
-modified Copernicus DEM used by NISAR:
+For a NISAR GUNW, `open_gunw` resolves wavelength from product metadata and
+opens the normalized phase/product data without waiting for DEM geometry:
 
 ```python
-from snowin.io import open_gunw
+from snowin.io import add_gunw_incidence, open_gunw
 
 pair = open_gunw("product.h5")
 print(pair.attrs["wavelength_m"])
+add_gunw_incidence(pair, "product.h5")
 ```
+
+The explicit `add_gunw_incidence` step computes local incidence from the
+GUNW LOS vectors and the modified Copernicus DEM used by NISAR, then appends
+`pair["incidence_angle"]` and its provenance. It requires the GUNW path so a
+slow geometry calculation cannot accidentally use a different product.
 
 The default GUNW path uses Dask for lazy loading; the `dev` extra includes it.
 Without Dask, pass `chunks=None` for an eager read. The `gunw` extra supplies
@@ -105,7 +110,9 @@ Use `nisar_cop30_dem="/path/to/dem.tif"` to provide a local NISAR DEM and
 avoid network access:
 
 ```python
-pair = open_gunw(
+pair = open_gunw("product.h5")
+add_gunw_incidence(
+    pair,
     "product.h5",
     nisar_cop30_dem="/path/to/nisar_dem.tif",
     require_vertical_datum_match=True,
@@ -118,7 +125,9 @@ The ASF Earthdata service may require standard Earthdata credentials in
 `~/.netrc`. Other named local sources can be selected explicitly:
 
 ```python
-pair = open_gunw(
+pair = open_gunw("product.h5")
+add_gunw_incidence(
+    pair,
     "product.h5",
     dem_source="tandem30",
     tandem30_dem="/path/to/tandem30.tif",

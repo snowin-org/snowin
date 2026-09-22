@@ -11,9 +11,10 @@ ellipsoid, and is therefore the preferred source for GUNW geometry.
 
 There are two supported scientific routes for the default path:
 
-1. Let `open_gunw()` download and cache the NISAR DEM with
+1. Let `add_gunw_incidence()` download and cache the NISAR DEM with
    `dem_source="nisar_cop30"` (the default), or provide a local raster with
-   `nisar_cop30_dem=...`.
+   `nisar_cop30_dem=...`. `open_gunw()` itself only opens the product for
+   inspection.
 2. Select raw `dem_source="cop30"` and provide an EGM2008 geoid undulation
    raster or same-grid xarray DataArray through
    `dem_vertical_correction_m`. SnowIn applies `h = H + N` before LOS

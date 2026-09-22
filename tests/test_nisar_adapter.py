@@ -10,6 +10,7 @@ import xarray as xr
 
 from snowin.io import (
     NISAR_GUNW_SOURCE_PHASE_DEFINITION,
+    add_gunw_incidence,
     normalize_gunw_pair,
     open_gunw,
     read_gunw_wavelength_m,
@@ -121,8 +122,12 @@ def test_nisar_adapter_opens_lazy_normalized_gunw(tmp_path):
     _write_synthetic_gunw(h5netcdf, path)
 
     dem = _synthetic_dem()
-    result = open_gunw(path, cop30_dem=dem, chunks=None)
+    result = open_gunw(path, chunks=None, progress=False)
     try:
+        assert "incidence_angle" not in result
+        add_gunw_incidence(
+            result, path, dem_source="cop30", cop30_dem=dem, progress=False
+        )
         np.testing.assert_allclose(result.phase.values, [[-1.0, -2.0], [-3.0, -4.0]])
         assert result.phase.attrs["units"] == "rad"
         assert result.incidence_angle.attrs["units"] == "rad"
@@ -144,8 +149,11 @@ def test_product_ellipsoid_incidence_requires_explicit_opt_in(tmp_path):
     path = tmp_path / "test_gunw_ellipsoid.h5"
     _write_synthetic_gunw(h5netcdf, path)
 
-    result = open_gunw(path, incidence_source="product_ellipsoid", chunks=None)
+    result = open_gunw(path, chunks=None, progress=False)
     try:
+        add_gunw_incidence(
+            result, path, incidence_source="product_ellipsoid", progress=False
+        )
         assert result.incidence_angle.attrs["incidence_angle_reference"] == "ellipsoid"
         np.testing.assert_allclose(result.incidence_angle.values, np.deg2rad(30.0))
     finally:
@@ -166,8 +174,9 @@ def test_nisar_cop30_local_incidence_downloads_dem_by_default(tmp_path, monkeypa
     monkeypatch.setattr(
         "snowin.io.nisar.download_nisar_cop30_dem_for_gunw", fake_download
     )
-    result = open_gunw(path, chunks=None)
+    result = open_gunw(path, chunks=None, progress=False)
     try:
+        add_gunw_incidence(result, path, progress=False)
         assert len(calls) == 1
         assert result.attrs["incidence_angle_reference"] == "local terrain surface"
         assert result.attrs["dem_source"] == "nisar_cop30"
@@ -181,13 +190,15 @@ def test_gunw_wavelength_can_be_explicitly_overridden(tmp_path):
     path = tmp_path / "test_gunw_wavelength_override.h5"
     _write_synthetic_gunw(h5netcdf, path)
 
-    result = open_gunw(
-        path,
-        cop30_dem=_synthetic_dem(),
-        wavelength_m=0.123,
-        chunks=None,
-    )
+    result = open_gunw(path, wavelength_m=0.123, chunks=None, progress=False)
     try:
+        add_gunw_incidence(
+            result,
+            path,
+            dem_source="cop30",
+            cop30_dem=_synthetic_dem(),
+            progress=False,
+        )
         assert result.attrs["wavelength_m"] == pytest.approx(0.123)
         assert result.attrs["wavelength_source"] == "explicit wavelength_m override"
     finally:
@@ -200,14 +211,16 @@ def test_tandem30_dem_source_uses_local_ellipsoidal_input(tmp_path):
     path = tmp_path / "test_gunw_tandem30.h5"
     _write_synthetic_gunw(h5netcdf, path)
 
-    result = open_gunw(
-        path,
-        dem_source="tandem30",
-        tandem30_dem=_synthetic_dem(),
-        require_vertical_datum_match=True,
-        chunks=None,
-    )
+    result = open_gunw(path, chunks=None, progress=False)
     try:
+        add_gunw_incidence(
+            result,
+            path,
+            dem_source="tandem30",
+            tandem30_dem=_synthetic_dem(),
+            require_vertical_datum_match=True,
+            progress=False,
+        )
         assert result.attrs["dem_source"] == "tandem30"
         assert result.attrs["dem_product"] == "TanDEM-X 30 m DEM"
         assert result.attrs["dem_height_reference"] == "ellipsoidal"
@@ -223,12 +236,14 @@ def test_srtm30_requires_vertical_correction_for_strict_matching(tmp_path):
     _write_synthetic_gunw(h5netcdf, path)
 
     with pytest.raises(ValueError, match="SRTM 30 m DEM heights"):
-        open_gunw(
+        result = open_gunw(path, chunks=None, progress=False)
+        add_gunw_incidence(
+            result,
             path,
             dem_source="srtm30",
             srtm30_dem=_synthetic_dem(),
             require_vertical_datum_match=True,
-            chunks=None,
+            progress=False,
         )
 
 
@@ -239,8 +254,15 @@ def test_nisar_adapter_preserves_dask_backing_when_available(tmp_path):
     path = tmp_path / "test_gunw_dask.h5"
     _write_synthetic_gunw(h5netcdf, path)
 
-    result = open_gunw(path, cop30_dem=_synthetic_dem(), chunks="auto")
+    result = open_gunw(path, chunks="auto", progress=False)
     try:
+        add_gunw_incidence(
+            result,
+            path,
+            dem_source="cop30",
+            cop30_dem=_synthetic_dem(),
+            progress=False,
+        )
         assert hasattr(result.phase.data, "chunks")
         np.testing.assert_allclose(
             result.phase.compute().values,

@@ -9,7 +9,7 @@ import h5py
 import numpy as np
 import pytest
 
-from snowin.io.nisar import open_gunw
+from snowin.io.nisar import add_gunw_incidence, open_gunw
 
 
 def test_real_gunw_phase_lineage_is_explicit():
@@ -68,10 +68,14 @@ def test_real_gunw_geometry_requires_declared_datum_inputs():
         pytest.skip("set SNOWIN_REAL_GUNW and SNOWIN_REAL_COP30_DEM")
 
     with pytest.raises(ValueError, match="vertical_correction_m"):
-        result = open_gunw(
-            gunw,
-            cop30_dem=dem,
-            chunks=None,
-            require_vertical_datum_match=True,
-        )
-        result.close()
+        result = open_gunw(gunw, chunks=None, progress=False)
+        try:
+            add_gunw_incidence(
+                result,
+                gunw,
+                cop30_dem=dem,
+                require_vertical_datum_match=True,
+                progress=False,
+            )
+        finally:
+            result.close()

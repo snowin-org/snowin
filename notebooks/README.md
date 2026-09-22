@@ -24,5 +24,6 @@ python -m pip install -e ".[dev,gunw]"
 ```
 
 The real-product notebook does not store products or generated rasters in the
-repository. It is intentionally limited to product metadata, SnowIn opening,
-local incidence inspection, and a simple pairwise dSWE preview.
+repository. It first opens the product for metadata/phase inspection, then
+explicitly calls `add_gunw_incidence` for the slower DEM/LOS step before the
+local-incidence and simple pairwise dSWE preview.
