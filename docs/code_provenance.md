@@ -117,3 +117,15 @@ remain downstream.
 | Implementation relationship | Independently implemented as xarray-native helpers in `src/snowin/quality/support.py` and `src/snowin/quality/metrics.py`. The existing NumPy GUNW quality helper remains compatibility behavior and is not used by the canonical Stage 7 API. |
 | Validation evidence | `tests/test_support_metrics.py` covers named-layer separation, unknown-versus-false support, explicit mask composition, grid validation, invalid support values, bias/MAE/RMSE/correlation algebra, unsupported metrics, and Dask-backed equivalence. |
 | Remaining uncertainties | Colorado-specific evaluation subsets, thresholds, effective sample-size treatment for spatial autocorrelation, and validation-data adapters remain outside Stage 7. No ASO or other validation data were used for tuning. |
+
+## Stage 8 Colorado downstream integration
+
+| Field | Record |
+| --- | --- |
+| Capability | First downstream integration boundary for the verified Colorado NISAR first-look repository. |
+| Downstream identity | `jacktarricone/nisar-grl-colorado-firstlook`, verified checkout `/Users/jtarrico/ch13_nisar_prelim`; integration branch `codex/stage8-snowin-integration`. |
+| SnowIn dependency | Colorado pins SnowIn Git commit `e5783fc`; the current checkout requires SSH Git access because no public release artifact exists yet. |
+| Implementation relationship | Colorado independently added `analysis/snowin_adapter.py`, which translates its reviewed NumPy/raster arrays into SnowIn's xarray contract and delegates dSWE, reference offset application, temporal accumulation, support composition, metrics, and COP30 local incidence. No Colorado station, date, basin, output, or sensitivity configuration was moved into SnowIn. |
+| Validation evidence | Colorado focused integration tests pass `4/4`; the full downstream suite passes `50/50`; Ruff, formatting, package build, and `git diff --check` pass. Synthetic algebra matches the legacy Colorado calculation to `1e-12` mm when the input is explicitly declared canonical. |
+| Scientific gate | The frozen Colorado path records historical `phase_sign=+1`, while SnowIn's verified NISAR adapter records delivered GUNW phase as `reference_minus_secondary` and transforms it to canonical `secondary_minus_reference`. The real-product comparison must establish whether Colorado's `T0_DELIVERED` phase was already normalized before duplicate retrieval code is removed. No ASO tuning or silent sign selection was performed. |
+| Status | Integration boundary implemented side-by-side; real GUNW/COP30 reproduction and duplicate-code removal remain gated by phase-lineage evidence. |
