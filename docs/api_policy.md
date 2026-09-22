@@ -30,6 +30,11 @@ level diagnostic:
 from snowin.io import add_gunw_incidence, open_gunw
 from snowin.corrections import PhaseCorrectionConfig, apply_phase_corrections
 from snowin.reference import estimate_reference_offset
+
+# NISAR-specific detail is also grouped by domain:
+from snowin.io.dem import DEMSource
+from snowin.io.geometry import compute_cop30_local_incidence
+from snowin.io.phase_normalization import normalize_gunw_pair
 ```
 
 Underscore-prefixed names are internal implementation details and are not part

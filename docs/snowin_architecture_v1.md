@@ -223,7 +223,11 @@ snowin/
 │       ├── metrics.py
 │       └── io/
 │           ├── __init__.py
-│           └── nisar.py
+│           ├── nisar.py                 (compatibility facade)
+│           ├── nisar_product.py        (GUNW product orchestration)
+│           ├── dem.py                   (DEM source boundary)
+│           ├── geometry.py              (incidence boundary)
+│           └── phase_normalization.py   (phase convention boundary)
 ├── tests/
 │   ├── unit/
 │   ├── invariants/

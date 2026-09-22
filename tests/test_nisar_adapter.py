@@ -145,6 +145,31 @@ def test_nisar_adapter_opens_lazy_normalized_gunw(tmp_path):
         result.close()
 
 
+def test_nisar_adapter_supports_alternate_polarization_and_optional_layers(tmp_path):
+    h5netcdf = pytest.importorskip("h5netcdf")
+    path = tmp_path / "test_gunw_vv.h5"
+    _write_synthetic_gunw(
+        h5netcdf, path, polarization="VV", include_optional_layers=False
+    )
+
+    result = open_gunw(path, chunks=None, progress=False)
+    try:
+        assert result.phase.attrs["source_variable"] == "unwrappedPhase"
+        assert "coherence" not in result
+        assert result.attrs["source_granule_id"] == "synthetic-gunw-VV"
+    finally:
+        result.close()
+
+
+def test_nisar_adapter_rejects_missing_required_projection(tmp_path):
+    h5netcdf = pytest.importorskip("h5netcdf")
+    path = tmp_path / "test_gunw_missing_projection.h5"
+    _write_synthetic_gunw(h5netcdf, path, include_projection=False)
+
+    with pytest.raises(ValueError, match="missing its projection"):
+        open_gunw(path, chunks=None, progress=False)
+
+
 def test_open_gunw_defers_geometry_and_incidence_requires_explicit_gunw(
     tmp_path, monkeypatch
 ):
@@ -156,7 +181,7 @@ def test_open_gunw_defers_geometry_and_incidence_requires_explicit_gunw(
         raise AssertionError("open_gunw must not download or compute incidence")
 
     monkeypatch.setattr(
-        "snowin.io.nisar.download_nisar_cop30_dem_for_gunw",
+        "snowin.io.nisar_product.download_nisar_cop30_dem_for_gunw",
         fail_if_downloaded,
     )
     result = open_gunw(path, chunks=None, progress=False)
@@ -197,7 +222,7 @@ def test_nisar_cop30_local_incidence_downloads_dem_by_default(tmp_path, monkeypa
         return _synthetic_dem()
 
     monkeypatch.setattr(
-        "snowin.io.nisar.download_nisar_cop30_dem_for_gunw", fake_download
+        "snowin.io.nisar_product.download_nisar_cop30_dem_for_gunw", fake_download
     )
     result = open_gunw(path, chunks=None, progress=False)
     try:
@@ -336,7 +361,14 @@ def test_nisar_adapter_chunked_geometry_is_lazy_and_matches_eager(tmp_path):
         chunked.close()
 
 
-def _write_synthetic_gunw(h5netcdf, path):
+def _write_synthetic_gunw(
+    h5netcdf,
+    path,
+    *,
+    polarization="HH",
+    include_optional_layers=True,
+    include_projection=True,
+):
     import h5py
 
     with h5netcdf.File(path, "w") as root:
@@ -346,20 +378,24 @@ def _write_synthetic_gunw(h5netcdf, path):
         center[()] = 1.0e9
         center.attrs["units"] = "hertz"
 
-        phase_group = grids.create_group("unwrappedInterferogram/HH")
+        phase_group = grids.create_group(f"unwrappedInterferogram/{polarization}")
         phase_group.dimensions = {"y": 2, "x": 2}
         phase_group.create_variable("xCoordinates", ("x",), float)[:] = [100.0, 110.0]
         phase_group.create_variable("yCoordinates", ("y",), float)[:] = [20.0, 10.0]
         phase = phase_group.create_variable("unwrappedPhase", ("y", "x"), float)
         phase[:] = [[1.0, 2.0], [3.0, 4.0]]
         phase.attrs["units"] = "radians"
-        coherence = phase_group.create_variable("coherenceMagnitude", ("y", "x"), float)
-        coherence[:] = 0.8
-        coherence.attrs["units"] = "1"
-        projection = phase_group.create_variable("projection", (), "u4")
-        projection[()] = 0
-        projection.attrs["epsg_code"] = 32611
-        projection.attrs["spatial_ref"] = "EPSG:32611"
+        if include_optional_layers:
+            coherence = phase_group.create_variable(
+                "coherenceMagnitude", ("y", "x"), float
+            )
+            coherence[:] = 0.8
+            coherence.attrs["units"] = "1"
+        if include_projection:
+            projection = phase_group.create_variable("projection", (), "u4")
+            projection[()] = 0
+            projection.attrs["epsg_code"] = 32611
+            projection.attrs["spatial_ref"] = "EPSG:32611"
 
         radar = base.create_group("metadata/radarGrid")
         radar.dimensions = {"height": 2, "y": 2, "x": 2}
@@ -380,7 +416,7 @@ def _write_synthetic_gunw(h5netcdf, path):
         ident = root.create_group("science/LSAR/identification")
         for name, value in {
             "productType": "GUNW",
-            "granuleId": "synthetic-gunw",
+            "granuleId": f"synthetic-gunw-{polarization}",
             "referenceZeroDopplerStartTime": "2025-01-01T00:00:00.000000000",
             "secondaryZeroDopplerStartTime": "2025-01-13T00:00:00.000000000",
         }.items():

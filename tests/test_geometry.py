@@ -63,6 +63,26 @@ def test_sloped_dem_returns_known_incidence_angle():
     np.testing.assert_allclose(incidence, np.arctan(0.1), atol=1e-6)
 
 
+def test_larger_grid_geometry_is_finite_and_shape_preserving():
+    y = np.arange(16, dtype=float)
+    x = np.arange(20, dtype=float)
+    dem = _dem(np.broadcast_to(0.02 * x[None, :], (y.size, x.size)), x=x, y=y)
+    incidence = compute_cop30_local_incidence(
+        dem,
+        *_constant_los(np.deg2rad(35.0), (3, y.size, x.size)),
+        heights=np.array([-1.0, 100.0, 201.0]),
+        x_radar=x,
+        y_radar=y,
+    )
+    assert incidence.shape == (16, 20)
+    assert np.isfinite(incidence.values).all()
+    expected = np.arccos(
+        (np.sin(np.deg2rad(35.0)) * -0.02 + np.cos(np.deg2rad(35.0)))
+        / np.sqrt(1.0 + 0.02**2)
+    )
+    np.testing.assert_allclose(incidence.values, expected, atol=1e-6)
+
+
 def test_vertical_correction_is_explicit_and_additive():
     dem = _dem(
         np.full((3, 3), 100.0),
