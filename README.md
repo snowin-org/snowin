@@ -119,6 +119,11 @@ add_gunw_incidence(
 )
 ```
 
+The default incidence calculation is eager. For benchmarking a Dask-backed
+prototype, pass `geometry_chunks=512` (or a `(y, x)` chunk pair) to
+`add_gunw_incidence`; it preserves the eager default and is not yet a fully
+out-of-core geometry implementation.
+
 The default `dem_source="nisar_cop30"` downloads and caches the modified
 Copernicus DEM used by NISAR. Use `dem_cache_dir=...` to control that cache.
 The ASF Earthdata service may require standard Earthdata credentials in

@@ -20,9 +20,11 @@ The product declares:
 - phase grid: 4,347 × 4,410 cells, EPSG:32613.
 
 SnowIn opened the complete phase grid with the NISAR-modified Copernicus DEM
-downloaded from the ASF/NASA Earthdata distribution. The eager geometry run
-completed in 14.6 seconds in the validation environment and produced local
-incidence angles from 0.00252 to 2.03073 radians (0.14° to 116.35°). The
+downloaded from the ASF/NASA Earthdata distribution. In the current
+development environment, the direct eager workflow took 0.37 seconds to open
+the product and 9.29 seconds for incidence geometry; the process peak was
+approximately 6.7 GiB for this eager full-grid geometry run. It produced local
+incidence angles from 0.00293 to 2.03534 radians (0.17° to 116.62°). The
 finite fraction was 99.92%, and 99.90% of cells fell within the retrieval's
 valid 0–90° geometry domain. A central 128 × 128 window was used for the
 numerical retrieval comparison.
@@ -52,6 +54,31 @@ GUNW phase or a phase-normalized intermediate. If it is raw, the current
 is already normalized upstream, that normalization must be made explicit and
 tested at the boundary.
 
+## Downstream pair reproduction
+
+The downstream Colorado pair driver was rerun for the same T019/F021 raw GUNW
+with the retained native local-incidence raster and `offset_rad=0`. Its test
+suite passed (`51 passed`), and the fresh pair run wrote raw phase,
+referenced phase, pairwise dSWE, and provenance-class rasters under the
+external directory `/private/tmp/snowin-colorado-downstream-baseline/`.
+
+The SnowIn canonical phase and the downstream raw phase were exact negatives
+over the complete product (`max(abs(phi_snowin + phi_downstream_raw)) = 0.0`
+radians). Using the same downstream incidence raster and frozen Colorado
+wavelength `0.238403545` m, SnowIn dSWE plus downstream dSWE had a maximum
+absolute residual of `3.99e-05 mm` over 16,368 valid pixels in a 128 × 128
+valid window. This reproduces the expected sign-lineage difference without
+confounding it with the new NISAR DEM geometry.
+
+The new NISAR DEM incidence is not numerically identical to the retained
+downstream COP30 raster: over their finite overlap, the absolute difference
+was 0.489° mean, 1.412° at the 95th percentile, and 31.98° maximum. The
+retained downstream raster has nodata outside its prepared analysis footprint
+(1.23% finite over the full product), so those geometry statistics are an
+overlap characterization rather than a whole-scene validation. This is an
+additional reason to keep the duplicate downstream retrieval path until the
+Colorado workflow explicitly adopts and validates the NISAR DEM geometry.
+
 ## Reference-phase inputs and support rules
 
 The downstream frozen configuration and methods documentation characterize
@@ -73,13 +100,27 @@ contracts, but not to make Colorado's study policy part of the package API.
 The downstream repository still owns station selection, date matching,
 component handling, and study-case selection.
 
+The frozen station allowlist is `380:CO:SNTL`, `680:CO:SNTL`, `737:CO:SNTL`,
+`1141:CO:SNTL`, and `1326:CO:SNTL`. A station contribution is eligible only
+when it is in that allowlist, has an exact local-date SNOTEL pair, is inside
+the native grid, has finite phase, positive finite coherence, and finite
+positive sensitivity; component and exact-zero-window gates are explicit
+sensitivity rules. The lead raster support remains finite delivered phase
+plus finite valid geometry, not positive connected-component labels or a
+coherence threshold.
+
 ## Geometry execution decision
 
-The full real-product benchmark completed without requiring chunk-aware
-geometry. SnowIn therefore keeps DEM reprojection and LOS interpolation eager
-for v0.1 while phase/product arrays remain Dask-compatible. A chunk-aware or
-Dask geometry implementation remains a later optimization if a larger or
-representative production benchmark shows a memory or throughput need.
+The full real-product eager benchmark completed, but its approximately 6.7 GiB
+peak motivated an opt-in prototype. With ``geometry_chunks=512``, SnowIn built
+a Dask-backed incidence result for the same 4,347 x 4,410 product. The result
+was exactly equal to the eager angle field (`max_abs_rad = 0.0` in the direct
+comparison), with a measured peak of approximately 5.7 GiB and a total
+geometry time of approximately 6.4 seconds after a 4.7-second graph-building
+step. The reduction is useful but not yet a complete out-of-core solution:
+the DEM, LOS lookup cube, and terrain normals are still eager, and graph
+construction adds overhead. The eager path therefore remains the default;
+``geometry_chunks`` is retained for validation and future optimization work.
 
 ## Reproduction record
 

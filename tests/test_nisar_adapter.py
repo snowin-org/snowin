@@ -11,6 +11,7 @@ import xarray as xr
 from snowin.io import (
     NISAR_GUNW_SOURCE_PHASE_DEFINITION,
     add_gunw_incidence,
+    compute_gunw_incidence,
     normalize_gunw_pair,
     open_gunw,
     read_gunw_wavelength_m,
@@ -144,6 +145,30 @@ def test_nisar_adapter_opens_lazy_normalized_gunw(tmp_path):
         result.close()
 
 
+def test_open_gunw_defers_geometry_and_incidence_requires_explicit_gunw(
+    tmp_path, monkeypatch
+):
+    h5netcdf = pytest.importorskip("h5netcdf")
+    path = tmp_path / "test_gunw_deferred_geometry.h5"
+    _write_synthetic_gunw(h5netcdf, path)
+
+    def fail_if_downloaded(*args, **kwargs):
+        raise AssertionError("open_gunw must not download or compute incidence")
+
+    monkeypatch.setattr(
+        "snowin.io.nisar.download_nisar_cop30_dem_for_gunw",
+        fail_if_downloaded,
+    )
+    result = open_gunw(path, chunks=None, progress=False)
+    try:
+        assert "incidence_angle" not in result
+        assert result.attrs["incidence_angle_status"] == "not_computed"
+        with pytest.raises(FileNotFoundError, match="GUNW file not found"):
+            compute_gunw_incidence(tmp_path / "different_product.h5", result)
+    finally:
+        result.close()
+
+
 def test_product_ellipsoid_incidence_requires_explicit_opt_in(tmp_path):
     h5netcdf = pytest.importorskip("h5netcdf")
     path = tmp_path / "test_gunw_ellipsoid.h5"
@@ -270,6 +295,45 @@ def test_nisar_adapter_preserves_dask_backing_when_available(tmp_path):
         )
     finally:
         result.close()
+
+
+def test_nisar_adapter_chunked_geometry_is_lazy_and_matches_eager(tmp_path):
+    pytest.importorskip("scipy")
+    pytest.importorskip("dask.array")
+    h5netcdf = pytest.importorskip("h5netcdf")
+    path = tmp_path / "test_gunw_chunked_geometry.h5"
+    _write_synthetic_gunw(h5netcdf, path)
+
+    eager = open_gunw(path, chunks=None, progress=False)
+    chunked = open_gunw(path, chunks=None, progress=False)
+    try:
+        add_gunw_incidence(
+            eager,
+            path,
+            dem_source="cop30",
+            cop30_dem=_synthetic_dem(),
+            progress=False,
+        )
+        add_gunw_incidence(
+            chunked,
+            path,
+            dem_source="cop30",
+            cop30_dem=_synthetic_dem(),
+            geometry_chunks=(1, 1),
+            progress=False,
+        )
+        assert chunked.incidence_angle.attrs["geometry_execution"] == (
+            "dask_chunked_prototype"
+        )
+        assert chunked.incidence_angle.attrs["geometry_chunks"] == "1,1"
+        assert hasattr(chunked.incidence_angle.data, "chunks")
+        np.testing.assert_allclose(
+            chunked.incidence_angle.compute().values,
+            eager.incidence_angle.values,
+        )
+    finally:
+        eager.close()
+        chunked.close()
 
 
 def _write_synthetic_gunw(h5netcdf, path):

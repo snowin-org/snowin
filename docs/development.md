@@ -74,13 +74,16 @@ not silently changed during package stabilization.
 ## Geometry execution decision
 
 For the first public release, NISAR-modified Copernicus DEM reprojection and
-LOS interpolation remain eager. The LOS lookup cube is a compact geometry
-input relative to a full GUNW
-phase layer, while the interpolation couples each output cell to the complete
-height/y/x lookup axes. The phase and normalized product layers remain
-Dask-compatible and lazy. Chunk-aware geometry should be added only after a
-representative real-product benchmark demonstrates a memory or throughput need;
-it must preserve the current out-of-range and vertical-datum checks.
+LOS interpolation remain eager by default. The phase and normalized product
+layers remain Dask-compatible and lazy. An opt-in ``geometry_chunks`` prototype
+now builds a Dask-backed incidence result by evaluating the SciPy interpolation
+one output chunk at a time. It still eagerly loads the DEM, LOS lookup cube,
+and terrain normals, so it is a benchmark path rather than a distributed
+geometry implementation. The real Colorado product produced a numerically
+identical angle field with 512 x 512 chunks and reduced the observed peak from
+about 6.7 GiB to about 5.7 GiB in the current environment, while adding graph
+construction overhead. Keep the eager default until a larger benchmark and
+collaborator review establish an acceptable memory/performance tradeoff.
 
 ## Release checks
 

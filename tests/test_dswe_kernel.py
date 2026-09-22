@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import inspect
+import json
 import math
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -226,6 +228,51 @@ def test_colorado_frozen_parameters_characterize_same_equation():
     expected = 0.238403545 / (2.0 * math.pi * (1.59 + math.radians(40.0) ** 2.5))
 
     assert result.item() == pytest.approx(expected)
+
+
+def test_colorado_phase_lineage_fixture_is_explicit_and_opposite():
+    fixture_path = Path(__file__).parent / "fixtures" / "colorado_phase_lineage.json"
+    fixture = json.loads(fixture_path.read_text())
+    raw_phase = xr.DataArray(
+        np.asarray(fixture["raw_phase_rad"], dtype=float),
+        dims=("y", "x"),
+        attrs={
+            "units": "rad",
+            "phase_difference_definition": fixture["source_definition"],
+        },
+    )
+    incidence = xr.DataArray(
+        np.asarray(fixture["incidence_rad"], dtype=float),
+        dims=("y", "x"),
+        attrs={"units": "rad", "incidence_angle_reference": "local"},
+    )
+
+    normalized_phase = (-raw_phase).rename("phase")
+    normalized_phase.attrs = {
+        "units": "rad",
+        "phase_difference_definition": fixture["snowin_definition"],
+        "phase_transform": "multiply_by_-1",
+    }
+    downstream_phase = raw_phase.rename("phase")
+    downstream_phase.attrs = {
+        "units": "rad",
+        "phase_difference_definition": fixture["snowin_definition"],
+        "phase_sign": fixture["downstream_phase_sign"],
+    }
+
+    snowin_dswe = compute_dswe(
+        normalized_phase,
+        incidence,
+        wavelength_m=fixture["wavelength_m"],
+    )
+    downstream_dswe = compute_dswe(
+        downstream_phase,
+        incidence,
+        wavelength_m=fixture["wavelength_m"],
+    )
+    assert normalized_phase.attrs["phase_transform"] == "multiply_by_-1"
+    assert downstream_phase.attrs["phase_sign"] == 1
+    np.testing.assert_allclose(snowin_dswe.values, -downstream_dswe.values)
 
 
 def test_dask_backed_inputs_remain_lazy_and_match_eager_result():

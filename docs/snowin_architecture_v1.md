@@ -472,8 +472,8 @@ Goals:
   physically possible;
 - add a real GUNW/COP30 regression fixture with saved incidence statistics,
   declared tolerances, and no ASO-based tuning;
-- decide whether the current eagerly materialized SciPy geometry operation is
-  acceptable or should become chunk-aware/Dask-compatible;
+- benchmark the opt-in chunk-aware/Dask geometry prototype against the eager
+  SciPy implementation and decide whether it is ready for a stable API;
 - record the validated equation, CRS and vertical-reference assumptions,
   interpolation rules, limitations, and regression evidence in provenance.
 

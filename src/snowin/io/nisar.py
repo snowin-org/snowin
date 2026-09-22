@@ -108,6 +108,123 @@ def _sorted_axis(
     raise ValueError("interpolation coordinates must be strictly monotonic")
 
 
+def _normalize_geometry_chunks(
+    geometry_chunks: int | tuple[int, int], shape: tuple[int, int]
+) -> tuple[int, int]:
+    """Validate a two-dimensional chunk shape for prototype geometry work."""
+    if isinstance(geometry_chunks, bool):
+        raise TypeError("geometry_chunks must be an integer or a (y, x) pair")
+    if isinstance(geometry_chunks, int):
+        chunks = (geometry_chunks, geometry_chunks)
+    elif isinstance(geometry_chunks, tuple) and len(geometry_chunks) == 2:
+        chunks = geometry_chunks
+    else:
+        raise TypeError("geometry_chunks must be an integer or a (y, x) pair")
+    if any(isinstance(value, bool) or not isinstance(value, int) for value in chunks):
+        raise TypeError("geometry_chunks values must be positive integers")
+    if any(value <= 0 for value in chunks):
+        raise ValueError("geometry_chunks values must be positive integers")
+    return tuple(min(value, size) for value, size in zip(chunks, shape))  # type: ignore[return-value]
+
+
+def _build_los_interpolators(
+    sorted_height: np.ndarray,
+    sorted_y: np.ndarray,
+    sorted_x: np.ndarray,
+    arrays: tuple[np.ndarray, np.ndarray, np.ndarray],
+):
+    """Build reusable SciPy interpolators inside one Dask graph task."""
+    from scipy.interpolate import RegularGridInterpolator
+
+    return tuple(
+        RegularGridInterpolator(
+            (sorted_height, sorted_y, sorted_x),
+            values,
+            bounds_error=False,
+            fill_value=np.nan,
+        )
+        for values in arrays
+    )
+
+
+def _interpolate_incidence_chunk(
+    elevation: np.ndarray,
+    normal_x: np.ndarray,
+    normal_y: np.ndarray,
+    normal_z: np.ndarray,
+    y: np.ndarray,
+    x: np.ndarray,
+    interpolators,
+) -> np.ndarray:
+    """Evaluate one incidence chunk for the optional Dask geometry path."""
+    yy, xx = np.meshgrid(y, x, indexing="ij")
+    points = np.column_stack((elevation.ravel(), yy.ravel(), xx.ravel()))
+    interpolated = [interpolator(points) for interpolator in interpolators]
+    with np.errstate(invalid="ignore", divide="ignore"):
+        dot = np.clip(
+            interpolated[0].reshape(elevation.shape) * normal_x
+            + interpolated[1].reshape(elevation.shape) * normal_y
+            + interpolated[2].reshape(elevation.shape) * normal_z,
+            -1.0,
+            1.0,
+        )
+        angle = np.arccos(dot)
+    return angle.astype("float32")
+
+
+def _dask_incidence_array(
+    elevation: np.ndarray,
+    normal_x: np.ndarray,
+    normal_y: np.ndarray,
+    normal_z: np.ndarray,
+    x: np.ndarray,
+    y: np.ndarray,
+    *,
+    chunk_shape: tuple[int, int],
+    sorted_height: np.ndarray,
+    sorted_y: np.ndarray,
+    sorted_x: np.ndarray,
+    arrays: tuple[np.ndarray, np.ndarray, np.ndarray],
+):
+    """Build a chunked incidence array without a full-grid point cloud."""
+    try:
+        import dask.array as da
+        from dask import delayed
+    except ImportError as exc:
+        raise ImportError(
+            "geometry_chunks requires optional Dask; install the SnowIn dev "
+            "dependencies or omit geometry_chunks"
+        ) from exc
+
+    interpolators = delayed(_build_los_interpolators)(
+        sorted_height, sorted_y, sorted_x, arrays
+    )
+    row_arrays = []
+    for row_start in range(0, elevation.shape[0], chunk_shape[0]):
+        row_end = min(row_start + chunk_shape[0], elevation.shape[0])
+        column_arrays = []
+        for column_start in range(0, elevation.shape[1], chunk_shape[1]):
+            column_end = min(column_start + chunk_shape[1], elevation.shape[1])
+            chunk = delayed(_interpolate_incidence_chunk)(
+                elevation[row_start:row_end, column_start:column_end],
+                normal_x[row_start:row_end, column_start:column_end],
+                normal_y[row_start:row_end, column_start:column_end],
+                normal_z[row_start:row_end, column_start:column_end],
+                y[row_start:row_end],
+                x[column_start:column_end],
+                interpolators,
+            )
+            column_arrays.append(
+                da.from_delayed(
+                    chunk,
+                    shape=(row_end - row_start, column_end - column_start),
+                    dtype=np.float32,
+                )
+            )
+        row_arrays.append(da.concatenate(column_arrays, axis=1))
+    return da.concatenate(row_arrays, axis=0)
+
+
 def compute_cop30_local_incidence(
     dem: xr.DataArray,
     los_x: np.ndarray,
@@ -121,6 +238,7 @@ def compute_cop30_local_incidence(
     vertical_correction_m: xr.DataArray | str | Path | None = None,
     require_vertical_datum_match: bool = False,
     dem_source: DEMSource = "cop30",
+    geometry_chunks: int | tuple[int, int] | None = None,
     progress: bool = True,
 ) -> xr.DataArray:
     """Compute terrain-surface incidence from a named DEM and GUNW LOS.
@@ -131,10 +249,13 @@ def compute_cop30_local_incidence(
     their height/y/x lookup cube at each DEM surface elevation.  The returned
     angle is in SnowIn's required radians and is explicitly local.
 
-    The DEM and LOS lookup are intentionally materialized for this geometry
-    operation because SciPy's regular-grid interpolation is the numerical
-    primitive.  The phase and other product layers remain lazy in
-    :func:`open_gunw`.
+    By default the DEM and LOS lookup are materialized and the result is eager,
+    because SciPy's regular-grid interpolation is the numerical primitive. If
+    ``geometry_chunks`` is supplied, SnowIn builds a prototype Dask graph that
+    interpolates one output chunk at a time and returns a Dask-backed angle.
+    The DEM, LOS lookup cube, and terrain normals are still loaded eagerly in
+    that prototype; this option is intended for benchmarking and validation,
+    not yet as a distributed geometry implementation.
     """
     dem_source = _validate_dem_source(dem_source)
     _progress("computing terrain-surface incidence from DEM and GUNW LOS", progress)
@@ -207,15 +328,11 @@ def compute_cop30_local_incidence(
     if any(value.shape != expected_shape for value in arrays):
         raise ValueError(f"LOS arrays must all have shape {expected_shape}")
 
-    from scipy.interpolate import RegularGridInterpolator
-
     sorted_height, _ = _sorted_axis(heights, arrays[0], 0)
     sorted_y, _ = _sorted_axis(y_radar, arrays[0], 1)
     sorted_x, _ = _sorted_axis(x_radar, arrays[0], 2)
-    yy, xx = np.meshgrid(y, x, indexing="ij")
-    points = np.column_stack((elevation.ravel(), yy.ravel(), xx.ravel()))
-    point_axes = (points[:, 0], points[:, 1], points[:, 2])
     lookup_axes = (sorted_height, sorted_y, sorted_x)
+    point_axes = (elevation, y, x)
     if any(
         np.nanmin(point_axis) < lookup_axis[0]
         or np.nanmax(point_axis) > lookup_axis[-1]
@@ -226,18 +343,12 @@ def compute_cop30_local_incidence(
         )
 
     _progress("interpolating GUNW LOS vectors onto the DEM surface", progress)
-    interpolated = []
+    sorted_arrays = []
     for values in arrays:
         _, values = _sorted_axis(heights, values, 0)
         _, values = _sorted_axis(y_radar, values, 1)
         _, values = _sorted_axis(x_radar, values, 2)
-        interpolator = RegularGridInterpolator(
-            (sorted_height, sorted_y, sorted_x),
-            values,
-            bounds_error=False,
-            fill_value=np.nan,
-        )
-        interpolated.append(interpolator(points).reshape(elevation.shape))
+        sorted_arrays.append(values)
 
     _progress("deriving terrain normals and incidence angles", progress)
     dx = float(x[1] - x[0])
@@ -253,14 +364,54 @@ def compute_cop30_local_incidence(
         normal_x /= magnitude
         normal_y /= magnitude
         normal_z /= magnitude
-        dot = np.clip(
-            interpolated[0] * normal_x
-            + interpolated[1] * normal_y
-            + interpolated[2] * normal_z,
-            -1.0,
-            1.0,
+    if geometry_chunks is None:
+        from scipy.interpolate import RegularGridInterpolator
+
+        yy, xx = np.meshgrid(y, x, indexing="ij")
+        points = np.column_stack((elevation.ravel(), yy.ravel(), xx.ravel()))
+        interpolated = []
+        for values in sorted_arrays:
+            interpolator = RegularGridInterpolator(
+                (sorted_height, sorted_y, sorted_x),
+                values,
+                bounds_error=False,
+                fill_value=np.nan,
+            )
+            interpolated.append(interpolator(points).reshape(elevation.shape))
+        with np.errstate(invalid="ignore", divide="ignore"):
+            dot = np.clip(
+                interpolated[0] * normal_x
+                + interpolated[1] * normal_y
+                + interpolated[2] * normal_z,
+                -1.0,
+                1.0,
+            )
+            angle = np.arccos(dot)
+        geometry_execution = "eager"
+        geometry_chunk_metadata = "none"
+    else:
+        chunk_shape = _normalize_geometry_chunks(
+            geometry_chunks, (elevation.shape[0], elevation.shape[1])
         )
-        angle = np.arccos(dot)
+        _progress(
+            f"building Dask-chunked incidence graph with chunks={chunk_shape}",
+            progress,
+        )
+        angle = _dask_incidence_array(
+            elevation,
+            normal_x,
+            normal_y,
+            normal_z,
+            x,
+            y,
+            chunk_shape=chunk_shape,
+            sorted_height=sorted_height,
+            sorted_y=sorted_y,
+            sorted_x=sorted_x,
+            arrays=tuple(sorted_arrays),  # type: ignore[arg-type]
+        )
+        geometry_execution = "dask_chunked_prototype"
+        geometry_chunk_metadata = f"{chunk_shape[0]},{chunk_shape[1]}"
 
     result = xr.DataArray(
         angle.astype("float32"),
@@ -292,6 +443,8 @@ def compute_cop30_local_incidence(
                 f"angle between target-to-sensor GUNW LOS and {source_label}-derived "
                 "local terrain normal"
             ),
+            "geometry_execution": geometry_execution,
+            "geometry_chunks": geometry_chunk_metadata,
         },
     )
     if epsg_code is not None:
@@ -962,9 +1115,7 @@ def _require_aligned(phase: xr.DataArray, incidence_angle: xr.DataArray) -> None
     if phase.sizes != incidence_angle.sizes:
         raise ValueError("phase and incidence_angle must have the same grid shape")
     for dim in ("y", "x"):
-        if not np.array_equal(
-            phase.coords[dim].data, incidence_angle.coords[dim].data
-        ):
+        if not np.array_equal(phase.coords[dim].data, incidence_angle.coords[dim].data):
             raise ValueError(
                 f"phase and incidence_angle coordinates differ for {dim!r}"
             )
@@ -1360,6 +1511,7 @@ def compute_gunw_incidence(
     radar_cube_index: int = 0,
     incidence_resampling: str = "linear",
     chunks: dict[str, int] | str | None = None,
+    geometry_chunks: int | tuple[int, int] | None = None,
     progress: bool = True,
 ) -> xr.DataArray:
     """Compute incidence for an explicit GUNW and an already-open target.
@@ -1378,7 +1530,10 @@ def compute_gunw_incidence(
     if polarization is not None and polarization not in {"HH", "VV"}:
         raise ValueError("polarization must be 'HH', 'VV', or None")
     dem_source = _validate_dem_source(dem_source)
-    if dem_vertical_correction_m is not None and cop30_vertical_correction_m is not None:
+    if (
+        dem_vertical_correction_m is not None
+        and cop30_vertical_correction_m is not None
+    ):
         raise ValueError(
             "provide only one of dem_vertical_correction_m and "
             "cop30_vertical_correction_m"
@@ -1431,10 +1586,12 @@ def compute_gunw_incidence(
                 }
             )
             phase = target["phase"]
-            if np.array_equal(incidence.coords["x"].data, phase.coords["x"].data) and np.array_equal(
-                incidence.coords["y"].data, phase.coords["y"].data
-            ):
-                incidence = incidence.assign_coords(x=phase.coords["x"], y=phase.coords["y"])
+            if np.array_equal(
+                incidence.coords["x"].data, phase.coords["x"].data
+            ) and np.array_equal(incidence.coords["y"].data, phase.coords["y"].data):
+                incidence = incidence.assign_coords(
+                    x=phase.coords["x"], y=phase.coords["y"]
+                )
             else:
                 incidence = incidence.interp_like(phase, method=incidence_resampling)
             incidence.attrs.update(
@@ -1462,7 +1619,8 @@ def compute_gunw_incidence(
     }
     selected_dem = dem_inputs[dem_source]
     if dem_source in {"nisar_cop30", "cop30"} and (
-        selected_dem is None or (isinstance(selected_dem, str) and selected_dem == "auto")
+        selected_dem is None
+        or (isinstance(selected_dem, str) and selected_dem == "auto")
     ):
         selected_dem = (
             download_nisar_cop30_dem_for_gunw(
@@ -1481,7 +1639,9 @@ def compute_gunw_incidence(
                 progress=progress,
             )
         )
-    elif selected_dem is None or (isinstance(selected_dem, str) and selected_dem == "auto"):
+    elif selected_dem is None or (
+        isinstance(selected_dem, str) and selected_dem == "auto"
+    ):
         raise ValueError(
             f"dem_source={dem_source!r} requires a local {dem_source}_dem path or "
             "DataArray; SnowIn does not download that source automatically"
@@ -1507,6 +1667,7 @@ def compute_gunw_incidence(
         vertical_correction_m=vertical_correction_m,
         require_vertical_datum_match=require_vertical_datum_match,
         dem_source=dem_source,
+        geometry_chunks=geometry_chunks,
         progress=progress,
     )
     source_metadata = _DEM_SOURCE_METADATA[dem_source]
