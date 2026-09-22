@@ -1,0 +1,28 @@
+# SnowIn notebooks
+
+These notebooks are training material and executable baseline checks for the
+pre-release package.
+
+## Core workflow
+
+[`01_core_snowin_workflow.ipynb`](01_core_snowin_workflow.ipynb) is
+self-contained. It uses synthetic xarray data to demonstrate the canonical
+phase contract, dSWE, reference phase, explicit corrections, support layers,
+temporal accumulation, metrics, and plots.
+
+## Real NISAR GUNW workflow
+
+[`02_real_nisar_gunw_workflow.ipynb`](02_real_nisar_gunw_workflow.ipynb) is a
+small real-product example. Set `SNOWIN_GUNW` to a local GUNW path. Optionally
+set `SNOWIN_NISAR_DEM` to a local NISAR-modified Copernicus DEM and
+`SNOWIN_DEM_CACHE` to choose the automatic DEM cache directory.
+
+Install the notebook/runtime dependencies from the checkout with:
+
+```bash
+python -m pip install -e ".[dev,gunw]"
+```
+
+The real-product notebook does not store products or generated rasters in the
+repository. It is intentionally limited to product metadata, SnowIn opening,
+local incidence inspection, and a simple pairwise dSWE preview.

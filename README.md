@@ -187,6 +187,7 @@ uncertainties.
 - [Development guide](docs/development.md)
 - [GUNW quick-look example](examples/plot_gunw_quickview.py)
 - [Local/S3 GUNW example](examples/demo_gunw_local_s3_dswe.py)
+- [Notebook training materials](notebooks/README.md)
 - [External real-product fixture notes](tests/fixtures/README.md)
 
 The repository currently provides source documentation and examples; hosted
