@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "snowin"
+version = "0.1.0"
+description = "Snow-focused SAR and InSAR analysis tools"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+  { name = "SnowIn contributors" }
+]
+dependencies = [
+  "numpy>=1.24",
+  "xarray>=2024.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/snowin-org/snowin"
+Repository = "https://github.com/snowin-org/snowin"
+Issues = "https://github.com/snowin-org/snowin/issues"
+
+[project.optional-dependencies]
+gunw = [
+  "h5py>=3.10",
+  "h5netcdf>=1.3",
+  "matplotlib>=3.8",
+  "shapely>=2",
+  "pyproj>=3.6",
+  "rasterio>=1.3",
+]
+cloud = [
+  "fsspec>=2024.0",
+  "s3fs>=2024.0",
+]
+dev = [
+  "build>=1.2",
+  "pytest>=8",
+  "ruff>=0.4",
+  "dask[array]>=2024.1",
+  "h5py>=3.10",
+  "h5netcdf>=1.3",
+  "matplotlib>=3.8",
+  "shapely>=2",
+  "pyproj>=3.6",
+  "rasterio>=1.3",
+]
+
+[project.scripts]
+snowin-plot-gunw = "snowin.cli:plot_gunw_cli"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "RUF", "SIM", "UP"]

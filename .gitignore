@@ -191,6 +191,15 @@ cython_debug/
 # Ruff stuff:
 .ruff_cache/
 
+# Local scientific workflow outputs. Keep source data and curated evidence
+# under explicit, reviewed paths instead of ignoring broad scientific file
+# extensions globally.
+outputs/
+plots/
+
+# macOS metadata
+.DS_Store
+
 # PyPI configuration file
 .pypirc
 
