@@ -65,3 +65,45 @@ The next Colorado migration comparison should use these basin masks for all
 regional metrics. `gunw_to_dswe()` should remain unchanged until Colorado
 chooses its phase, wavelength, reference-offset, and geometry policies
 explicitly.
+
+## 23-edge basin-aware path
+
+The full 23-edge path was then run with
+`scripts/run_t019_basin_comparison.py`. Every edge used the same explicit
+SnowIn phase normalization and the corresponding Colorado reference offset.
+The controlled mode used the Colorado incidence raster and frozen wavelength;
+the native mode used SnowIn's NISAR-modified Copernicus DEM and product-derived
+wavelength; and the native-frozen mode used SnowIn geometry with the frozen
+wavelength. The run took 274.9 seconds, or about 11.0 seconds per edge. Peak
+memory was not instrumented in this run; processing was sequential and only
+basin crops were retained for temporal accumulation.
+
+The following are means over the 23 edges. They describe the general
+agreement, not a request to standardize the small workflow differences yet.
+
+| Region | Incidence r | Incidence MAE [°] | Incidence RMSE [°] | Native support | Controlled support | Product-wavelength dSWE MAE [mm] | Frozen-wavelength dSWE MAE [mm] |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| East River | 0.999183 | 0.388758 | 0.576673 | 0.997127 | 0.997126 | 0.352365 | 0.117802 |
+| Taylor River | 0.999110 | 0.347653 | 0.505082 | 1.000000 | 1.000000 | 0.297513 | 0.090337 |
+
+At the final cumulative endpoint, controlled SnowIn reproduces the downstream
+Colorado cumulative raster to numerical precision after accounting for the
+opposite sign convention: SnowIn plus Colorado equals the residual. Native
+geometry and product wavelength retain the expected small differences:
+
+| Region/mode | Final support of region | Residual MAE [mm] | Residual RMSE [mm] |
+| --- | ---: | ---: | ---: |
+| East River, controlled | 0.941855 | 0.000004 | 0.000005 |
+| East River, native product wavelength | 0.941863 | 0.990665 | 1.831762 |
+| East River, native frozen wavelength | 0.941863 | 0.336787 | 0.917488 |
+| Taylor River, controlled | 1.000000 | 0.000003 | 0.000004 |
+| Taylor River, native product wavelength | 1.000000 | 0.523624 | 0.817440 |
+| Taylor River, native frozen wavelength | 1.000000 | 0.167989 | 0.362037 |
+
+This is sufficient as a practical migration baseline: the canonical SnowIn
+workflow reproduces Colorado's regional cumulative result when the controlled
+inputs are held fixed, while the native path remains highly correlated and
+shows the magnitude of the deliberate DEM/incidence and wavelength differences.
+The machine-readable report is written to
+`/private/tmp/snowin-colorado-comparison/t019_basin_full_comparison.json` for
+the local product checkout.
