@@ -16,3 +16,7 @@ Vector-defined analysis regions are documented in
 [spatial masks](spatial_masks.md).
 The basin-matched measurements are recorded in
 [the Colorado basin comparison](colorado_t019_basin_comparison.md).
+Reviewer setup and notebook instructions are in the
+[reviewer handoff](reviewer_handoff.md).
+Use the [reviewer feedback template](reviewer_feedback_template.md) to record
+results and usability issues.

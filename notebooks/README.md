@@ -45,3 +45,20 @@ To evaluate the basin-limited Colorado areas, also set
 `SNOWIN_ERB_VECTOR=/path/to/erb.gpkg` and
 `SNOWIN_TAYLOR_VECTOR=/path/to/taylor.gpkg`. Use `SNOWIN_ERB_LAYER` and
 `SNOWIN_TAYLOR_LAYER` when a GeoPackage has multiple layers.
+
+## Transferable NISAR and SNOTEL workflow
+
+[`04_transferable_nisar_snotel_workflow.ipynb`](04_transferable_nisar_snotel_workflow.ipynb)
+is a template for testing a different NISAR box, analysis-region vector, and
+SNOTEL station set. It demonstrates the same canonical two-step workflow,
+caller-owned station reference inputs, explicit support layers, and
+transferability checks. The station table must provide station IDs,
+latitude/longitude, expected phase in SnowIn's canonical convention, and
+coherence weights. The notebook samples observed phase from the GUNW unless an
+`observed_phase_rad` column is supplied.
+
+For the complete reviewer environment, install the notebook extra as well:
+
+```bash
+python -m pip install -e ".[dev,gunw,vectors,notebooks]"
+```

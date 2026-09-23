@@ -54,6 +54,10 @@ docs = [
   "mkdocs>=1.6",
   "mkdocs-material>=9.6",
 ]
+notebooks = [
+  "ipykernel>=6.29",
+  "jupyterlab>=4.2",
+]
 dev = [
   "build>=1.2",
   "pytest>=8",
