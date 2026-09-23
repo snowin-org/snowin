@@ -108,23 +108,25 @@ workflow using the cached NISAR-modified Copernicus DEM. That run produced:
 
 Using SnowIn's NISAR DEM incidence therefore produces a real geometry
 difference from the retained downstream COP30 raster. That difference is
-separate from the controlled retrieval equivalence and is why the downstream
-duplicate path must remain until Colorado explicitly adopts and validates the
-new geometry source.
+separate from the controlled retrieval equivalence and must be quantified in
+the Colorado migration validation before the downstream duplicate path is
+retired.
 
 SnowIn also derives `0.2419632429 m` from this product's center-frequency
 metadata, while the frozen Colorado configuration uses `0.238403545 m`. The
-controlled comparison uses the frozen value. This wavelength policy still
-needs an explicit downstream decision; SnowIn should not silently replace its
-product-metadata default merely to match the historical study constant.
+controlled comparison uses the frozen value. Colorado has decided to adopt
+SnowIn's product-metadata wavelength treatment; the historical value remains
+part of this controlled baseline only and should not override the SnowIn
+default in the migrated workflow.
 
 ## Decision
 
-The canonical SnowIn two-step workflow reproduces the Colorado phase lineage,
+The controlled SnowIn workflow reproduces the Colorado phase lineage,
 reference-offset sign, support policy, connected-component provenance, and
 strict temporal accumulation when the same incidence grid and frozen
-wavelength are supplied. The Colorado legacy retrieval should not yet be
-removed or transparently rewired. The next engineering decision is to define
-how Colorado will declare adoption of SnowIn's normalized phase and NISAR DEM
-geometry, including whether the historical wavelength remains an explicit
-study override.
+wavelength are supplied. Colorado has decided to adopt SnowIn's canonical
+normalized phase, NISAR-modified Copernicus DEM geometry, and product-metadata
+wavelength treatment. The next engineering step is to validate that adopted
+configuration across the 23-edge path against this controlled baseline. Keep
+the legacy retrieval during that validation; Colorado's station/date and
+reviewed-offset policy remains explicit downstream input.

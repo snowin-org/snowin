@@ -50,8 +50,10 @@ input is `-12.916696 rad`. The largest observed difference is the edge starting
 
 Therefore SnowIn should expose the generic offset algebra and preserve the
 station-level provenance, but should not import Colorado's station/date
-allowlist or silently replace reviewed path offsets. Those remain downstream
-study policy until the Colorado phase-boundary decision is approved.
+allowlist or silently replace reviewed path offsets. Colorado's adoption of
+SnowIn's canonical phase, DEM, and wavelength conventions does not change this
+study policy: reviewed path offsets remain downstream inputs and must be passed
+explicitly into the SnowIn reference workflow.
 
 ## Reproduction evidence
 

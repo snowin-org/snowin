@@ -47,12 +47,15 @@ general package contract.
   their environments and products.
 - Use the explicit ERB/Taylor region masks for future Colorado residual,
   support, and regional metric comparisons.
-- Resolve the Colorado migration boundary: whether Colorado will deliberately
-  adopt SnowIn's canonical phase and NISAR DEM geometry, or retain its raw
-  delivered-phase and reviewed-path policy. Until that decision, do not remove
-  or silently rewire the legacy retrieval.
-- Treat `gunw_to_dswe` as a legacy compatibility workflow and decide whether
-  to rewire or retire it only after an explicit Colorado migration decision.
+- Colorado has decided to adopt SnowIn's canonical `secondary_minus_reference`
+  phase, NISAR-modified Copernicus DEM geometry, and product-metadata wavelength
+  treatment. Validate this configuration across the controlled 23-edge path,
+  keeping Colorado's reviewed station/path offsets as explicit downstream
+  inputs unless their policy is separately changed.
+- Keep the legacy retrieval available during migration validation. Rewire the
+  Colorado workflow to the canonical SnowIn API only after the adopted
+  phase/DEM/wavelength path is reviewed against the controlled baseline; then
+  decide whether `gunw_to_dswe` remains as compatibility support.
 - Add broader synthetic/product robustness coverage for alternate polarization,
   missing layers, product variants, and larger grids.
 - Refactor the NISAR adapter only after the scientific boundaries above are

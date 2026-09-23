@@ -34,8 +34,9 @@ Run these notebooks from the repository root:
    behavior.
 2. `notebooks/02_real_nisar_gunw_workflow.ipynb` — fast product inspection,
    explicit incidence calculation, and real dSWE preview.
-3. `notebooks/03_colorado_comparison_workflow.ipynb` — controlled versus
-   native Colorado geometry, wavelength, basin masks, and residuals.
+3. `notebooks/03_colorado_comparison_workflow.ipynb` — controlled baseline
+   versus Colorado's adopted SnowIn-native phase, DEM geometry, and
+   product-metadata wavelength, with basin masks and residuals.
 4. `notebooks/04_transferable_nisar_snotel_workflow.ipynb` — a template for a
    different NISAR box and SNOTEL station set.
 
@@ -105,10 +106,13 @@ Notebook 03 should reproduce the documented basin-matched behavior:
 - controlled SnowIn versus Colorado cumulative RMSE near `0.000005 mm` for
   ERB and `0.000004 mm` for Taylor.
 
-The native product-wavelength mode is expected to differ slightly because the
-GUNW wavelength is about `1.493%` larger than Colorado's historical frozen
-wavelength. This is a documented convention difference, not a failure. Record
-new issues before proposing scientific standardization or refactoring.
+The adopted SnowIn-native mode uses the wavelength resolved from product
+metadata and the NISAR-modified Copernicus DEM. It is expected to differ from
+the controlled historical baseline, which used Colorado's frozen wavelength
+and retained incidence raster. Report phase, wavelength, and geometry effects
+separately across the 23-edge path; assess the migrated result against its
+declared conventions rather than expecting zero residual to the old baseline.
+Keep the legacy retrieval available until this validation is reviewed.
 
 ## Review outcome
 

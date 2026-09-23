@@ -47,15 +47,15 @@ retrieval were exact negatives: maximum absolute residual of
 `1.14e-13 mm` after adding the two arrays. This is an explicit lineage
 result, not a sign inferred from numerical values.
 
-This resolves the current Colorado boundary: `T0_DELIVERED` is the raw
+This resolves the historical Colorado boundary: `T0_DELIVERED` is the raw
 delivered GUNW `unwrappedPhase` field, not a phase-normalized intermediate.
 Consequently, the frozen Colorado `phase_sign=+1` retrieval is opposite to
-SnowIn's product-normalized canonical phase. The duplicate downstream
-retrieval code must therefore remain in place until Colorado deliberately
-changes its boundary/configuration to consume SnowIn's canonical phase (or
-explicitly retains the raw-product convention) and compares outputs under
-that new declaration. SnowIn must not silently rewire `gunw_to_dswe()` to
-change the sign semantics of the frozen Colorado workflow.
+SnowIn's product-normalized canonical phase. Colorado has decided to migrate
+to SnowIn's `secondary_minus_reference` phase, NISAR-modified Copernicus DEM
+geometry, and product-metadata wavelength treatment. The duplicate downstream
+retrieval code remains in place during validation of that adopted configuration;
+SnowIn must not silently rewire `gunw_to_dswe()` before the Colorado workflow
+has been explicitly migrated and checked.
 
 ## Downstream pair reproduction
 
@@ -78,9 +78,9 @@ downstream COP30 raster: over their finite overlap, the absolute difference
 was 0.489° mean, 1.412° at the 95th percentile, and 31.98° maximum. The
 retained downstream raster has nodata outside its prepared analysis footprint
 (1.23% finite over the full product), so those geometry statistics are an
-overlap characterization rather than a whole-scene validation. This is an
-additional reason to keep the duplicate downstream retrieval path until the
-Colorado workflow explicitly adopts and validates the NISAR DEM geometry.
+overlap characterization rather than a whole-scene validation. Validate the
+adopted NISAR DEM geometry against the retained downstream raster before
+retiring the duplicate retrieval path.
 
 ## Reference-phase inputs and support rules
 

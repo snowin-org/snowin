@@ -24,8 +24,9 @@ Earlier internal validation completed the clean Python 3.12 wheel install,
 package import, CLI help smoke test, strict MkDocs build, package build, and
 real Colorado GUNW/NISAR-DEM geometry and phase-lineage checks. Public release
 work is intentionally deferred while collaborators review the notebooks and
-the canonical-versus-legacy GUNW workflow boundary. Current source evidence
-resolves Colorado `T0_DELIVERED` as raw delivered GUNW phase; the remaining
-decision is whether Colorado will deliberately migrate its downstream
-configuration to SnowIn's canonical phase before duplicate retrieval is
-retired.
+Colorado validates its decided migration to SnowIn's canonical phase,
+NISAR-modified Copernicus DEM geometry, and product-metadata wavelength
+treatment. Current source evidence resolves Colorado `T0_DELIVERED` as raw
+delivered GUNW phase. Keep the duplicate retrieval during the 23-edge
+migration comparison; station/date selection and reviewed path offsets remain
+explicit downstream policy inputs.
