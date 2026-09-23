@@ -64,8 +64,13 @@ general package contract.
 
 ## Later
 
-- Broaden supported product adapters, including GSLC where its scientific and
-  data contracts are verified.
+- Broaden supported product adapters, including Sentinel-1, ROSE-L when its
+  products become available, and other sensors where their scientific and data
+  contracts can be verified. This is a future direction, not active v0.1 work;
+  the current implementation remains deliberately NISAR-first.
+- Keep the product-adapter boundary focused on converting mission-specific
+  inputs into SnowIn's common snow-analysis contract. SnowIn is not intended to
+  replace general InSAR processors such as ISCE or Dolphin.
 - Add coverage, documentation publishing, and broader Python/platform testing
   when those services and maintenance needs justify the additional process.
 - Prepare PyPI/Conda packaging only after the scientific workflow and public API

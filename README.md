@@ -8,6 +8,12 @@ SnowIn is a snow-focused SAR/InSAR Python package, initially NISAR-first. It
 turns phase-based snow retrieval inputs into analysis-ready xarray objects while
 keeping units, coordinates, support, and scientific provenance explicit.
 
+The long-term scope is broader snow-based InSAR analysis across sensors such as
+Sentinel-1 and future ROSE-L products, but those adapters are planned rather
+than active work. SnowIn is intended to be the snow-analysis layer around
+mission-specific InSAR processors, not a replacement for general processors
+such as ISCE or Dolphin.
+
 ## Status
 
 SnowIn is under active pre-release development. The current line provides
