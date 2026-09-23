@@ -48,6 +48,18 @@ zero in both basins; the remaining difference is the local-incidence geometry.
 The large maxima are localized pixels and should be investigated with residual
 maps and support/provenance layers rather than summarized by the mean alone.
 
+The higher native product-wavelength residual is expected rather than evidence
+that the GUNW metadata is incorrect. SnowIn resolves `0.241963243 m` from the
+GUNW center-frequency metadata, while Colorado's historical reproduction uses
+`0.238403545 m`. Because the dSWE kernel is linear in wavelength, the product
+value scales dSWE by approximately `1.493%` relative to the frozen value. That
+small per-edge scaling becomes more visible after 23 temporal edges have been
+accumulated. The frozen-wavelength native run therefore isolates the geometry
+difference, while the product-wavelength native run intentionally includes
+both geometry and wavelength-policy differences. SnowIn should retain the
+product-derived default and require an explicit wavelength override for
+historical Colorado reproduction.
+
 ## Decision
 
 These basin-matched results support SnowIn as the forward-looking framework:
