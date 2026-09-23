@@ -236,7 +236,7 @@ metrics, diagnostics, cloud/raster I/O, and workflow/fixture behavior. The
 current CI job runs on Ubuntu with Python 3.12 and performs pytest, Ruff, and
 package-build checks; it does not yet publish coverage or documentation.
 
-At the time of this update, the local baseline is **143 passed and 3 skipped**
+At the time of this update, the local baseline is **153 passed and 3 skipped**
 with the optional external real-product geometry regression unavailable. The
 skipped-test setup is documented in
 [`tests/fixtures/README.md`](tests/fixtures/README.md); the number should be
