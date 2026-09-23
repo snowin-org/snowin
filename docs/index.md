@@ -9,3 +9,6 @@ SnowIn is pre-release software. Start with the [data model](data_model.md),
 [development guide](development.md), and [API policy](api_policy.md). The
 real-product Colorado comparison is
 summarized in [downstream evidence](colorado_downstream_evidence.md).
+The current full-path records are [reference-offset reconstruction](colorado_t019_reference_offset_reconstruction.md),
+[controlled equivalence](colorado_t019_full_path_comparison.md), and the
+[native NISAR DEM benchmark](colorado_t019_native_geometry_benchmark.md).

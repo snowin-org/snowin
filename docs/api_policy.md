@@ -76,3 +76,12 @@ GUNW phase with a historical sign convention, so it must not be silently
 rewired to the canonical path. Retirement or an explicitly configured
 migration can happen after Colorado approves the boundary and post-migration
 output comparisons.
+
+## Wavelength policy
+
+The generic `compute_dswe` kernel always requires an explicit positive
+`wavelength_m`. The NISAR adapter's default is to derive that value from the
+product `centerFrequency` metadata using `c / f` and record the source in
+`wavelength_source`. A study-specific value may be supplied explicitly to
+`open_gunw`, for example Colorado's frozen `0.238403545 m` value. SnowIn does
+not silently convert, substitute, or reconcile those two policies.

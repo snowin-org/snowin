@@ -27,3 +27,16 @@ The real-product notebook does not store products or generated rasters in the
 repository. It first opens the product for metadata/phase inspection, then
 explicitly calls `add_gunw_incidence` for the slower DEM/LOS step before the
 local-incidence and simple pairwise dSWE preview.
+
+## Colorado comparison workflow
+
+[`03_colorado_comparison_workflow.ipynb`](03_colorado_comparison_workflow.ipynb)
+keeps two real-product modes separate: controlled Colorado reproduction with a
+declared incidence raster and frozen wavelength, and SnowIn-native geometry
+with the NISAR-modified Copernicus DEM and product-derived wavelength. It
+displays the intermediate xarray objects, provenance, support fractions, and
+an optional signed residual against a downstream dSWE raster.
+
+Set `SNOWIN_COLORADO_INCIDENCE` and `SNOWIN_COLORADO_OFFSET_RAD` to enable the
+controlled mode. The notebook never embeds Colorado station/date policy; it
+accepts the already-derived edge offset as an explicit input.
