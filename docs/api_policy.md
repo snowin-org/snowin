@@ -35,6 +35,7 @@ from snowin.reference import estimate_reference_offset
 from snowin.io.dem import DEMSource
 from snowin.io.geometry import compute_cop30_local_incidence
 from snowin.io.phase_normalization import normalize_gunw_pair
+from snowin.spatial import rasterize_vector_mask
 ```
 
 Underscore-prefixed names are internal implementation details and are not part

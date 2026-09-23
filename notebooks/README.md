@@ -20,7 +20,7 @@ set `SNOWIN_NISAR_DEM` to a local NISAR-modified Copernicus DEM and
 Install the notebook/runtime dependencies from the checkout with:
 
 ```bash
-python -m pip install -e ".[dev,gunw]"
+python -m pip install -e ".[dev,gunw,vectors]"
 ```
 
 The real-product notebook does not store products or generated rasters in the
@@ -40,3 +40,8 @@ an optional signed residual against a downstream dSWE raster.
 Set `SNOWIN_COLORADO_INCIDENCE` and `SNOWIN_COLORADO_OFFSET_RAD` to enable the
 controlled mode. The notebook never embeds Colorado station/date policy; it
 accepts the already-derived edge offset as an explicit input.
+
+To evaluate the basin-limited Colorado areas, also set
+`SNOWIN_ERB_VECTOR=/path/to/erb.gpkg` and
+`SNOWIN_TAYLOR_VECTOR=/path/to/taylor.gpkg`. Use `SNOWIN_ERB_LAYER` and
+`SNOWIN_TAYLOR_LAYER` when a GeoPackage has multiple layers.

@@ -12,3 +12,7 @@ summarized in [downstream evidence](colorado_downstream_evidence.md).
 The current full-path records are [reference-offset reconstruction](colorado_t019_reference_offset_reconstruction.md),
 [controlled equivalence](colorado_t019_full_path_comparison.md), and the
 [native NISAR DEM benchmark](colorado_t019_native_geometry_benchmark.md).
+Vector-defined analysis regions are documented in
+[spatial masks](spatial_masks.md).
+The basin-matched measurements are recorded in
+[the Colorado basin comparison](colorado_t019_basin_comparison.md).

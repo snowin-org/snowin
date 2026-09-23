@@ -33,6 +33,10 @@ general package contract.
   should become a supported execution mode.
 - Notebook 03 now demonstrates controlled versus SnowIn-native Colorado
   comparison without importing Colorado station/date policy into SnowIn.
+- Vector-defined analysis-region masks now support GeoPackage, Shapefile,
+  GeoJSON, and in-memory geometries with CRS-aware rasterization. The first
+  ERB/Taylor basin-matched comparison shows near-identical incidence fields
+  over the actual study regions.
 - Keep regression evidence reproducible without storing large external GUNW or
   DEM files in the repository.
 
@@ -41,6 +45,8 @@ general package contract.
 - Have collaborators run Notebooks 01–03 and the canonical
   `open_gunw()` → `add_gunw_incidence()` → `compute_dswe()` workflow against
   their environments and products.
+- Use the explicit ERB/Taylor region masks for future Colorado residual,
+  support, and regional metric comparisons.
 - Resolve the Colorado migration boundary: whether Colorado will deliberately
   adopt SnowIn's canonical phase and NISAR DEM geometry, or retain its raw
   delivered-phase and reviewed-path policy. Until that decision, do not remove
