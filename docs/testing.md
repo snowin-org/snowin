@@ -152,6 +152,8 @@ should follow from a small analytical example.
 Tests requiring externally supplied real mission products should be marked
 `integration`, document their provenance and environment variables, and remain
 optional. They must not make the normal test suite depend on those files.
+The optional NISAR product checks, exact fixture provenance, and environment
+variables are documented in [the fixture guide](../tests/fixtures/README.md).
 
 ## Coverage and repository checks
 
@@ -180,9 +182,11 @@ git diff --check
 CI additionally installs a built wheel in a clean environment and imports it
 while exercising a small public API call. Ruff is scoped to source, tests, and
 scripts; Markdown and notebook documents are excluded because their embedded
-examples and generated notebook cells need document-aware checks. Executable
-documentation is a future maturity step; do not add a large documentation
-build system solely for this change.
+examples and generated notebook cells need document-aware checks. The README
+quick-start example is executed as a smoke test from its tagged code block.
+Other product examples need real inputs or network access, so broader executable
+documentation remains a future step; do not add a large documentation build
+system solely for this change.
 
 ## Supported dependencies
 

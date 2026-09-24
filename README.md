@@ -73,7 +73,7 @@ The named retrievals accept normalized phase and incidence-angle DataArrays.
 Both angles use radians and the phase must be `secondary - reference`. Supply
 the wavelength in metres or explicitly select a stock sensor/band:
 
-```python
+```python snowin-quickstart
 import math
 
 import xarray as xr
