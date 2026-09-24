@@ -4,7 +4,7 @@
 
 SnowIn targets Python 3.12 and newer. The requirement is declared in
 `pyproject.toml`, Ruff targets Python 3.12 syntax, and continuous integration
-runs the package on Python 3.12. Local development may use a newer supported
+tests Python 3.12, 3.13, and 3.14. Local development may use a newer supported
 interpreter.
 
 SnowIn uses a `src/` layout. Install the package before importing it from a
@@ -34,17 +34,26 @@ The intentionally small required check set is:
 
 ```bash
 pytest -q
+pytest --cov=snowin --cov-report=term-missing --cov-report=xml
 ruff check .
 ruff format --check .
 python -m build
 git diff --check
 ```
 
-The test suite is data-free and should run in continuous integration. It
-covers the current prototype's public imports, the canonical xarray dSWE
-kernel, numerical characterization, I/O helpers, diagnostics, and workflow
-plumbing. Product adapters and study-specific retrieval orchestration remain
-outside the Stage 2 kernel.
+The test suite is data-free and should run in continuous integration. The
+canonical [scientific testing policy](testing.md) covers independent equation
+checks, invariants and property tests, input failures, xarray contracts,
+missing-data behavior, eager/Dask equivalence, regression cases, and a
+synthetic integration path. Optional real-product checks remain separate and
+require explicitly supplied inputs.
+
+The minimum-dependency job runs on Python 3.12 with NumPy 1.26.4 and xarray
+2024.1. This is the oldest NumPy release that supports Python 3.12; NumPy 1.24,
+which remains the declared lower bound, supports Python 3.8–3.11. The package's
+Python floor and dependency floor therefore do not form a testable
+NumPy-1.24/Python-3.12 combination. See [testing policy](testing.md) for the
+official NumPy release references and the tested compatibility boundary.
 
 Mypy is not part of the required check set yet. The current scientific code is
 not mature enough for a strict type-checking gate, and adding a gate without a
@@ -60,9 +69,11 @@ scripts, or repository-specific study code.
 
 ## CI
 
-`.github/workflows/ci.yml` runs the same install, test, lint, format, and build
-checks on a clean Python 3.12 runner. It does not require NISAR products,
-cloud credentials, or private study data.
+`.github/workflows/ci.yml` runs tests on Python 3.12–3.14, checks the minimum
+scientific dependencies on Python 3.12, and runs lint, format, build, and
+wheel-install smoke checks. It does not require NISAR products, cloud
+credentials, or private study data. The CI coverage report is diagnostic; see
+the threshold and scope in `pyproject.toml` and [testing policy](testing.md).
 
 ## Repository hygiene
 
@@ -104,9 +115,10 @@ installation and CLI help smoke test:
 python -m build
 python -m venv /tmp/snowin-wheel-smoke
 /tmp/snowin-wheel-smoke/bin/python -m pip install dist/*.whl
-/tmp/snowin-wheel-smoke/bin/python -c "import snowin; print(snowin.__version__)"
-/tmp/snowin-wheel-smoke/bin/snowin-plot-gunw --help
+/tmp/snowin-wheel-smoke/bin/python scripts/wheel_smoke.py
 ```
 
-The wheel smoke test verifies that the built artifact, rather than the checkout,
-contains the package and console entry point.
+The smoke script verifies that the built artifact, rather than the checkout,
+is imported and that its public dSWE API returns the expected scientific
+result. CI checks the console entry point in the development environment, where
+the optional plotting dependencies are installed.

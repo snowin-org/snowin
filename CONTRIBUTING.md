@@ -7,10 +7,12 @@ Thanks for contributing.
 ```bash
 python --version  # Python 3.12 or newer
 python -m pip install -e ".[dev]"
-pytest
+pytest -q
+pytest --cov=snowin --cov-report=term-missing --cov-report=xml
 ruff check .
 ruff format --check .
 python -m build
+git diff --check
 ```
 
 SnowIn uses a `src/` layout. Tests and examples should import the installed
@@ -33,6 +35,25 @@ A PR should:
 - include tests for new functionality
 - include docstring updates for public functions
 - keep notebooks as examples, not as the home of core logic
+
+## Scientific testing checklist
+
+For every new or changed public scientific operation, consider each item and
+cover it when applicable:
+
+- [ ] Is there an independent analytical or reference-value test?
+- [ ] Are important mathematical and scientific invariants tested?
+- [ ] Are invalid or ambiguous inputs tested?
+- [ ] Are units, dimensions, coordinates, CRS, and metadata protected?
+- [ ] Does NumPy/eager behavior match Dask/lazy behavior when applicable?
+- [ ] Are missing-data and masking semantics tested?
+- [ ] Is a regression test included for bug fixes?
+- [ ] Are numerical tolerances explicit and scientifically justified?
+- [ ] Do tests, coverage, Ruff, build, and installation checks pass?
+
+Some items do not apply to every operation; record the relevant reasoning in
+the test or PR summary. See the canonical [scientific testing policy](docs/testing.md)
+for test design, coverage, and numerical tolerance guidance.
 
 ## Style
 
