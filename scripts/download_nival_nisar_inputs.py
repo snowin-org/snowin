@@ -3,11 +3,13 @@
 NIVAL files are selected from the public NSIDC ``NIVAL_MCS_Lidar`` collection.
 The script downloads only the two Snow Depth GeoTIFF assets, not the larger
 multi-layer lidar granules. The GUNW is selected by its full granule name from
-ASF's ``NISAR_L2_GUNW_PROVISIONAL_V1`` collection.
+ASF's ``NISAR_L2_GUNW_PROVISIONAL_V1`` collection. The ``dem`` input stages
+one public Copernicus GLO-30 tile covering the Mores Creek AOI.
 
-Requires ``pip install -e '.[gunw]'`` and a free NASA Earthdata Login. If a
-stale ``.netrc`` entry is configured, pass ``--interactive-login`` to enter a
-current Earthdata username/password without changing that file.
+Requires ``pip install -e '.[gunw]'`` and a free NASA Earthdata Login for the
+lidar and GUNW. The DEM-only download requires no login. If a stale ``.netrc``
+entry is configured, pass ``--interactive-login`` to enter a current Earthdata
+username/password without changing that file.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import earthaccess
+import requests
 
 GUNW_COLLECTION = "NISAR_L2_GUNW_PROVISIONAL_V1"
 GUNW_NAME = (
@@ -29,6 +32,12 @@ LIDAR_FILES = {
     "20260207": "NIVAL_MCS_Lidar_20260207_SD_v01.tif",
     "20260222": "NIVAL_MCS_Lidar_20260222_SD_v01.tif",
 }
+COP30_TILE = "Copernicus_DSM_COG_10_N43_00_W116_00_DEM.tif"
+COP30_TILE_URL = (
+    "https://copernicus-dem-30m.s3.amazonaws.com/"
+    "Copernicus_DSM_COG_10_N43_00_W116_00_DEM/"
+    "Copernicus_DSM_COG_10_N43_00_W116_00_DEM.tif"
+)
 
 
 def _basename(url: str) -> str:
@@ -105,9 +114,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--inputs",
-        choices=("all", "lidar", "gunw"),
+        choices=("all", "lidar", "gunw", "dem"),
         default="all",
-        help="download both data types (about 2.5 GB for the GUNW), or one type",
+        help="download the GUNW, lidar, and local Copernicus tile, or select one type",
     )
     parser.add_argument(
         "--destination",
@@ -122,6 +131,11 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    if args.inputs == "dem":
+        session = requests.Session()
+        _download(session, COP30_TILE_URL, args.destination / "dem" / COP30_TILE)
+        return
+
     strategy = "interactive" if args.interactive_login else "all"
     earthaccess.login(strategy=strategy)
     session = earthaccess.get_requests_https_session()
@@ -135,6 +149,9 @@ def main() -> None:
     if args.inputs in {"all", "gunw"}:
         gunw_url = _find_gunw_url()
         _download(session, gunw_url, args.destination / "gunw" / GUNW_NAME)
+
+    if args.inputs == "all":
+        _download(session, COP30_TILE_URL, args.destination / "dem" / COP30_TILE)
 
 
 if __name__ == "__main__":

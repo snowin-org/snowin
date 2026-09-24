@@ -66,15 +66,15 @@ analysis to SnowIn. It documents the ASC-077 7–19 February 2026 operational
 GUNW comparison against NIVAL lidar dHS (7–22 February), reproducing the
 outlier gate, per-pixel local-incidence Leinss conversion, lidar SWE anchor,
 and coherence-stratified statistics using SnowIn's normalized phase and
-`compute_dswe` API. The notebook expects the GUNW, two lidar rasters, and
-lidar rasters locally; it derives local incidence through SnowIn using
-Copernicus GLO-30, as in Zach's analysis. The minimal download helper fetches
-only the two required NIVAL snow-depth GeoTIFF assets plus the named GUNW:
+`compute_dswe` API. The notebook expects the GUNW and two lidar rasters locally;
+it derives local incidence through SnowIn using
+Copernicus GLO-30, as in Zach's analysis. The download helper fetches the two
+required NIVAL snow-depth GeoTIFF assets, the named GUNW, and the one
+Copernicus GLO-30 tile covering the Mores Creek AOI:
 
 ```bash
 python -m pip install -e ".[gunw]"
-python scripts/download_nival_nisar_inputs.py --inputs lidar --interactive-login
-python scripts/download_nival_nisar_inputs.py --inputs gunw --interactive-login
+python scripts/download_nival_nisar_inputs.py --inputs all --interactive-login
 ```
 
 The lidar is free from [NSIDC](https://doi.org/10.5067/DPFDH2M49DQG); a free
@@ -82,8 +82,9 @@ NASA Earthdata Login is required. `--interactive-login` avoids a stale or
 incorrect local `.netrc` entry. The GUNW is about 2.5 GB and comes from ASF
 ([DOI](https://doi.org/10.5067/NIL2GUNW-P1)); it also requires Earthdata Login.
 By default files go under `~/.cache/snowin/nival_nisar/`. The notebook uses
-that location, crops the GUNW to Zach's Mores Creek AOI, and lets SnowIn fetch
-or reuse the Copernicus DEM for its local-incidence calculation. This follows
+that location, crops the GUNW to Zach's Mores Creek AOI, and uses the local
+Copernicus tile for its incidence calculation, avoiding a full-frame DEM
+fetch. This follows
 the paper's delivered operational GUNW path; the large raw RSLC granules and
 the older self-processing stack are not needed. The reference manuscript is
 [Hoppinen et al. (2026), EGUsphere preprint](https://doi.org/10.5194/egusphere-2026-5140).
@@ -98,10 +99,38 @@ Jupyter. The last notebook cell writes a copy of the SnowIn result to the
 reference checkout's `outputs/retrieval/dswe_dhs_operational.nc`, which is the
 file consumed by the unchanged `nival.paper_figures.results_figure()` function.
 Run that function in Zach's `nival` environment to render his Figure 2. Figure
-3's 20 m diagnostic still requires his `nival.unwrap_20m` step: it unwraps the
-delivered GUNW `wrappedInterferogram` with SNAPHU, using ISCE3 only to estimate
-effective looks from RSLC metadata. SnowIn's current NISAR reader consumes the
-delivered 80 m `unwrappedPhase` layer and does not perform phase unwrapping.
+3's 20 m diagnostic uses the GUNW's delivered `wrappedInterferogram`; Zach's
+`nival.unwrap_20m` unwraps it with SNAPHU and uses ISCE3 to estimate effective
+looks from RSLC metadata. It does not form a new interferogram from RSLCs.
+
+For a separate ISCE3 unwrap, `scripts/unwrap_gunw_20m_isce3.py` crops the
+wrapped GUNW to the Mores Creek AOI and applies ISCE3's ICU algorithm. It writes
+a phase GeoTIFF and connected-component GeoTIFF without calling Zach's code.
+ICU is a different algorithm from SNAPHU, so its result is an independent
+diagnostic rather than a bit-for-bit recreation of his Figure 3. Then
+`scripts/derive_unwrapped_gunw_dswe.py` normalizes that output to SnowIn's
+phase convention, derives local incidence through SnowIn, and computes 20 m
+dSWE. The paper comparison applies the positive conversion to the source GUNW
+phase orientation, whereas SnowIn canonicalizes phase to
+`secondary_minus_reference`. The 20 m NetCDF therefore stores both `dswe_snowin_canonical` and
+`dswe` (negated to match the paper's source-phase polarity). The 80 m notebook
+uses the same explicit sign bridge for its Zach-compatible plotting product.
+Pass `--cop30-dem` with a local Copernicus GLO-30 tile to limit DEM staging to
+the analysis area; without it SnowIn's automatic helper stages DEM tiles for
+the full GUNW footprint.
+
+Example, using an environment with ISCE3 for the unwrap and the SnowIn geospatial
+dependencies for the dSWE step:
+
+```bash
+conda run -n isce3 python scripts/unwrap_gunw_20m_isce3.py /path/to/operational_gunw.h5 \
+  --output /path/to/nival_20m_isce3_icu.tif
+conda run -n nisar_snotel python scripts/derive_unwrapped_gunw_dswe.py \
+  --gunw /path/to/operational_gunw.h5 \
+  --phase /path/to/nival_20m_isce3_icu.tif \
+  --output /path/to/nival_20m_snowin_dswe.nc \
+  --cop30-dem /path/to/copernicus_glo30_tile.tif
+```
 
 For the complete reviewer environment, install the notebook extra as well:
 
