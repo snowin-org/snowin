@@ -67,9 +67,30 @@ GUNW comparison against NIVAL lidar dHS (7–22 February), reproducing the
 outlier gate, per-pixel local-incidence Leinss conversion, lidar SWE anchor,
 and coherence-stratified statistics using SnowIn's normalized phase and
 `compute_dswe` API. The notebook expects the GUNW, two lidar rasters, and
-Copernicus DEM to be staged locally; see its input cell for paths and its
-markdown cells for differences from Zach's original method. It does not
-download the multi-gigabyte GUNW or derive incidence geometry automatically.
+lidar rasters locally; it derives local incidence through SnowIn using
+Copernicus GLO-30, as in Zach's analysis. The minimal download helper fetches
+only the two required NIVAL snow-depth GeoTIFF assets plus the named GUNW:
+
+```bash
+python -m pip install -e ".[gunw]"
+python scripts/download_nival_nisar_inputs.py --inputs lidar --interactive-login
+python scripts/download_nival_nisar_inputs.py --inputs gunw --interactive-login
+```
+
+The lidar is free from [NSIDC](https://doi.org/10.5067/DPFDH2M49DQG); a free
+NASA Earthdata Login is required. `--interactive-login` avoids a stale or
+incorrect local `.netrc` entry. The GUNW is about 2.5 GB and comes from ASF
+([DOI](https://doi.org/10.5067/NIL2GUNW-P1)); it also requires Earthdata Login.
+By default files go under `~/.cache/snowin/nival_nisar/`. The notebook uses
+that location, crops the GUNW to Zach's Mores Creek AOI, and lets SnowIn fetch
+or reuse the Copernicus DEM for its local-incidence calculation. This follows
+the paper's delivered operational GUNW path; the large raw RSLC granules and
+the older self-processing stack are not needed. The reference manuscript is
+[Hoppinen et al. (2026), EGUsphere preprint](https://doi.org/10.5194/egusphere-2026-5140).
+Its reported fitted-density values differ from the current cloned repository's
+README, so the notebook calculates the slope from the data and calls out that
+version discrepancy. Other remaining method differences are described in the
+notebook.
 
 For the complete reviewer environment, install the notebook extra as well:
 
