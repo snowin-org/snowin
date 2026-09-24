@@ -57,6 +57,20 @@ latitude/longitude, expected phase in SnowIn's canonical convention, and
 coherence weights. The notebook samples observed phase from the GUNW unless an
 `observed_phase_rad` column is supplied.
 
+## NIVAL NISAR comparison reference
+
+[`05_nival_nisar_comparison.ipynb`](05_nival_nisar_comparison.ipynb) adapts the
+load-bearing NISAR portion of Zach Hoppinen's
+[`tc_brief_nival_validation`](https://github.com/ZachHoppinen/tc_brief_nival_validation)
+analysis to SnowIn. It documents the ASC-077 7–19 February 2026 operational
+GUNW comparison against NIVAL lidar dHS (7–22 February), reproducing the
+outlier gate, per-pixel local-incidence Leinss conversion, lidar SWE anchor,
+and coherence-stratified statistics using SnowIn's normalized phase and
+`compute_dswe` API. The notebook expects the GUNW, two lidar rasters, and
+Copernicus DEM to be staged locally; see its input cell for paths and its
+markdown cells for differences from Zach's original method. It does not
+download the multi-gigabyte GUNW or derive incidence geometry automatically.
+
 For the complete reviewer environment, install the notebook extra as well:
 
 ```bash
