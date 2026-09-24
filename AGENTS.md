@@ -1,5 +1,65 @@
 # SnowIn contributor guidance for coding agents
 
+## Project overview and code map
+
+SnowIn is a Python 3.12+ scientific package for snow-focused SAR/InSAR
+analysis. It uses a `src/` layout, with NumPy and xarray as core dependencies;
+GUNW, geospatial, plotting, cloud, and Dask capabilities are optional. Read
+`docs/api_policy.md` before changing exports or choosing a public import path.
+
+| Area | Main files | Responsibility |
+|---|---|---|
+| Public API | `src/snowin/__init__.py` | Stable, generic root-level functions |
+| Retrieval science | `src/snowin/snow/` | Named phase-to-dSWE methods and SWE helpers |
+| Product I/O | `src/snowin/io/` | GUNW reading, phase normalization, DEM and incidence adapters |
+| Corrections and reference | `src/snowin/corrections/`, `src/snowin/reference/` | Phase correction and reference methods |
+| Quality and time | `src/snowin/quality/`, `src/snowin/temporal.py` | Support masks, metrics, directed accumulation |
+| Workflows | `src/snowin/workflows/` | Composition of product readers and scientific operations |
+| Spatial and plots | `src/snowin/spatial.py`, `src/snowin/plotting/` | Vector masks and GUNW diagnostics |
+
+Keep product-specific normalization in adapters and general equations in the
+scientific layer. Prefer the root facade for stable generic operations and
+domain modules for product-specific operations; do not promote an API without
+following the API policy.
+
+## Development environment
+
+Install the editable development environment from the repository root:
+
+```bash
+python -m pip install -e ".[dev]"
+```
+
+Other extras are declared in `pyproject.toml` for GUNW/geospatial, cloud,
+vector, docs, and notebook workflows. Do not assume Pixi or another dependency
+manager is configured. The base package should remain usable without optional
+mission-product dependencies.
+
+Use focused tests while iterating, then run the full quality commands listed
+under Repository quality before completing a code change. Examples:
+
+```bash
+pytest -q tests/test_dswe_kernel.py tests/test_dswe_properties.py
+pytest -q tests/test_nisar_adapter.py tests/test_geometry.py
+```
+
+The normal suite must stay synthetic, fast, and offline. Real-product checks
+are marked `integration`; follow `tests/fixtures/README.md` for their input
+provenance and environment variables. Do not put credentials or local data
+paths in tests or commits.
+
+## Implementation conventions
+
+- Preserve xarray labels and metadata as scientific state, and use the public
+  API policy to decide which import path to extend.
+- Keep Dask-compatible operations lazy until an explicitly documented
+  reduction or materialization boundary; test eager/lazy equivalence where
+  applicable.
+- Use Ruff for lint and formatting. Mypy is not a required gate; see
+  `docs/development.md` before proposing type-checking rules.
+- Keep public behavior and its tests together. For scientific changes, follow
+  `docs/testing.md` rather than copying generic test counts or patterns.
+
 ## Scientific correctness
 
 - Preserve SnowIn's canonical phase `secondary_minus_reference`, dSWE
