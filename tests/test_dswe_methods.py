@@ -53,9 +53,7 @@ def _inputs(
     return phase, incidence
 
 
-def _run_guneriussen(
-    phase, incidence, *, snow_density_kg_m3=300.0, **kwargs
-):
+def _run_guneriussen(phase, incidence, *, snow_density_kg_m3=300.0, **kwargs):
     return compute_guneriussen_dswe(
         phase,
         incidence,
@@ -79,9 +77,7 @@ def test_named_methods_preserve_xarray_contract(function, extra_kwargs):
         np.full((2, 2), 0.75), np.full((2, 2), THETA), dims=("y", "x"), coords=coords
     )
 
-    result = function(
-        phase, incidence, wavelength_m=WAVELENGTH_M, **extra_kwargs
-    )
+    result = function(phase, incidence, wavelength_m=WAVELENGTH_M, **extra_kwargs)
 
     assert result.name == "dswe"
     assert result.dims == phase.dims
@@ -135,9 +131,7 @@ def test_guneriussen_matches_density_and_permittivity_equation(
         -2.0 * (2.0 * math.pi / WAVELENGTH_M) * refraction * (300.0 / 1000.0)
     )
 
-    result = _run_guneriussen(
-        phase, incidence, permittivity_model=model
-    )
+    result = _run_guneriussen(phase, incidence, permittivity_model=model)
 
     assert result.item() == pytest.approx(expected)
     assert result.attrs["permittivity_model"] == model
@@ -147,7 +141,9 @@ def test_guneriussen_matches_density_and_permittivity_equation(
 
 def test_guneriussen_density_dataarray_is_aligned_and_not_mutated():
     coords = {"pixel": np.array([0, 1, 2])}
-    phase, incidence = _inputs(np.ones(3), np.full(3, THETA), dims=("pixel",), coords=coords)
+    phase, incidence = _inputs(
+        np.ones(3), np.full(3, THETA), dims=("pixel",), coords=coords
+    )
     density = xr.DataArray(
         [250.0, 300.0, 350.0],
         dims=("pixel",),
@@ -192,9 +188,7 @@ def test_oveisgharan_matches_published_polynomial():
     a_theta = -0.6784 * THETA**2 + 0.2899 * THETA - 0.8473
     expected = 0.75 / (-2.0 * (2.0 * math.pi / WAVELENGTH_M) * a_theta)
 
-    result = compute_oveisgharan_dswe(
-        phase, incidence, wavelength_m=WAVELENGTH_M
-    )
+    result = compute_oveisgharan_dswe(phase, incidence, wavelength_m=WAVELENGTH_M)
 
     assert result.item() == pytest.approx(expected)
     assert result.attrs["retrieval_method"] == "oveisgharan"
@@ -212,9 +206,7 @@ def test_oveisgharan_matches_legacy_implementation():
         wavelength_m=WAVELENGTH_M,
     )
 
-    result = compute_oveisgharan_dswe(
-        phase, incidence, wavelength_m=WAVELENGTH_M
-    )
+    result = compute_oveisgharan_dswe(phase, incidence, wavelength_m=WAVELENGTH_M)
 
     assert result.item() == pytest.approx(expected)
 
@@ -226,8 +218,7 @@ def test_named_signatures_keep_method_specific_parameters_separate():
 
     assert leinss_parameters["alpha"].default == 1.0
     assert (
-        guneriussen_parameters["snow_density_kg_m3"].default
-        is inspect.Parameter.empty
+        guneriussen_parameters["snow_density_kg_m3"].default is inspect.Parameter.empty
     )
     assert guneriussen_parameters["permittivity_model"].default == "guneriussen2001"
     assert "snow_density_kg_m3" not in oveisgharan_parameters
@@ -339,7 +330,10 @@ def test_named_methods_preserve_dask_laziness_when_available(method):
         da.from_array(phase_values, chunks=2),
         dims=("pixel",),
         coords=coords,
-        attrs={"units": "rad", "phase_difference_definition": "secondary_minus_reference"},
+        attrs={
+            "units": "rad",
+            "phase_difference_definition": "secondary_minus_reference",
+        },
     )
     incidence = xr.DataArray(
         da.from_array(incidence_values, chunks=2),
@@ -364,9 +358,7 @@ def test_named_methods_preserve_dask_laziness_when_available(method):
             wavelength_m=WAVELENGTH_M,
         )
     else:
-        result = compute_oveisgharan_dswe(
-            phase, incidence, wavelength_m=WAVELENGTH_M
-        )
+        result = compute_oveisgharan_dswe(phase, incidence, wavelength_m=WAVELENGTH_M)
 
     assert result.chunks is not None
     assert np.isfinite(result.compute().values).all()

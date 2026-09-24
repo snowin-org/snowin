@@ -265,6 +265,7 @@ def test_missing_xy_cannot_derive_los_z(tmp_path):
         _read_radar_los(path)
 
 
+@pytest.mark.integration
 def test_real_product_geometry_regression():
     manifest_path = Path(__file__).parent / "fixtures" / "real_product_geometry.json"
     manifest = json.loads(manifest_path.read_text())

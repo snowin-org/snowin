@@ -92,7 +92,9 @@ def test_geopackage_layer_is_read_and_reprojected(tmp_path):
 
 def test_vector_mask_requires_crs_for_bare_geometries():
     with pytest.raises(ValueError, match="source CRS is missing"):
-        rasterize_vector_mask([box(0.0, 0.0, 1.0, 1.0)], target=_target(), progress=False)
+        rasterize_vector_mask(
+            [box(0.0, 0.0, 1.0, 1.0)], target=_target(), progress=False
+        )
 
 
 def test_vector_mask_requires_target_crs():

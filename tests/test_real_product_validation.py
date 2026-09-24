@@ -12,6 +12,7 @@ import pytest
 from snowin.io.nisar import add_gunw_incidence, open_gunw
 
 
+@pytest.mark.integration
 def test_real_gunw_phase_lineage_is_explicit():
     """Verify the raw product is preserved and normalized by the declared transform."""
     gunw = os.environ.get("SNOWIN_REAL_GUNW")
@@ -61,6 +62,7 @@ def test_real_gunw_phase_lineage_is_explicit():
     assert result.attrs["phase_transform"] == "multiply_by_-1"
 
 
+@pytest.mark.integration
 def test_real_gunw_geometry_requires_declared_datum_inputs():
     gunw = os.environ.get("SNOWIN_REAL_GUNW")
     dem = os.environ.get("SNOWIN_REAL_COP30_DEM")

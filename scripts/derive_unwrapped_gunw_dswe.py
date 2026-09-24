@@ -42,7 +42,9 @@ def derive_dswe(
 ) -> Path:
     raster = rioxarray.open_rasterio(phase_path, masked=True).squeeze()
     if raster.ndim != 2 or raster.dims != ("y", "x"):
-        raise ValueError(f"Expected a 2-D phase raster with y/x dimensions, got {raster.dims}")
+        raise ValueError(
+            f"Expected a 2-D phase raster with y/x dimensions, got {raster.dims}"
+        )
     epsg = raster.rio.crs.to_epsg()
     if epsg is None:
         raise ValueError("Phase GeoTIFF must have an EPSG CRS")
@@ -90,7 +92,10 @@ def derive_dswe(
     phase_referenced = (canonical_phase - phase_median).rename("phase_referenced")
     phase_referenced.attrs = dict(canonical_phase.attrs)
     phase_referenced.attrs.update(
-        {"phase_reference_method": "scene_median", "phase_reference_offset_rad": phase_median}
+        {
+            "phase_reference_method": "scene_median",
+            "phase_reference_offset_rad": phase_median,
+        }
     )
     dswe_snowin_canonical = compute_dswe(
         phase_referenced,
@@ -141,7 +146,9 @@ def derive_dswe(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--gunw", type=Path, required=True)
-    parser.add_argument("--phase", type=Path, required=True, help="ISCE3 ICU phase GeoTIFF")
+    parser.add_argument(
+        "--phase", type=Path, required=True, help="ISCE3 ICU phase GeoTIFF"
+    )
     parser.add_argument("--output", type=Path, required=True, help="SnowIn dSWE NetCDF")
     parser.add_argument(
         "--cop30-dem",

@@ -29,10 +29,7 @@ import isce3
 import numpy as np
 from osgeo import gdal, osr
 
-
-WRAPPED_GROUP = (
-    "science/LSAR/GUNW/grids/frequencyA/wrappedInterferogram/HH"
-)
+WRAPPED_GROUP = "science/LSAR/GUNW/grids/frequencyA/wrappedInterferogram/HH"
 DEFAULT_AOI = (-115.745, 43.898, -115.620, 43.993)
 
 
@@ -58,19 +55,19 @@ def _window(group: h5py.Group, aoi: tuple[float, float, float, float]):
     ]
     xs = np.asarray(group["xCoordinates"][:], dtype=np.float64)
     ys = np.asarray(group["yCoordinates"][:], dtype=np.float64)
-    x_min, x_max = min(point[0] for point in corners), max(
-        point[0] for point in corners
+    x_min, x_max = (
+        min(point[0] for point in corners),
+        max(point[0] for point in corners),
     )
-    y_min, y_max = min(point[1] for point in corners), max(
-        point[1] for point in corners
+    y_min, y_max = (
+        min(point[1] for point in corners),
+        max(point[1] for point in corners),
     )
     cols = np.flatnonzero((xs >= x_min) & (xs <= x_max))
     rows = np.flatnonzero((ys >= y_min) & (ys <= y_max))
     if not cols.size or not rows.size:
         raise ValueError(f"AOI does not intersect the GUNW grid: {aoi}")
-    return epsg, xs, ys, slice(rows[0], rows[-1] + 1), slice(
-        cols[0], cols[-1] + 1
-    )
+    return epsg, xs, ys, slice(rows[0], rows[-1] + 1), slice(cols[0], cols[-1] + 1)
 
 
 def _write_raster(
@@ -156,7 +153,9 @@ def unwrap_gunw_20m(
     igram[~valid] = 0.0 + 0.0j
     coherence[~valid] = 0.0
 
-    with tempfile.TemporaryDirectory(prefix="snowin_isce3_icu_", dir=output_path.parent) as tmp:
+    with tempfile.TemporaryDirectory(
+        prefix="snowin_isce3_icu_", dir=output_path.parent
+    ) as tmp:
         work = Path(tmp)
         wrapped_raster_path = work / "wrapped.tif"
         coherence_raster_path = work / "coherence.tif"

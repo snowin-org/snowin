@@ -216,3 +216,53 @@ def test_dask_backed_accumulation_is_lazy_and_equivalent():
             [[6.0, 8.0], [10.0, 12.0]],
         ],
     )
+
+
+@pytest.mark.parametrize("edges", [[], "not-an-edge-sequence"])
+def test_accumulation_rejects_empty_or_nonsequence_edges(edges):
+    error = TypeError if isinstance(edges, str) else ValueError
+    with pytest.raises(error):
+        accumulate_dswe(edges)
+
+
+@pytest.mark.parametrize(
+    "timestamp, message",
+    [
+        (None, "non-empty ISO 8601 UTC string"),
+        ("2025-01-01T00:00:00", "explicit UTC offset"),
+        ("not-a-time", "valid ISO 8601 timestamp"),
+    ],
+)
+def test_accumulation_requires_explicit_valid_utc_timestamps(timestamp, message):
+    edge = _edge(
+        [[1.0, 1.0], [1.0, 1.0]], "2025-01-01T00:00:00Z", "2025-01-13T00:00:00Z"
+    )
+    edge.attrs["reference_time"] = timestamp
+
+    with pytest.raises(ValueError, match=message):
+        accumulate_dswe([edge])
+
+
+def test_accumulation_rejects_missing_different_or_malformed_d_swe_layers():
+    edge = _edge(
+        [[1.0, 1.0], [1.0, 1.0]],
+        "2025-01-01T00:00:00Z",
+        "2025-01-13T00:00:00Z",
+    )
+    with pytest.raises(ValueError, match="missing 'missing'"):
+        accumulate_dswe([edge], dswe_variable="missing")
+
+    edge["pairwise_supported"] = xr.DataArray(
+        np.ones((2, 2), dtype=np.uint8), dims=("y", "x"), coords=COORDS
+    )
+    with pytest.raises(TypeError, match="boolean values"):
+        accumulate_dswe([edge])
+
+    edge = _edge(
+        [[1.0, 1.0], [1.0, 1.0]],
+        "2025-01-01T00:00:00Z",
+        "2025-01-13T00:00:00Z",
+    )
+    edge["dswe"] = xr.DataArray(1.0, attrs={"units": "m"})
+    with pytest.raises(ValueError, match="at least one spatial dimension"):
+        accumulate_dswe([edge])

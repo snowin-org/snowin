@@ -75,7 +75,7 @@ def _download(session, url: str, destination: Path) -> Path:
                         output.write(chunk)
                         written += len(chunk)
         if expected_size and written != expected_size:
-            raise IOError(
+            raise OSError(
                 f"Incomplete download for {name}: received {written:,} of "
                 f"{expected_size:,} bytes"
             )

@@ -13,6 +13,24 @@ from snowin.snow import (
     refraction_term,
     sensor_wavelength_m,
 )
+from snowin.snow.snow_depth import (
+    cm_to_m as depth_cm_to_m,
+)
+from snowin.snow.snow_depth import (
+    incidence_wavenumber as depth_incidence_wavenumber,
+)
+from snowin.snow.snow_depth import (
+    list_supported_sensors as list_depth_sensors,
+)
+from snowin.snow.snow_depth import (
+    m_to_cm as depth_m_to_cm,
+)
+from snowin.snow.snow_depth import (
+    maetzler_permittivity as depth_maetzler_permittivity,
+)
+from snowin.snow.snow_depth import (
+    sensor_wavelength_m as depth_sensor_wavelength_m,
+)
 
 
 def test_supported_sensors_nonempty():
@@ -149,3 +167,39 @@ def test_leinss_a_theta_negative_in_typical_range():
 def test_unit_helpers():
     assert cm_to_m(10.0) == pytest.approx(0.1)
     assert m_to_cm(0.1) == pytest.approx(10.0)
+
+
+@pytest.mark.parametrize(
+    "sensor, band, expected",
+    [
+        ("nisar", "L", 0.24),
+        ("nisar", "S", 0.10),
+        ("s1", None, 0.05546668973172988),
+        ("uavsar", None, 0.23840354572564613),
+    ],
+)
+def test_snow_depth_wavelength_registry_values(sensor, band, expected):
+    assert depth_sensor_wavelength_m(sensor=sensor, band=band) == pytest.approx(
+        expected
+    )
+
+
+def test_snow_depth_wavelength_and_wavenumber_validation():
+    assert "nisar" in list_depth_sensors()
+    assert depth_sensor_wavelength_m(wavelength_m=0.123) == pytest.approx(0.123)
+    assert depth_incidence_wavenumber(0.2) == pytest.approx(2.0 * math.pi / 0.2)
+    with pytest.raises(ValueError, match="band is required"):
+        depth_sensor_wavelength_m(sensor="nisar")
+    with pytest.raises(ValueError, match="Unsupported sensor"):
+        depth_sensor_wavelength_m(sensor="unknown")
+    with pytest.raises(ValueError, match="wavelength_m"):
+        depth_incidence_wavenumber(0.0)
+
+
+def test_snow_depth_density_permittivity_and_unit_helpers_vectorize():
+    density = np.array([0.2, 0.5])
+    epsilon = depth_maetzler_permittivity(density)
+    assert epsilon.shape == density.shape
+    assert np.all(epsilon > 1.0)
+    np.testing.assert_allclose(depth_cm_to_m(np.array([10.0, 25.0])), [0.1, 0.25])
+    np.testing.assert_allclose(depth_m_to_cm(np.array([0.1, 0.25])), [10.0, 25.0])

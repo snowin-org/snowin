@@ -29,7 +29,17 @@ def _optional_spatial_dependencies():
             "vector region masks require the optional 'vectors' dependencies; "
             "install snowin[vectors] or snowin[dev]"
         ) from exc
-    return gpd, rasterio, CRS, Transformer, rasterize, from_bounds, base, transform, unary_union
+    return (
+        gpd,
+        rasterio,
+        CRS,
+        Transformer,
+        rasterize,
+        from_bounds,
+        base,
+        transform,
+        unary_union,
+    )
 
 
 def _target_grid(target: xr.Dataset | xr.DataArray) -> tuple[xr.DataArray, str, str]:
@@ -37,7 +47,9 @@ def _target_grid(target: xr.Dataset | xr.DataArray) -> tuple[xr.DataArray, str, 
         if "phase" in target:
             template = target["phase"]
         else:
-            candidates = [variable for variable in target.data_vars.values() if variable.ndim == 2]
+            candidates = [
+                variable for variable in target.data_vars.values() if variable.ndim == 2
+            ]
             if len(candidates) != 1:
                 raise ValueError(
                     "target Dataset must contain a 2-D 'phase' variable or exactly one 2-D data variable"
@@ -56,9 +68,13 @@ def _target_grid(target: xr.Dataset | xr.DataArray) -> tuple[xr.DataArray, str, 
     y = np.asarray(template.coords[y_dim].values)
     x = np.asarray(template.coords[x_dim].values)
     if y.ndim != 1 or x.ndim != 1 or y.size < 2 or x.size < 2:
-        raise ValueError("target x and y coordinates must be one-dimensional with at least two values")
+        raise ValueError(
+            "target x and y coordinates must be one-dimensional with at least two values"
+        )
     if not (np.issubdtype(x.dtype, np.number) and np.issubdtype(y.dtype, np.number)):
-        raise TypeError("target x and y coordinates must be numeric projected coordinates")
+        raise TypeError(
+            "target x and y coordinates must be numeric projected coordinates"
+        )
     dx = np.diff(x)
     dy = np.diff(y)
     if not np.allclose(dx, dx[0]) or not np.allclose(dy, dy[0]):
@@ -69,9 +85,15 @@ def _target_grid(target: xr.Dataset | xr.DataArray) -> tuple[xr.DataArray, str, 
 
 
 def _target_crs(target: xr.Dataset | xr.DataArray, CRS: Any):
-    dataset = target if isinstance(target, xr.Dataset) else target.to_dataset(name=target.name or "target")
+    dataset = (
+        target
+        if isinstance(target, xr.Dataset)
+        else target.to_dataset(name=target.name or "target")
+    )
     if "spatial_ref" not in dataset:
-        raise ValueError("target grid must provide a 'spatial_ref' coordinate for CRS-aware masking")
+        raise ValueError(
+            "target grid must provide a 'spatial_ref' coordinate for CRS-aware masking"
+        )
     attrs = dict(dataset["spatial_ref"].attrs)
     for key in ("spatial_ref", "crs_wkt", "crs", "epsg_code"):
         value = attrs.get(key)
@@ -98,11 +120,19 @@ def _read_vector_source(
         if not path.exists():
             raise FileNotFoundError(f"vector file not found: {path}")
         frame = gpd.read_file(path, layer=layer)
-        geometries = [geometry for geometry in frame.geometry if geometry is not None and not geometry.is_empty]
+        geometries = [
+            geometry
+            for geometry in frame.geometry
+            if geometry is not None and not geometry.is_empty
+        ]
         vector_crs = frame.crs
         feature_count = len(geometries)
     elif hasattr(vector, "geometry"):
-        geometries = [geometry for geometry in vector.geometry if geometry is not None and not geometry.is_empty]
+        geometries = [
+            geometry
+            for geometry in vector.geometry
+            if geometry is not None and not geometry.is_empty
+        ]
         vector_crs = getattr(vector, "crs", None)
         feature_count = len(geometries)
     elif hasattr(vector, "__geo_interface__"):
@@ -140,7 +170,9 @@ def _read_vector_source(
 
             geometry = shape(geometry)
         if not isinstance(geometry, base.BaseGeometry):
-            raise TypeError("vector geometries must be Shapely geometries or GeoJSON mappings")
+            raise TypeError(
+                "vector geometries must be Shapely geometries or GeoJSON mappings"
+            )
         if not geometry.is_empty:
             normalized.append(geometry)
     if not normalized:
@@ -195,9 +227,17 @@ def rasterize_vector_mask(
     """
     if not isinstance(name, str) or not name:
         raise ValueError("name must be a non-empty string")
-    gpd, _rasterio, CRS, Transformer, rasterize, from_bounds, _base, transform, unary_union = (
-        _optional_spatial_dependencies()
-    )
+    (
+        gpd,
+        _rasterio,
+        CRS,
+        Transformer,
+        rasterize,
+        from_bounds,
+        _base,
+        transform,
+        unary_union,
+    ) = _optional_spatial_dependencies()
     template, y_dim, x_dim = _target_grid(target)
     target_crs = _target_crs(target, CRS)
     _progress("reading vector analysis region", progress)
@@ -211,7 +251,9 @@ def rasterize_vector_mask(
     source_crs_obj = CRS.from_user_input(vector_crs)
     if source_crs_obj != target_crs:
         transformer = Transformer.from_crs(source_crs_obj, target_crs, always_xy=True)
-        geometries = [transform(transformer.transform, geometry) for geometry in geometries]
+        geometries = [
+            transform(transformer.transform, geometry) for geometry in geometries
+        ]
     if dissolve:
         geometries = [unary_union(geometries)]
 

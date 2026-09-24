@@ -4,6 +4,7 @@ import pytest
 from snowin.diagnostics import (
     connected_component_summary,
     mask_summary,
+    merge_summaries,
     numeric_summary,
 )
 from snowin.io.gunw import parse_acquisition_times_from_filename
@@ -52,3 +53,31 @@ def test_parse_gunw_filename_timing():
     assert times.days_between == pytest.approx(12.0)
     assert times.ref_start.year == 2025
     assert times.sec_start.day == 25
+
+
+def test_diagnostic_summaries_represent_missing_empty_and_all_invalid_layers():
+    missing = numeric_summary(None)
+    assert missing["valid_n"] is None
+    assert missing["mean"] is None
+
+    empty = numeric_summary(np.array([], dtype=float))
+    assert empty["total_n"] == 0
+    assert empty["valid_fraction"] == 0.0
+    assert empty["nan_fraction"] is None
+
+    invalid = numeric_summary(np.array([np.nan, np.inf]))
+    assert invalid["valid_n"] == 0
+    assert invalid["nan_fraction"] == 1.0
+    assert invalid["mean"] is None
+
+    assert connected_component_summary(None)["cc_valid_n"] is None
+    assert connected_component_summary(np.array([np.nan]))["cc_n_unique"] == 0
+    assert mask_summary(None)["mask_valid_n"] is None
+    assert mask_summary(np.array([np.nan]))["mask_unique_values"] == ""
+
+
+def test_merge_summaries_uses_later_metadata_for_duplicate_fields():
+    assert merge_summaries({"units": "rad", "count": 2}, {"units": "m"}) == {
+        "units": "m",
+        "count": 2,
+    }

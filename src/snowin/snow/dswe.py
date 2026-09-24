@@ -158,9 +158,7 @@ def _validate_density(
         density = snow_density_kg_m3
         units = density.attrs.get("units")
         if units not in _VALID_DENSITY_UNITS:
-            raise ValueError(
-                "snow_density_kg_m3 DataArray must declare units='kg m-3'"
-            )
+            raise ValueError("snow_density_kg_m3 DataArray must declare units='kg m-3'")
         if density.ndim == 0:
             density = density.broadcast_like(phase)
         else:
@@ -252,8 +250,10 @@ def compute_leinss_dswe(
         )
     )
     alpha = _validate_positive_scalar("alpha", alpha)
-    dswe = phase * wavelength_m / (
-        2.0 * math.pi * alpha * (LEINSS_SNOW_PATH_CONSTANT + incidence_angle**2.5)
+    dswe = (
+        phase
+        * wavelength_m
+        / (2.0 * math.pi * alpha * (LEINSS_SNOW_PATH_CONSTANT + incidence_angle**2.5))
     )
     result = _result(
         phase,
@@ -319,11 +319,7 @@ def compute_guneriussen_dswe(
         permittivity = xr.where(
             density_g_cm3 < 0.4,
             1.0 + 1.5995 * density_g_cm3 + 1.861 * density_g_cm3**3,
-            (
-                (1.0 - density_g_cm3 / 0.917)
-                + 1.4759 * (density_g_cm3 / 0.917)
-            )
-            ** 3,
+            ((1.0 - density_g_cm3 / 0.917) + 1.4759 * (density_g_cm3 / 0.917)) ** 3,
         )
         permittivity_reference = "Mätzler dry-snow permittivity model"
 
@@ -356,9 +352,7 @@ def compute_guneriussen_dswe(
             "dSWE = phase / (-2*kappa*(cos(theta)-sqrt(epsilon-sin(theta)^2))"
             "*(snow_density_kg_m3/1000)); kappa=2*pi/wavelength_m"
         ),
-        scientific_reference=(
-            "Guneriussen et al. (2001); " + permittivity_reference
-        ),
+        scientific_reference=("Guneriussen et al. (2001); " + permittivity_reference),
         method_attrs=method_attrs,
     )
 
