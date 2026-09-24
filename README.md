@@ -69,16 +69,16 @@ xarray is a core runtime dependency.
 
 ## Quick start
 
-The canonical kernel accepts normalized phase and incidence-angle DataArrays.
-Both angles use radians, the phase must be `secondary - reference`, and the
-wavelength is always explicit in metres:
+The named retrievals accept normalized phase and incidence-angle DataArrays.
+Both angles use radians and the phase must be `secondary - reference`. Supply
+the wavelength in metres or explicitly select a stock sensor/band:
 
 ```python
 import math
 
 import xarray as xr
 
-from snowin import compute_dswe
+from snowin import compute_leinss_dswe
 
 phase = xr.DataArray(
     1.2,
@@ -92,9 +92,57 @@ incidence = xr.DataArray(
     attrs={"units": "rad", "incidence_angle_reference": "local"},
 )
 
-dswe = compute_dswe(phase, incidence, wavelength_m=0.238403545)
+dswe = compute_leinss_dswe(phase, incidence, wavelength_m=0.238403545)
 print(f"dSWE: {dswe.item():.3f} m")
 ```
+
+## Named dSWE retrieval methods
+
+SnowIn exposes one xarray-native function per phase-to-dSWE model. All require
+canonical `secondary - reference` phase and aligned incidence angles in
+radians. Pass the product wavelength explicitly when known, or select a stock
+mission value with `sensor` and, for multi-band missions, `band`. SnowIn does
+not guess a sensor or wavelength. Product metadata is preferred to registry
+values.
+
+| Function | Model | Method-specific inputs and stock settings |
+| --- | --- | --- |
+| `compute_leinss_dswe` | Leinss et al. (2015) approximation | `alpha=1.0` and snow-path constant `1.59` are the stock values; `alpha` may be calibrated. |
+| `compute_guneriussen_dswe` (`compute_gun_dswe`) | Density-dependent Guneriussen relation | Requires `snow_density_kg_m3`; `permittivity_model="guneriussen2001"` is the stock model. Also supports `"webb2021"` and `"maetzler"`. |
+| `compute_oveisgharan_dswe` (`compute_ove_dswe`) | Oveisgharan et al. (2024) fitted relation | Uses the published incidence-angle polynomial; it has no density or `alpha` input. |
+
+The common wavelength registry includes UAVSAR L-band (`0.2384035457` m),
+NISAR L/S-band (`0.24`/`0.10` m), and other supported missions. For NISAR GUNW
+products, `open_gunw` obtains the wavelength from product metadata. The
+Guneriussen dSWE method requires snow density even though some source inversion
+code defaults permittivity for snow-depth retrieval: converting snow-depth
+change to SWE also needs the snow-to-water density ratio. No stock snow density
+is assumed. Density may be a scalar in kg m-3 or a same-grid DataArray declaring
+`units="kg m-3"`.
+
+The Guneriussen and Webb density-permittivity alternatives are also represented
+in [SnowEx/uavsar_snow](https://github.com/SnowEx/uavsar_snow), which documents
+the UAVSAR L-band wavelength as a stock value.
+
+```python
+from snowin import compute_gun_dswe, compute_leinss_dswe, compute_ove_dswe
+
+dswe_leinss = compute_leinss_dswe(
+    phase, incidence, sensor="uavsar"
+)
+dswe_oveisgharan = compute_ove_dswe(
+    phase, incidence, sensor="uavsar"
+)
+dswe_guneriussen = compute_gun_dswe(
+    phase,
+    incidence,
+    sensor="uavsar",
+    snow_density_kg_m3=300.0,  # illustrative; use a scene-specific value
+)
+```
+
+`compute_dswe` remains as a backwards-compatible spelling of
+`compute_leinss_dswe`; it still requires `wavelength_m` explicitly.
 
 For a NISAR GUNW, `open_gunw` resolves wavelength from product metadata and
 opens the normalized phase/product data without waiting for DEM geometry:
@@ -170,8 +218,8 @@ See the [fixture notes](tests/fixtures/README.md) and the
 
 - NISAR GUNW reading, phase-convention normalization, and product metadata
   handling. A GSLC adapter is not yet part of the stable implementation.
-- Phase-based pairwise dSWE and legacy compatibility helpers for snow-depth/SWE
-  experiments; the canonical public retrieval is `snowin.compute_dswe`.
+- Named xarray-native Leinss, Guneriussen, and Oveisgharan pairwise dSWE
+  retrievals, plus legacy NumPy compatibility helpers.
 - Explicit reference-phase methods, including manual and contributor-based
   aggregation policies.
 - Directed temporal dSWE accumulation with explicit missing-support behavior.
@@ -184,8 +232,8 @@ See the [fixture notes](tests/fixtures/README.md) and the
 
 The older `gunw_to_dswe` workflow remains available for compatibility but is
 legacy. New NISAR workflows should use `open_gunw`, `add_gunw_incidence`, and
-`compute_dswe` explicitly; the two paths are not yet scientifically
-interchangeable.
+the named dSWE function matching the selected physical model. `compute_dswe`
+continues to mean Leinss for compatibility; it is not a method dispatcher.
 
 SnowIn does not silently convert missing support to zero, apply a universal
 quality mask, or move Colorado study-specific station/date policy into the
@@ -198,7 +246,8 @@ The core contract is deliberately explicit:
 - canonical phase is `phi_secondary - phi_reference`;
 - temporal edges run from `reference_time` to `secondary_time`;
 - phase and incidence angle use radians;
-- wavelength is explicit in metres;
+- wavelength is explicit in metres or resolved from an explicitly named stock
+  sensor/band;
 - local versus ellipsoid-referenced incidence is declared in metadata;
 - dimensions, coordinates, attributes, CRS, support, missing values, and
   provenance are preserved where the operation permits;

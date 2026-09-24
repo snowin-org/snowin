@@ -230,9 +230,16 @@ The following remain private implementation details:
 - source-specific fill values and metadata traversal.
 
 The legacy `phase_to_dswe()` and `phase_raster_to_dswe()` functions remain
-compatibility APIs. The stable scientific boundary is the xarray-native
-`snowin.compute_dswe()` function; adapters must provide normalized xarray
-objects to scientific kernels.
+compatibility APIs. The stable scientific boundary is the set of named,
+xarray-native retrievals `snowin.compute_leinss_dswe()`,
+`snowin.compute_guneriussen_dswe()`, and `snowin.compute_oveisgharan_dswe()`;
+adapters must provide normalized xarray objects to these scientific kernels.
+`snowin.compute_dswe()` remains a backwards-compatible alias for the Leinss
+method and does not dispatch among retrieval models. The methods keep their
+model-specific parameters separate: Leinss uses `alpha`, Guneriussen requires
+snow density and selects a density-to-permittivity model, and Oveisgharan uses
+its fixed published incidence polynomial. Wavelength must be explicit or
+resolved through a named stock sensor/band value; no sensor is assumed.
 
 No custom scene/stack/product class or xarray accessor is introduced by this
 contract.

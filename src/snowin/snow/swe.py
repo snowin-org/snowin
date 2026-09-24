@@ -1,10 +1,10 @@
 """Legacy NumPy dry-snow phase-to-dSWE relationships.
 
-The stable Stage 2 scientific API is :func:`snowin.snow.compute_dswe`, an
-xarray-native Leinss kernel with explicit wavelength and canonical phase.  The
-``phase_to_dswe`` function in this module remains for characterization and
-compatibility with the Stage 0/1 prototype.  Its sensor registry and automatic
-mission defaults are not part of the normalized SnowIn contract.
+The stable xarray-native methods live in :mod:`snowin.snow.dswe`; the
+``compute_dswe`` spelling is retained as the Leinss compatibility alias.
+``phase_to_dswe`` remains for characterization and compatibility with the
+Stage 0/1 prototype. Its method dispatcher and permissive NumPy inputs are not
+the normalized SnowIn contract.
 
 Scientific scope
 ----------------
@@ -37,8 +37,8 @@ BandName = Literal["L", "S", "C", "X"]
 
 RHO_WATER_G_CM3 = 1.0
 
-# Wavelengths in meters.  These are legacy convenience values only; the stable
-# kernel requires wavelength_m explicitly and does not consult this registry.
+# Wavelengths in meters. Named xarray methods consult this registry only when
+# callers explicitly choose a sensor or band; they never infer the mission.
 _SENSOR_WAVELENGTHS_M: dict[tuple[str, str | None], float] = {
     # NISAR dual-band mission
     ("nisar", "L"): 0.24,

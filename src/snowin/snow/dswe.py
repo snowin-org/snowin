@@ -1,17 +1,20 @@
-"""Canonical xarray-native phase-to-dSWE retrieval kernel.
+"""Named xarray-native phase-to-dSWE retrieval methods.
 
-The public function in this module accepts only SnowIn's canonical, already
-normalized phase.  Product-specific phase conventions and wavelength metadata
-belong at an adapter boundary, not in this scientific kernel.
+The public functions accept SnowIn's canonical, already normalized phase.
+Product-specific phase conventions belong at an adapter boundary. Wavelength
+comes from explicit product metadata or a caller-selected stock sensor/band.
 """
 
 from __future__ import annotations
 
 import math
 from numbers import Real
+from typing import Literal
 
 import numpy as np
 import xarray as xr
+
+from snowin.snow.swe import sensor_wavelength_m
 
 LEINSS_SNOW_PATH_CONSTANT = 1.59
 """Empirical dry-snow path constant in the Leinss approximation."""
@@ -21,6 +24,14 @@ CANONICAL_PHASE_DEFINITION = "secondary_minus_reference"
 
 _VALID_ANGLE_UNITS = {"rad", "radian", "radians"}
 _VALID_INCIDENCE_REFERENCES = {"ellipsoid", "local"}
+_VALID_DENSITY_UNITS = {"kg m-3", "kg/m3", "kg/m^3", "kg m^-3"}
+DensityPermittivityModel = Literal["guneriussen2001", "webb2021", "maetzler"]
+
+GUNERIUSSEN_WATER_DENSITY_KG_M3 = 1000.0
+"""Stock water density used to convert snow-depth change to dSWE."""
+
+OVEISGHARAN_A_THETA_COEFFICIENTS = (-0.6784, 0.2899, -0.8473)
+"""Published Oveisgharan et al. (2024) polynomial coefficients, highest order first."""
 
 
 def _validate_positive_scalar(name: str, value: object) -> float:
@@ -94,6 +105,314 @@ def _validate_eager_incidence_domain(incidence_angle: xr.DataArray) -> None:
         raise ValueError("incidence_angle values must be in [0, pi/2); NaN is allowed")
 
 
+def _validate_common_inputs(
+    phase: xr.DataArray,
+    incidence_angle: xr.DataArray,
+    wavelength_m: float | None,
+    *,
+    sensor: str | None,
+    band: str | None,
+) -> tuple[xr.DataArray, xr.DataArray, float, str, str]:
+    phase = _require_data_array("phase", phase)
+    incidence_angle = _require_data_array("incidence_angle", incidence_angle)
+    _require_radians("phase", phase)
+    _require_radians("incidence_angle", incidence_angle)
+
+    incidence_reference = incidence_angle.attrs.get("incidence_angle_reference")
+    if incidence_reference not in _VALID_INCIDENCE_REFERENCES:
+        raise ValueError(
+            "incidence_angle must declare incidence_angle_reference as "
+            "'local' or 'ellipsoid'"
+        )
+
+    phase_definition = phase.attrs.get("phase_difference_definition")
+    if phase_definition is not None and phase_definition != CANONICAL_PHASE_DEFINITION:
+        raise ValueError(
+            "phase must use SnowIn's canonical phase definition "
+            "'secondary_minus_reference'"
+        )
+
+    _validate_alignment(phase, incidence_angle)
+    _validate_eager_incidence_domain(incidence_angle)
+    resolved_wavelength = sensor_wavelength_m(
+        sensor=sensor, band=band, wavelength_m=wavelength_m
+    )
+    wavelength_source = (
+        "explicit wavelength_m"
+        if wavelength_m is not None
+        else f"stock sensor/band lookup ({sensor=}, {band=})"
+    )
+    return (
+        phase,
+        incidence_angle,
+        _validate_positive_scalar("wavelength_m", resolved_wavelength),
+        incidence_reference,
+        wavelength_source,
+    )
+
+
+def _validate_density(
+    phase: xr.DataArray, snow_density_kg_m3: xr.DataArray | Real
+) -> xr.DataArray:
+    if isinstance(snow_density_kg_m3, xr.DataArray):
+        density = snow_density_kg_m3
+        units = density.attrs.get("units")
+        if units not in _VALID_DENSITY_UNITS:
+            raise ValueError(
+                "snow_density_kg_m3 DataArray must declare units='kg m-3'"
+            )
+        if density.ndim == 0:
+            density = density.broadcast_like(phase)
+        else:
+            _validate_alignment(phase, density)
+    else:
+        density_value = _validate_positive_scalar(
+            "snow_density_kg_m3", snow_density_kg_m3
+        )
+        density = xr.full_like(phase, density_value, dtype=float)
+
+    data = density.data
+    if not hasattr(data, "chunks"):
+        try:
+            values = np.asarray(data, dtype=float)
+        except (TypeError, ValueError) as exc:
+            raise TypeError("snow_density_kg_m3 must contain numeric values") from exc
+        invalid = np.isinf(values) | (values <= 0.0) | (values >= 917.0)
+        if np.any(invalid):
+            raise ValueError(
+                "snow_density_kg_m3 values must be in (0, 917); NaN is allowed"
+            )
+    density = density.copy(deep=False).rename("snow_density")
+    density.attrs = {"units": "kg m-3"}
+    return density
+
+
+def _result(
+    source_phase: xr.DataArray,
+    dswe: xr.DataArray,
+    incidence_reference: str,
+    wavelength_m: float,
+    wavelength_source: str,
+    *,
+    method: str,
+    equation: str,
+    scientific_reference: str,
+    method_attrs: dict[str, object] | None = None,
+) -> xr.DataArray:
+    result = dswe.rename("dswe")
+    attrs = dict(source_phase.attrs)
+    attrs.update(
+        {
+            "units": "m",
+            "quantity": "pairwise_dSWE",
+            "long_name": "pairwise change in snow water equivalent",
+            "phase_difference_definition": CANONICAL_PHASE_DEFINITION,
+            "incidence_angle_reference": incidence_reference,
+            "wavelength_m": wavelength_m,
+            "wavelength_source": wavelength_source,
+            "retrieval_method": method,
+            "equation": equation,
+            "scientific_reference": scientific_reference,
+        }
+    )
+    if method_attrs:
+        attrs.update(method_attrs)
+    result.attrs = attrs
+    return result
+
+
+def compute_leinss_dswe(
+    phase: xr.DataArray,
+    incidence_angle: xr.DataArray,
+    *,
+    wavelength_m: float | None = None,
+    sensor: str | None = None,
+    band: str | None = None,
+    alpha: float = 1.0,
+) -> xr.DataArray:
+    r"""Compute pairwise dSWE with the Leinss et al. approximation.
+
+    ``phase`` must be SnowIn's normalized secondary-minus-reference phase in
+    radians. ``incidence_angle`` must be aligned radians and declare whether it
+    is local or ellipsoid-referenced. Supply ``wavelength_m`` directly or use
+    the stock mission registry with ``sensor`` and, when needed, ``band``.
+
+    The stock values are ``alpha=1`` and the empirical path constant ``1.59``.
+    Wavelength is never guessed: for example, the stock registry provides
+    UAVSAR L-band (0.2384035457 m) and NISAR L/S-band (0.24/0.10 m) values.
+    Product metadata should be preferred when available.
+    """
+    phase, incidence_angle, wavelength_m, incidence_reference, wavelength_source = (
+        _validate_common_inputs(
+            phase,
+            incidence_angle,
+            wavelength_m,
+            sensor=sensor,
+            band=band,
+        )
+    )
+    alpha = _validate_positive_scalar("alpha", alpha)
+    dswe = phase * wavelength_m / (
+        2.0 * math.pi * alpha * (LEINSS_SNOW_PATH_CONSTANT + incidence_angle**2.5)
+    )
+    result = _result(
+        phase,
+        dswe,
+        incidence_reference,
+        wavelength_m,
+        wavelength_source,
+        method="leinss",
+        equation=(
+            "dSWE = phase * wavelength_m / "
+            "(2*pi*alpha*(1.59 + incidence_angle_rad**2.5))"
+        ),
+        scientific_reference="Leinss et al. (2015), Eq. 18",
+        method_attrs={"alpha": alpha, "snow_path_constant": LEINSS_SNOW_PATH_CONSTANT},
+    )
+    return result
+
+
+def compute_guneriussen_dswe(
+    phase: xr.DataArray,
+    incidence_angle: xr.DataArray,
+    *,
+    snow_density_kg_m3: xr.DataArray | Real,
+    wavelength_m: float | None = None,
+    sensor: str | None = None,
+    band: str | None = None,
+    permittivity_model: DensityPermittivityModel = "guneriussen2001",
+) -> xr.DataArray:
+    r"""Compute pairwise dSWE with the density-dependent Guneriussen model.
+
+    Snow density is required because the phase response depends on both snow
+    permittivity and the snow-to-water density ratio. Scalar density values use
+    kg m-3; a density DataArray must be aligned with ``phase`` and declare
+    ``units='kg m-3'``. The stock density-to-permittivity model is
+    ``guneriussen2001``; alternatives are ``webb2021`` and ``maetzler``.
+
+    The published conversion uses water density 1000 kg m-3. Wavelength follows
+    the same explicit-or-stock-registry rule as :func:`compute_leinss_dswe`.
+    """
+    phase, incidence_angle, wavelength_m, incidence_reference, wavelength_source = (
+        _validate_common_inputs(
+            phase,
+            incidence_angle,
+            wavelength_m,
+            sensor=sensor,
+            band=band,
+        )
+    )
+    if permittivity_model not in {"guneriussen2001", "webb2021", "maetzler"}:
+        raise ValueError(
+            "permittivity_model must be 'guneriussen2001', 'webb2021', or 'maetzler'"
+        )
+
+    density = _validate_density(phase, snow_density_kg_m3)
+    density_g_cm3 = density / 1000.0
+    if permittivity_model == "guneriussen2001":
+        permittivity = 1.0 + 1.6 * density_g_cm3 + 1.8 * density_g_cm3**3
+        permittivity_reference = "Guneriussen et al. (2001), Eq. 7"
+    elif permittivity_model == "webb2021":
+        permittivity = 1.0 + 0.0014 * density + 2.0e-7 * density**2
+        permittivity_reference = "Webb et al. (2021)"
+    else:
+        permittivity = xr.where(
+            density_g_cm3 < 0.4,
+            1.0 + 1.5995 * density_g_cm3 + 1.861 * density_g_cm3**3,
+            (
+                (1.0 - density_g_cm3 / 0.917)
+                + 1.4759 * (density_g_cm3 / 0.917)
+            )
+            ** 3,
+        )
+        permittivity_reference = "Mätzler dry-snow permittivity model"
+
+    theta = incidence_angle
+    refraction = np.cos(theta) - np.sqrt(permittivity - np.sin(theta) ** 2)
+    kappa = 2.0 * math.pi / wavelength_m
+    density_ratio = density / GUNERIUSSEN_WATER_DENSITY_KG_M3
+    dswe = phase / (-2.0 * kappa * refraction * density_ratio)
+    density_source = (
+        f"DataArray:{snow_density_kg_m3.name or 'snow_density'}"
+        if isinstance(snow_density_kg_m3, xr.DataArray)
+        else "scalar parameter"
+    )
+    method_attrs: dict[str, object] = {
+        "snow_density_source": density_source,
+        "snow_density_units": "kg m-3",
+        "water_density_kg_m3": GUNERIUSSEN_WATER_DENSITY_KG_M3,
+        "permittivity_model": permittivity_model,
+    }
+    if not isinstance(snow_density_kg_m3, xr.DataArray):
+        method_attrs["snow_density_kg_m3"] = float(snow_density_kg_m3)
+    return _result(
+        phase,
+        dswe,
+        incidence_reference,
+        wavelength_m,
+        wavelength_source,
+        method="guneriussen",
+        equation=(
+            "dSWE = phase / (-2*kappa*(cos(theta)-sqrt(epsilon-sin(theta)^2))"
+            "*(snow_density_kg_m3/1000)); kappa=2*pi/wavelength_m"
+        ),
+        scientific_reference=(
+            "Guneriussen et al. (2001); " + permittivity_reference
+        ),
+        method_attrs=method_attrs,
+    )
+
+
+def compute_oveisgharan_dswe(
+    phase: xr.DataArray,
+    incidence_angle: xr.DataArray,
+    *,
+    wavelength_m: float | None = None,
+    sensor: str | None = None,
+    band: str | None = None,
+) -> xr.DataArray:
+    r"""Compute pairwise dSWE with the Oveisgharan et al. fitted model.
+
+    This density-independent method uses the published incidence polynomial;
+    it has no snow-density or Leinss ``alpha`` parameter. Supply a wavelength
+    directly or select a stock value with ``sensor``/``band``.
+    """
+    phase, incidence_angle, wavelength_m, incidence_reference, wavelength_source = (
+        _validate_common_inputs(
+            phase,
+            incidence_angle,
+            wavelength_m,
+            sensor=sensor,
+            band=band,
+        )
+    )
+    c2, c1, c0 = OVEISGHARAN_A_THETA_COEFFICIENTS
+    a_theta = c2 * incidence_angle**2 + c1 * incidence_angle + c0
+    kappa = 2.0 * math.pi / wavelength_m
+    dswe = phase / (-2.0 * kappa * a_theta)
+    return _result(
+        phase,
+        dswe,
+        incidence_reference,
+        wavelength_m,
+        wavelength_source,
+        method="oveisgharan",
+        equation=(
+            "dSWE = phase / (-2*kappa*A(theta)); "
+            "A(theta)=-0.6784*theta**2+0.2899*theta-0.8473; "
+            "kappa=2*pi/wavelength_m"
+        ),
+        scientific_reference="Oveisgharan et al. (2024)",
+        method_attrs={"a_theta_coefficients": list(OVEISGHARAN_A_THETA_COEFFICIENTS)},
+    )
+
+
+# Short spellings requested for common methods. The full author names remain
+# the preferred names in scientific prose and documentation.
+compute_gun_dswe = compute_guneriussen_dswe
+compute_ove_dswe = compute_oveisgharan_dswe
+
+
 def compute_dswe(
     phase: xr.DataArray,
     incidence_angle: xr.DataArray,
@@ -142,52 +461,9 @@ def compute_dswe(
     product phase normalization and unit conversion belong to adapters.
     """
 
-    phase = _require_data_array("phase", phase)
-    incidence_angle = _require_data_array("incidence_angle", incidence_angle)
-    wavelength_m = _validate_positive_scalar("wavelength_m", wavelength_m)
-    alpha = _validate_positive_scalar("alpha", alpha)
-
-    _require_radians("phase", phase)
-    _require_radians("incidence_angle", incidence_angle)
-    incidence_reference = incidence_angle.attrs.get("incidence_angle_reference")
-    if incidence_reference not in _VALID_INCIDENCE_REFERENCES:
-        raise ValueError(
-            "incidence_angle must declare incidence_angle_reference as "
-            "'local' or 'ellipsoid'"
-        )
-
-    phase_definition = phase.attrs.get("phase_difference_definition")
-    if phase_definition is not None and phase_definition != CANONICAL_PHASE_DEFINITION:
-        raise ValueError(
-            "phase must use SnowIn's canonical phase definition "
-            "'secondary_minus_reference'"
-        )
-
-    _validate_alignment(phase, incidence_angle)
-    _validate_eager_incidence_domain(incidence_angle)
-
-    denominator = (
-        2.0 * math.pi * alpha * (LEINSS_SNOW_PATH_CONSTANT + incidence_angle**2.5)
+    return compute_leinss_dswe(
+        phase,
+        incidence_angle,
+        wavelength_m=wavelength_m,
+        alpha=alpha,
     )
-    result = (phase * wavelength_m / denominator).rename("dswe")
-
-    attrs = dict(phase.attrs)
-    attrs.update(
-        {
-            "units": "m",
-            "quantity": "pairwise_dSWE",
-            "long_name": "pairwise change in snow water equivalent",
-            "phase_difference_definition": CANONICAL_PHASE_DEFINITION,
-            "incidence_angle_reference": incidence_reference,
-            "wavelength_m": wavelength_m,
-            "alpha": alpha,
-            "snow_path_constant": LEINSS_SNOW_PATH_CONSTANT,
-            "equation": (
-                "dSWE = phase * wavelength_m / "
-                "(2*pi*alpha*(1.59 + incidence_angle_rad**2.5))"
-            ),
-            "scientific_reference": "Leinss et al. (2015), Eq. 18",
-        }
-    )
-    result.attrs = attrs
-    return result
