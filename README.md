@@ -1,7 +1,6 @@
 # SnowIn
 
 [![CI](https://github.com/snowin-org/snowin/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/snowin-org/snowin/actions/workflows/ci.yml)
-[![Docs build](https://github.com/snowin-org/snowin/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/snowin-org/snowin/actions/workflows/docs.yml)
 [![Lint and format with Ruff](https://img.shields.io/badge/lint%20%26%20format-Ruff-D7FF64?logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](#installation)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
