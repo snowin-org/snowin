@@ -93,15 +93,20 @@ README, so the notebook calculates the slope from the data and calls out that
 version discrepancy. Other remaining method differences are described in the
 notebook.
 
-To reuse Zach's plotting code for the headline 80 m result, set
-`NIVAL_REFERENCE_REPO` to a checkout of that repository before starting
-Jupyter. The last notebook cell writes a copy of the SnowIn result to the
-reference checkout's `outputs/retrieval/dswe_dhs_operational.nc`, which is the
-file consumed by the unchanged `nival.paper_figures.results_figure()` function.
-Run that function in Zach's `nival` environment to render his Figure 2. Figure
-3's 20 m diagnostic uses the GUNW's delivered `wrappedInterferogram`; Zach's
-`nival.unwrap_20m` unwraps it with SNAPHU and uses ISCE3 to estimate effective
-looks from RSLC metadata. It does not form a new interferogram from RSLCs.
+For the inline comparisons, set `NIVAL_REFERENCE_REPO` to a checkout of that
+repository before starting Jupyter. The notebook writes a SnowIn-compatible
+80 m product, calls Zach's unchanged `nival.paper_figures.results_figure()`
+function, and displays the result followed by Zach's source-controlled Figure 2.
+It also shows the available SnowIn/ISCE3 ICU 20 m diagnostic and Zach's original
+Figure 3 below it, plus tables comparing the 80 m metrics and scene-wide 20 m
+correlation. The reference figures are read from Git so a regenerated plot in
+the checkout cannot replace the original image. Select the NIVAL analysis
+kernel when running the notebook.
+
+Figure 3's 20 m diagnostic uses the GUNW's delivered `wrappedInterferogram`;
+Zach's `nival.unwrap_20m` unwraps it with SNAPHU and uses ISCE3 to estimate
+effective looks from RSLC metadata. It does not form a new interferogram from
+RSLCs.
 
 For a separate ISCE3 unwrap, `scripts/unwrap_gunw_20m_isce3.py` crops the
 wrapped GUNW to the Mores Creek AOI and applies ISCE3's ICU algorithm. It writes
