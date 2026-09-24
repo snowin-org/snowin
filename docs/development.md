@@ -18,6 +18,32 @@ The editable installation makes changes under `src/snowin/` visible while
 keeping the repository root itself out of the import namespace. Do not add
 `sys.path` manipulation to tests, examples, or package code.
 
+## Conda environments
+
+The Conda files separate SnowIn's scientific runtime from tools used to author
+notebooks and maintain the project:
+
+| File | Contents | Apply with |
+| --- | --- | --- |
+| `environment.yml` | Complete scientific runtime: core arrays, Dask, GUNW/geospatial, cloud, and vector dependencies | `conda env create -f environment.yml` |
+| `environment-notebooks.yml` | JupyterLab and ipykernel, layered onto the runtime | `conda env update -n snowin -f environment-notebooks.yml` |
+| `environment-dev.yml` | pytest, Hypothesis, pytest-cov, Ruff, build tools, and documentation tools, layered onto the runtime | `conda env update -n snowin -f environment-dev.yml` |
+
+After creating the base environment, activate it and install the checkout in
+editable mode with `python -m pip install -e .`. The full runtime list is also
+the dependency target for a future conda-forge package. Jupyter and contributor
+tools belong in the environment overlays, not the installed library's runtime
+requirements. Setuptools discovers the installable package under `src/snowin`;
+repository notebooks and research scripts remain checkout examples. In
+particular, the Zach/NIVAL notebook and its ISCE3/SNAPHU processing are not
+SnowIn package modules, runtime dependencies, or bundled study data.
+
+The eventual conda-forge recipe will be submitted separately to
+`conda-forge/staged-recipes/recipes/snowin/recipe.yaml` after a versioned source
+release is available. Its runtime dependencies should match `environment.yml`;
+its package test should import SnowIn and exercise a small synthetic public
+scientific operation.
+
 ## API policy
 
 The stable, recommended facade is the small set of generic scientific

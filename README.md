@@ -47,26 +47,32 @@ contracts and limitations are documented in the [data model](docs/data_model.md)
 
 ## Installation
 
-There is not yet a released user installation. For the current development
-checkout:
+There is not yet a published PyPI or conda-forge release. To create the full
+scientific runtime from a checkout, install the Conda-forge geospatial stack
+and then install SnowIn in editable mode:
 
 ```bash
 git clone https://github.com/snowin-org/snowin.git
 cd snowin
-python -m pip install -e ".[dev]"
+conda env create -f environment.yml
+conda activate snowin
+python -m pip install -e .
 ```
 
-The base package requires Python 3.12 or newer, NumPy, and xarray. Optional
-extras are available for specific workflows:
+The runtime environment includes NumPy, xarray, Dask, GUNW/geospatial, cloud,
+and vector dependencies. It does not include notebook or contributor tools.
+Add either layer only when needed:
 
 ```bash
-python -m pip install -e ".[gunw]"    # GUNW, raster, geometry, and plotting I/O
-python -m pip install -e ".[cloud]"   # fsspec and S3 access
+conda env update -n snowin -f environment-notebooks.yml
+conda env update -n snowin -f environment-dev.yml
 ```
 
-The `dev` extra includes the test, build, plotting, raster, geometry, and
-optional Dask dependencies used by the repository checks. Dask is optional;
-xarray is a core runtime dependency.
+For pip-only installations, the base package remains NumPy and xarray. The
+`gunw`, `cloud`, `dask`, and `vectors` extras are available for installing
+those features selectively; `notebooks` and `dev` provide notebook and
+contributor tooling. See [development setup](docs/development.md#conda-environments)
+for the layers and commands.
 
 ## Quick start
 

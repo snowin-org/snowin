@@ -47,6 +47,9 @@ cloud = [
   "fsspec>=2024.0",
   "s3fs>=2024.0",
 ]
+dask = [
+  "dask[array]>=2024.1",
+]
 vectors = [
   "geopandas>=0.14",
   "pyproj>=3.6",
