@@ -92,6 +92,17 @@ README, so the notebook calculates the slope from the data and calls out that
 version discrepancy. Other remaining method differences are described in the
 notebook.
 
+To reuse Zach's plotting code for the headline 80 m result, set
+`NIVAL_REFERENCE_REPO` to a checkout of that repository before starting
+Jupyter. The last notebook cell writes a copy of the SnowIn result to the
+reference checkout's `outputs/retrieval/dswe_dhs_operational.nc`, which is the
+file consumed by the unchanged `nival.paper_figures.results_figure()` function.
+Run that function in Zach's `nival` environment to render his Figure 2. Figure
+3's 20 m diagnostic still requires his `nival.unwrap_20m` step: it unwraps the
+delivered GUNW `wrappedInterferogram` with SNAPHU, using ISCE3 only to estimate
+effective looks from RSLC metadata. SnowIn's current NISAR reader consumes the
+delivered 80 m `unwrappedPhase` layer and does not perform phase unwrapping.
+
 For the complete reviewer environment, install the notebook extra as well:
 
 ```bash
