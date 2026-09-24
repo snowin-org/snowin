@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 import xarray as xr
 
 from snowin.workflows import gunw_to_dswe
@@ -26,7 +27,15 @@ def test_gunw_to_dswe_synthetic_minimal(monkeypatch, tmp_path):
     monkeypatch.setattr(
         "snowin.workflows.gunw_dswe.read_gunw_layers", lambda *a, **k: DummyGunw(layers)
     )
-    out = gunw_to_dswe("dummy.nc", out_dir=tmp_path, write_outputs=True)
+    with pytest.warns(
+        (DeprecationWarning, RuntimeWarning),
+        match="legacy compatibility workflow|appears to be in radians",
+    ) as captured:
+        out = gunw_to_dswe("dummy.nc", out_dir=tmp_path, write_outputs=True)
+    assert {warning.category for warning in captured} == {
+        DeprecationWarning,
+        RuntimeWarning,
+    }
     assert out.dswe.shape == (2, 2)
     assert np.isfinite(out.dswe).all()
     assert "diagnostics_json" in out.output_paths

@@ -94,17 +94,18 @@ Attributes must remain serializable; nested Python objects should be encoded
 as JSON strings when persistence requires it.
 
 The Stage 3 NISAR adapter defaults to a local terrain-surface incidence angle
-generated from a cached or automatically downloaded COP30 DEM and the GUNW
-radar-grid look vectors. A caller may also provide a local DEM explicitly. The product's
+generated from a cached or automatically downloaded NISAR-modified Copernicus
+DEM and the GUNW radar-grid look vectors. A caller may also provide a local
+DEM explicitly. The product's
 native ellipsoid-normal `incidenceAngle` is retained as an explicit opt-in
 compatibility mode, not silently substituted for the local retrieval angle.
 The DEM acquisition/cache path, DEM reprojection, LOS interpolation, selected
 radar-grid height, coordinate orientation, and source paths are recorded in
 Dataset provenance. The adapter also records the GUNW ellipsoidal height
-reference and COP30 vertical datum. Because those references differ, callers
-may provide a same-grid geoid-undulation correction (added to orthometric
-COP30 heights), or require the adapter to reject uncorrected geometry. The
-default remains explicitly provisional when no correction is supplied.
+reference and DEM vertical datum. The default NISAR-modified Copernicus DEM is
+ellipsoidal; the original orthometric COP30 compatibility source requires a
+same-grid geoid-undulation correction or strict rejection of uncorrected
+geometry.
 
 ## Required and optional variables
 
@@ -229,9 +230,16 @@ The following remain private implementation details:
 - source-specific fill values and metadata traversal.
 
 The legacy `phase_to_dswe()` and `phase_raster_to_dswe()` functions remain
-compatibility APIs. The stable scientific boundary is the xarray-native
-`snowin.compute_dswe()` function; adapters must provide normalized xarray
-objects to scientific kernels.
+compatibility APIs. The stable scientific boundary is the set of named,
+xarray-native retrievals `snowin.compute_leinss_dswe()`,
+`snowin.compute_guneriussen_dswe()`, and `snowin.compute_oveisgharan_dswe()`;
+adapters must provide normalized xarray objects to these scientific kernels.
+`snowin.compute_dswe()` remains a backwards-compatible alias for the Leinss
+method and does not dispatch among retrieval models. The methods keep their
+model-specific parameters separate: Leinss uses `alpha`, Guneriussen requires
+snow density and selects a density-to-permittivity model, and Oveisgharan uses
+its fixed published incidence polynomial. Wavelength must be explicit or
+resolved through a named stock sensor/band value; no sensor is assumed.
 
 No custom scene/stack/product class or xarray accessor is introduced by this
 contract.

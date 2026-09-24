@@ -1,4 +1,4 @@
-# Stage 4 real-product geometry fixture
+# Optional real-product geometry fixture
 
 The JSON manifest in this directory records the expected local-incidence
 statistics for a real NISAR GUNW and a public Copernicus GLO-30 tile. The
@@ -22,3 +22,29 @@ See the [Copernicus DEM Product Handbook](https://dataspace.copernicus.eu/sites/
 for product reference-system and grid semantics. The expected values were
 generated independently with the verified Colorado implementation at commit
 `f5c17ef`; no ASO data was used for tuning.
+
+## Optional real NISAR product checks
+
+The real-product tests are opt-in and never download data or require credentials
+for the normal test suite. Supply your own ASF-distributed NISAR L2 GUNW product
+and matching DEM when running the checks. The product collection is documented
+at [ASF DAAC NISAR L2 GUNW](https://doi.org/10.5067/NIL2GUNW-P1). The phase-lineage
+check reads the HH, frequencyA `unwrappedPhase` dataset and expects phase units
+of radians and a WGS84 description on the radar-grid height coordinate. The
+vertical-datum check expects a local DEM covering the GUNW scene; it verifies
+that strict geometry processing asks for an explicit vertical correction when
+the Copernicus DEM height reference is not declared as ellipsoidal. The test
+does not assert a mission-wide numerical SWE result.
+
+```bash
+export SNOWIN_REAL_GUNW=/path/to/ASF_NISAR_L2_GUNW.h5
+export SNOWIN_REAL_COP30_DEM=/path/to/copernicus_dem_covering_scene.tif
+pytest -m integration -q tests/test_real_product_validation.py
+```
+
+The separate `SNOWIN_STAGE4_GUNW` and `SNOWIN_STAGE4_COP30_DEM` variables run
+the exact scene geometry regression described above. Its expected statistics
+and input granule name are frozen in `real_product_geometry.json`; the public
+DEM tile URL and independent Colorado implementation commit used to establish
+those values are recorded in this guide. These Stage 4 values are a
+characterization/regression reference, not an independent SWE validation.

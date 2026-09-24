@@ -223,7 +223,11 @@ snowin/
 │       ├── metrics.py
 │       └── io/
 │           ├── __init__.py
-│           └── nisar.py
+│           ├── nisar.py                 (compatibility facade)
+│           ├── nisar_product.py        (GUNW product orchestration)
+│           ├── dem.py                   (DEM source boundary)
+│           ├── geometry.py              (incidence boundary)
+│           └── phase_normalization.py   (phase convention boundary)
 ├── tests/
 │   ├── unit/
 │   ├── invariants/
@@ -433,12 +437,18 @@ Stage 3 implementation decisions:
 
 - `snowin.io.open_gunw()` is a thin xarray/h5netcdf boundary after evaluating
   `nisar_pytools`; `nisar_pytools` is not a SnowIn runtime dependency.
-- The default retrieval incidence is COP30 DEM-derived local incidence from
+- `open_gunw()` intentionally stops before incidence geometry so callers can
+  inspect a GUNW without waiting for DEM access or LOS interpolation.
+  `compute_gunw_incidence(gunw_file, target)` requires the explicit GUNW path,
+  and `add_gunw_incidence(target, gunw_file)` appends the result and provenance.
+- The default retrieval incidence is NISAR-modified Copernicus DEM-derived local incidence from
   the GUNW radar-grid LOS cube. The product ellipsoid-normal `incidenceAngle`
   is an explicit opt-in compatibility mode, never a silent substitute.
-- If no DEM is supplied, `open_gunw()` downloads and caches the public COP30
-  tiles covering the GUNW phase-grid footprint; callers may provide a local
-  DEM or cache directory to control network and storage behavior.
+- If no DEM is supplied, `add_gunw_incidence()` downloads and caches the
+  NISAR-modified Copernicus DEM tiles covering the GUNW phase-grid footprint;
+  callers may provide a local DEM or cache directory to control network and
+  storage behavior. The original public orthometric COP30 path remains an
+  explicit compatibility source.
 - GUNW center-frequency metadata is converted to wavelength with `c / f`;
   `open_gunw()` resolves this automatically, while an explicit `wavelength_m`
   override is available for documented special cases. No mission wavelength
@@ -466,8 +476,8 @@ Goals:
   physically possible;
 - add a real GUNW/COP30 regression fixture with saved incidence statistics,
   declared tolerances, and no ASO-based tuning;
-- decide whether the current eagerly materialized SciPy geometry operation is
-  acceptable or should become chunk-aware/Dask-compatible;
+- benchmark the opt-in chunk-aware/Dask geometry prototype against the eager
+  SciPy implementation and decide whether it is ready for a stable API;
 - record the validated equation, CRS and vertical-reference assumptions,
   interpolation rules, limitations, and regression evidence in provenance.
 

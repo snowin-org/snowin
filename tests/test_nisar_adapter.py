@@ -10,10 +10,13 @@ import xarray as xr
 
 from snowin.io import (
     NISAR_GUNW_SOURCE_PHASE_DEFINITION,
+    add_gunw_incidence,
+    compute_gunw_incidence,
     normalize_gunw_pair,
     open_gunw,
     read_gunw_wavelength_m,
 )
+from snowin.io.nisar import _nisar_dem_tile_url
 
 
 def _pair_inputs() -> tuple[xr.DataArray, xr.DataArray, xr.DataArray]:
@@ -107,6 +110,12 @@ def test_nisar_wavelength_is_derived_from_center_frequency(tmp_path):
     assert read_gunw_wavelength_m(path) == pytest.approx(0.299792458)
 
 
+def test_nisar_dem_tile_url_uses_documented_band_directories():
+    assert _nisar_dem_tile_url(36, -109).endswith(
+        "/EPSG4326/N30/N30_W120/DEM_N36_00_W109_00_C01.tif"
+    )
+
+
 def test_nisar_adapter_opens_lazy_normalized_gunw(tmp_path):
     pytest.importorskip("scipy")
     h5netcdf = pytest.importorskip("h5netcdf")
@@ -114,8 +123,12 @@ def test_nisar_adapter_opens_lazy_normalized_gunw(tmp_path):
     _write_synthetic_gunw(h5netcdf, path)
 
     dem = _synthetic_dem()
-    result = open_gunw(path, cop30_dem=dem, chunks=None)
+    result = open_gunw(path, chunks=None, progress=False)
     try:
+        assert "incidence_angle" not in result
+        add_gunw_incidence(
+            result, path, dem_source="cop30", cop30_dem=dem, progress=False
+        )
         np.testing.assert_allclose(result.phase.values, [[-1.0, -2.0], [-3.0, -4.0]])
         assert result.phase.attrs["units"] == "rad"
         assert result.incidence_angle.attrs["units"] == "rad"
@@ -132,20 +145,103 @@ def test_nisar_adapter_opens_lazy_normalized_gunw(tmp_path):
         result.close()
 
 
+def test_nisar_adapter_supports_alternate_polarization_and_optional_layers(tmp_path):
+    h5netcdf = pytest.importorskip("h5netcdf")
+    path = tmp_path / "test_gunw_vv.h5"
+    _write_synthetic_gunw(
+        h5netcdf, path, polarization="VV", include_optional_layers=False
+    )
+
+    result = open_gunw(path, chunks=None, progress=False)
+    try:
+        assert result.phase.attrs["source_variable"] == "unwrappedPhase"
+        assert "coherence" not in result
+        assert result.attrs["source_granule_id"] == "synthetic-gunw-VV"
+    finally:
+        result.close()
+
+
+def test_nisar_adapter_reads_nondefault_frequency_and_grid_orientation(tmp_path):
+    h5netcdf = pytest.importorskip("h5netcdf")
+    path = tmp_path / "variant_frequencyB_vv.nc"
+    _write_synthetic_gunw(
+        h5netcdf,
+        path,
+        frequency="frequencyB",
+        polarization="VV",
+        x_coordinates=(110.0, 100.0),
+        y_coordinates=(10.0, 20.0),
+        center_frequency_hz=1.25e9,
+        include_connected_components=True,
+    )
+
+    result = open_gunw(
+        path, frequency="frequencyB", polarization="VV", chunks=None, progress=False
+    )
+    try:
+        assert result.sizes == {"y": 2, "x": 2}
+        np.testing.assert_array_equal(result.x, [110.0, 100.0])
+        np.testing.assert_array_equal(result.y, [10.0, 20.0])
+        np.testing.assert_array_equal(result.phase, [[-1.0, -2.0], [-3.0, -4.0]])
+        np.testing.assert_array_equal(result.connected_component, [[4, 4], [8, 8]])
+        assert result.attrs["wavelength_m"] == pytest.approx(299792458.0 / 1.25e9)
+        assert result.phase.attrs["grid_mapping"] == "spatial_ref"
+        assert "/frequencyB/" in result.attrs["source_dataset_paths"]
+        assert result.attrs["source_granule_id"] == "synthetic-gunw-VV"
+    finally:
+        result.close()
+
+
+def test_nisar_adapter_rejects_missing_required_projection(tmp_path):
+    h5netcdf = pytest.importorskip("h5netcdf")
+    path = tmp_path / "test_gunw_missing_projection.h5"
+    _write_synthetic_gunw(h5netcdf, path, include_projection=False)
+
+    with pytest.raises(ValueError, match="missing its projection"):
+        open_gunw(path, chunks=None, progress=False)
+
+
+def test_open_gunw_defers_geometry_and_incidence_requires_explicit_gunw(
+    tmp_path, monkeypatch
+):
+    h5netcdf = pytest.importorskip("h5netcdf")
+    path = tmp_path / "test_gunw_deferred_geometry.h5"
+    _write_synthetic_gunw(h5netcdf, path)
+
+    def fail_if_downloaded(*args, **kwargs):
+        raise AssertionError("open_gunw must not download or compute incidence")
+
+    monkeypatch.setattr(
+        "snowin.io.nisar_product.download_nisar_cop30_dem_for_gunw",
+        fail_if_downloaded,
+    )
+    result = open_gunw(path, chunks=None, progress=False)
+    try:
+        assert "incidence_angle" not in result
+        assert result.attrs["incidence_angle_status"] == "not_computed"
+        with pytest.raises(FileNotFoundError, match="GUNW file not found"):
+            compute_gunw_incidence(tmp_path / "different_product.h5", result)
+    finally:
+        result.close()
+
+
 def test_product_ellipsoid_incidence_requires_explicit_opt_in(tmp_path):
     h5netcdf = pytest.importorskip("h5netcdf")
     path = tmp_path / "test_gunw_ellipsoid.h5"
     _write_synthetic_gunw(h5netcdf, path)
 
-    result = open_gunw(path, incidence_source="product_ellipsoid", chunks=None)
+    result = open_gunw(path, chunks=None, progress=False)
     try:
+        add_gunw_incidence(
+            result, path, incidence_source="product_ellipsoid", progress=False
+        )
         assert result.incidence_angle.attrs["incidence_angle_reference"] == "ellipsoid"
         np.testing.assert_allclose(result.incidence_angle.values, np.deg2rad(30.0))
     finally:
         result.close()
 
 
-def test_cop30_local_incidence_downloads_dem_by_default(tmp_path, monkeypatch):
+def test_nisar_cop30_local_incidence_downloads_dem_by_default(tmp_path, monkeypatch):
     h5netcdf = pytest.importorskip("h5netcdf")
     path = tmp_path / "test_gunw_default.h5"
     _write_synthetic_gunw(h5netcdf, path)
@@ -156,11 +252,15 @@ def test_cop30_local_incidence_downloads_dem_by_default(tmp_path, monkeypatch):
         calls.append((args, kwargs))
         return _synthetic_dem()
 
-    monkeypatch.setattr("snowin.io.nisar.download_cop30_dem_for_gunw", fake_download)
-    result = open_gunw(path, chunks=None)
+    monkeypatch.setattr(
+        "snowin.io.nisar_product.download_nisar_cop30_dem_for_gunw", fake_download
+    )
+    result = open_gunw(path, chunks=None, progress=False)
     try:
+        add_gunw_incidence(result, path, progress=False)
         assert len(calls) == 1
         assert result.attrs["incidence_angle_reference"] == "local terrain surface"
+        assert result.attrs["dem_source"] == "nisar_cop30"
         assert result.attrs["wavelength_m"] == pytest.approx(0.299792458)
     finally:
         result.close()
@@ -171,17 +271,61 @@ def test_gunw_wavelength_can_be_explicitly_overridden(tmp_path):
     path = tmp_path / "test_gunw_wavelength_override.h5"
     _write_synthetic_gunw(h5netcdf, path)
 
-    result = open_gunw(
-        path,
-        cop30_dem=_synthetic_dem(),
-        wavelength_m=0.123,
-        chunks=None,
-    )
+    result = open_gunw(path, wavelength_m=0.123, chunks=None, progress=False)
     try:
+        add_gunw_incidence(
+            result,
+            path,
+            dem_source="cop30",
+            cop30_dem=_synthetic_dem(),
+            progress=False,
+        )
         assert result.attrs["wavelength_m"] == pytest.approx(0.123)
         assert result.attrs["wavelength_source"] == "explicit wavelength_m override"
     finally:
         result.close()
+
+
+def test_tandem30_dem_source_uses_local_ellipsoidal_input(tmp_path):
+    pytest.importorskip("scipy")
+    h5netcdf = pytest.importorskip("h5netcdf")
+    path = tmp_path / "test_gunw_tandem30.h5"
+    _write_synthetic_gunw(h5netcdf, path)
+
+    result = open_gunw(path, chunks=None, progress=False)
+    try:
+        add_gunw_incidence(
+            result,
+            path,
+            dem_source="tandem30",
+            tandem30_dem=_synthetic_dem(),
+            require_vertical_datum_match=True,
+            progress=False,
+        )
+        assert result.attrs["dem_source"] == "tandem30"
+        assert result.attrs["dem_product"] == "TanDEM-X 30 m DEM"
+        assert result.attrs["dem_height_reference"] == "ellipsoidal"
+        assert result.attrs["vertical_datum_status"] == "matched"
+    finally:
+        result.close()
+
+
+def test_srtm30_requires_vertical_correction_for_strict_matching(tmp_path):
+    pytest.importorskip("scipy")
+    h5netcdf = pytest.importorskip("h5netcdf")
+    path = tmp_path / "test_gunw_srtm30.h5"
+    _write_synthetic_gunw(h5netcdf, path)
+
+    with pytest.raises(ValueError, match="SRTM 30 m DEM heights"):
+        result = open_gunw(path, chunks=None, progress=False)
+        add_gunw_incidence(
+            result,
+            path,
+            dem_source="srtm30",
+            srtm30_dem=_synthetic_dem(),
+            require_vertical_datum_match=True,
+            progress=False,
+        )
 
 
 def test_nisar_adapter_preserves_dask_backing_when_available(tmp_path):
@@ -191,8 +335,15 @@ def test_nisar_adapter_preserves_dask_backing_when_available(tmp_path):
     path = tmp_path / "test_gunw_dask.h5"
     _write_synthetic_gunw(h5netcdf, path)
 
-    result = open_gunw(path, cop30_dem=_synthetic_dem(), chunks="auto")
+    result = open_gunw(path, chunks="auto", progress=False)
     try:
+        add_gunw_incidence(
+            result,
+            path,
+            dem_source="cop30",
+            cop30_dem=_synthetic_dem(),
+            progress=False,
+        )
         assert hasattr(result.phase.data, "chunks")
         np.testing.assert_allclose(
             result.phase.compute().values,
@@ -202,35 +353,95 @@ def test_nisar_adapter_preserves_dask_backing_when_available(tmp_path):
         result.close()
 
 
-def _write_synthetic_gunw(h5netcdf, path):
+def test_nisar_adapter_chunked_geometry_is_lazy_and_matches_eager(tmp_path):
+    pytest.importorskip("scipy")
+    pytest.importorskip("dask.array")
+    h5netcdf = pytest.importorskip("h5netcdf")
+    path = tmp_path / "test_gunw_chunked_geometry.h5"
+    _write_synthetic_gunw(h5netcdf, path)
+
+    eager = open_gunw(path, chunks=None, progress=False)
+    chunked = open_gunw(path, chunks=None, progress=False)
+    try:
+        add_gunw_incidence(
+            eager,
+            path,
+            dem_source="cop30",
+            cop30_dem=_synthetic_dem(),
+            progress=False,
+        )
+        add_gunw_incidence(
+            chunked,
+            path,
+            dem_source="cop30",
+            cop30_dem=_synthetic_dem(),
+            geometry_chunks=(1, 1),
+            progress=False,
+        )
+        assert chunked.incidence_angle.attrs["geometry_execution"] == (
+            "dask_chunked_prototype"
+        )
+        assert chunked.incidence_angle.attrs["geometry_chunks"] == "1,1"
+        assert hasattr(chunked.incidence_angle.data, "chunks")
+        np.testing.assert_allclose(
+            chunked.incidence_angle.compute().values,
+            eager.incidence_angle.values,
+        )
+    finally:
+        eager.close()
+        chunked.close()
+
+
+def _write_synthetic_gunw(
+    h5netcdf,
+    path,
+    *,
+    frequency="frequencyA",
+    polarization="HH",
+    include_optional_layers=True,
+    include_projection=True,
+    include_connected_components=False,
+    x_coordinates=(100.0, 110.0),
+    y_coordinates=(20.0, 10.0),
+    center_frequency_hz=1.0e9,
+):
     import h5py
 
     with h5netcdf.File(path, "w") as root:
         base = root.create_group("science/LSAR/GUNW")
-        grids = base.create_group("grids/frequencyA")
+        grids = base.create_group(f"grids/{frequency}")
         center = grids.create_variable("centerFrequency", (), float)
-        center[()] = 1.0e9
+        center[()] = center_frequency_hz
         center.attrs["units"] = "hertz"
 
-        phase_group = grids.create_group("unwrappedInterferogram/HH")
+        phase_group = grids.create_group(f"unwrappedInterferogram/{polarization}")
         phase_group.dimensions = {"y": 2, "x": 2}
-        phase_group.create_variable("xCoordinates", ("x",), float)[:] = [100.0, 110.0]
-        phase_group.create_variable("yCoordinates", ("y",), float)[:] = [20.0, 10.0]
+        phase_group.create_variable("xCoordinates", ("x",), float)[:] = x_coordinates
+        phase_group.create_variable("yCoordinates", ("y",), float)[:] = y_coordinates
         phase = phase_group.create_variable("unwrappedPhase", ("y", "x"), float)
         phase[:] = [[1.0, 2.0], [3.0, 4.0]]
         phase.attrs["units"] = "radians"
-        coherence = phase_group.create_variable("coherenceMagnitude", ("y", "x"), float)
-        coherence[:] = 0.8
-        coherence.attrs["units"] = "1"
-        projection = phase_group.create_variable("projection", (), "u4")
-        projection[()] = 0
-        projection.attrs["epsg_code"] = 32611
-        projection.attrs["spatial_ref"] = "EPSG:32611"
+        if include_optional_layers:
+            coherence = phase_group.create_variable(
+                "coherenceMagnitude", ("y", "x"), float
+            )
+            coherence[:] = 0.8
+            coherence.attrs["units"] = "1"
+        if include_connected_components:
+            components = phase_group.create_variable(
+                "connectedComponents", ("y", "x"), "i4"
+            )
+            components[:] = [[4, 4], [8, 8]]
+        if include_projection:
+            projection = phase_group.create_variable("projection", (), "u4")
+            projection[()] = 0
+            projection.attrs["epsg_code"] = 32611
+            projection.attrs["spatial_ref"] = "EPSG:32611"
 
         radar = base.create_group("metadata/radarGrid")
         radar.dimensions = {"height": 2, "y": 2, "x": 2}
-        radar.create_variable("xCoordinates", ("x",), float)[:] = [100.0, 110.0]
-        radar.create_variable("yCoordinates", ("y",), float)[:] = [20.0, 10.0]
+        radar.create_variable("xCoordinates", ("x",), float)[:] = x_coordinates
+        radar.create_variable("yCoordinates", ("y",), float)[:] = y_coordinates
         radar.create_variable("heightAboveEllipsoid", ("height",), float)[:] = [
             -1.0,
             1.0,
@@ -246,7 +457,7 @@ def _write_synthetic_gunw(h5netcdf, path):
         ident = root.create_group("science/LSAR/identification")
         for name, value in {
             "productType": "GUNW",
-            "granuleId": "synthetic-gunw",
+            "granuleId": f"synthetic-gunw-{polarization}",
             "referenceZeroDopplerStartTime": "2025-01-01T00:00:00.000000000",
             "secondaryZeroDopplerStartTime": "2025-01-13T00:00:00.000000000",
         }.items():

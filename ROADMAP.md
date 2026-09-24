@@ -1,48 +1,46 @@
 # SnowIn roadmap
 
-SnowIn is a pre-release scientific package. This roadmap records the current
-direction without making study-specific Colorado configuration part of the
-general package contract.
+SnowIn is a pre-release, NISAR-first snow InSAR analysis package. The roadmap
+focuses on reusable package behavior; study-specific inputs, station policies,
+analysis masks, and result figures belong in downstream applications.
 
-## Implemented foundations
+## Implemented foundation
 
-- xarray Dataset contracts and explicit phase, time, unit, support, and
-  provenance conventions.
-- Canonical xarray-native `compute_dswe` using the reviewed Leinss relation.
+- xarray-native scientific contracts for phase, dSWE, support, provenance, and
+  directed temporal edges.
+- Named phase-to-dSWE methods with explicit units, wavelength handling, and
+  model-specific inputs.
 - NISAR GUNW reading, source-phase normalization, product wavelength
-  resolution, lazy phase handling, and COP30/local-DEM incidence geometry.
-- Reference-phase methods, directed temporal accumulation, named support
-  layers, support summaries, and reusable metrics.
-- GUNW diagnostics, plotting, CLI scaffolding, and a downstream Colorado
-  integration boundary.
+  resolution, and local-incidence geometry from DEM and LOS data.
+- Reference-phase operations, support composition, metrics, and temporal
+  accumulation with explicit missing-data behavior.
+- Synthetic and regression tests, property-based invariants, CI coverage,
+  formatting, build, and wheel-install checks.
 
-## Now
+## Current focus
 
-- Resolve the documented COP30 orthometric versus GUNW ellipsoidal vertical
-  datum limitation with product-backed evidence.
-- Continue real-product geometry characterization and decide whether geometry
-  should become chunk-aware/Dask-compatible.
-- Keep regression evidence reproducible without storing large external GUNW or
-  DEM files in the repository.
+- Review the public scientific API, phase conventions, product metadata, and
+  the xarray data model with domain collaborators.
+- Exercise the generic synthetic workflow and real-GUNW example in clean
+  environments.
+- Broaden synthetic coverage for spatial, plotting, and NISAR product variants.
+- Keep NISAR DEM/LOS geometry eager by default while evaluating chunked
+  execution with documented memory and runtime measurements.
 
 ## Next
 
-- Characterize reference-phase inputs and support rules using Colorado as
-  downstream evidence, without importing its station/date policy.
-- Expand optional-dependency and installation checks, including wheel
-  installation and explicit CLI smoke coverage.
-- Add release-oriented metadata such as `CITATION.cff` before the first tagged
-  release.
+- Add optional real-product fixtures with public input provenance and no
+  downloads or credentials in the required test suite.
+- Complete executable documentation for examples that can run without
+  external mission products.
+- Prepare a conda-forge recipe after a versioned source release and reviewed
+  package contents are available.
+- Add scientific benchmarks and stricter static typing when their maintenance
+  value is clear.
 
 ## Later
 
-- Broaden supported product adapters, including GSLC where its scientific and
-  data contracts are verified.
-- Add coverage, documentation publishing, and broader Python/platform testing
-  when those services and maintenance needs justify the additional process.
-- Prepare PyPI/Conda packaging only after the scientific workflow and public API
-  are stable and reproducible.
-
-Colorado first-look workflows remain downstream applications. Their frozen
-station lists, dates, basin choices, sensitivity analyses, and output policies
-must remain in the Colorado repository.
+Broaden sensor adapters only when their product metadata, phase conventions,
+geometry, and scientific contracts can be tested. SnowIn is the snow-analysis
+layer around mission-specific InSAR processors; it is not a replacement for
+general processors such as ISCE or Dolphin.

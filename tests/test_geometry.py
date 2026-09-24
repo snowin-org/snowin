@@ -63,6 +63,26 @@ def test_sloped_dem_returns_known_incidence_angle():
     np.testing.assert_allclose(incidence, np.arctan(0.1), atol=1e-6)
 
 
+def test_larger_grid_geometry_is_finite_and_shape_preserving():
+    y = np.arange(16, dtype=float)
+    x = np.arange(20, dtype=float)
+    dem = _dem(np.broadcast_to(0.02 * x[None, :], (y.size, x.size)), x=x, y=y)
+    incidence = compute_cop30_local_incidence(
+        dem,
+        *_constant_los(np.deg2rad(35.0), (3, y.size, x.size)),
+        heights=np.array([-1.0, 100.0, 201.0]),
+        x_radar=x,
+        y_radar=y,
+    )
+    assert incidence.shape == (16, 20)
+    assert np.isfinite(incidence.values).all()
+    expected = np.arccos(
+        (np.sin(np.deg2rad(35.0)) * -0.02 + np.cos(np.deg2rad(35.0)))
+        / np.sqrt(1.0 + 0.02**2)
+    )
+    np.testing.assert_allclose(incidence.values, expected, atol=1e-6)
+
+
 def test_vertical_correction_is_explicit_and_additive():
     dem = _dem(
         np.full((3, 3), 100.0),
@@ -125,6 +145,45 @@ def test_vertical_correction_requires_metre_units():
             y_radar=np.array([0.0, 1.0, 2.0]),
             vertical_correction_m=correction,
         )
+
+
+def test_vertical_correction_raster_is_reprojected(tmp_path):
+    rasterio = pytest.importorskip("rasterio")
+    from rasterio.transform import from_origin
+
+    correction_path = tmp_path / "egm2008_geoid_undulation.tif"
+    with rasterio.open(
+        correction_path,
+        "w",
+        driver="GTiff",
+        height=3,
+        width=3,
+        count=1,
+        dtype="float32",
+        crs="EPSG:32613",
+        transform=from_origin(-0.5, 2.5, 1.0, 1.0),
+        nodata=-9999.0,
+    ) as dst:
+        dst.write(np.full((3, 3), 10.0, dtype="float32"), 1)
+
+    dem = _dem(
+        np.full((3, 3), 100.0),
+        attrs={"vertical_datum": "EGM2008", "height_reference": "orthometric"},
+    )
+    incidence = compute_cop30_local_incidence(
+        dem,
+        *_constant_los(np.deg2rad(30.0), (2, 3, 3)),
+        heights=np.array([105.0, 115.0]),
+        x_radar=np.array([0.0, 1.0, 2.0]),
+        y_radar=np.array([0.0, 1.0, 2.0]),
+        vertical_correction_m=correction_path,
+        require_vertical_datum_match=True,
+    )
+    np.testing.assert_allclose(incidence, np.deg2rad(30.0), atol=1e-6)
+    assert incidence.attrs["vertical_datum_status"] == (
+        "corrected_with_supplied_geoid_undulation"
+    )
+    assert incidence.attrs["vertical_correction_source"] == str(correction_path)
 
 
 def test_non_monotonic_los_coordinates_fail():
@@ -206,6 +265,7 @@ def test_missing_xy_cannot_derive_los_z(tmp_path):
         _read_radar_los(path)
 
 
+@pytest.mark.integration
 def test_real_product_geometry_regression():
     manifest_path = Path(__file__).parent / "fixtures" / "real_product_geometry.json"
     manifest = json.loads(manifest_path.read_text())

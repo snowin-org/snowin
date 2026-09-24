@@ -354,7 +354,7 @@ def discrete_cmap_and_norm(values: np.ndarray, cmap_name: str = "tab20"):
     n = len(unique_vals)
     base = plt.get_cmap(cmap_name, max(n, 1))
     cmap = mcolors.ListedColormap(base(np.arange(n)))
-    cmap.set_bad(alpha=0.0)
+    cmap = cmap.with_extremes(bad=(0.0, 0.0, 0.0, 0.0))
 
     if n == 1:
         bounds = [unique_vals[0] - 0.5, unique_vals[0] + 0.5]
@@ -404,7 +404,7 @@ def plot_continuous(
     origin = "upper" if y[0] > y[-1] else "lower"
 
     cmap_obj = plt.get_cmap(cmap).copy()
-    cmap_obj.set_bad(alpha=0.0)
+    cmap_obj = cmap_obj.with_extremes(bad=(0.0, 0.0, 0.0, 0.0))
     im = ax.imshow(
         np.ma.masked_invalid(arr),
         extent=extent,
