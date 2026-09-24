@@ -161,6 +161,37 @@ def test_nisar_adapter_supports_alternate_polarization_and_optional_layers(tmp_p
         result.close()
 
 
+def test_nisar_adapter_reads_nondefault_frequency_and_grid_orientation(tmp_path):
+    h5netcdf = pytest.importorskip("h5netcdf")
+    path = tmp_path / "variant_frequencyB_vv.nc"
+    _write_synthetic_gunw(
+        h5netcdf,
+        path,
+        frequency="frequencyB",
+        polarization="VV",
+        x_coordinates=(110.0, 100.0),
+        y_coordinates=(10.0, 20.0),
+        center_frequency_hz=1.25e9,
+        include_connected_components=True,
+    )
+
+    result = open_gunw(
+        path, frequency="frequencyB", polarization="VV", chunks=None, progress=False
+    )
+    try:
+        assert result.sizes == {"y": 2, "x": 2}
+        np.testing.assert_array_equal(result.x, [110.0, 100.0])
+        np.testing.assert_array_equal(result.y, [10.0, 20.0])
+        np.testing.assert_array_equal(result.phase, [[-1.0, -2.0], [-3.0, -4.0]])
+        np.testing.assert_array_equal(result.connected_component, [[4, 4], [8, 8]])
+        assert result.attrs["wavelength_m"] == pytest.approx(299792458.0 / 1.25e9)
+        assert result.phase.attrs["grid_mapping"] == "spatial_ref"
+        assert "/frequencyB/" in result.attrs["source_dataset_paths"]
+        assert result.attrs["source_granule_id"] == "synthetic-gunw-VV"
+    finally:
+        result.close()
+
+
 def test_nisar_adapter_rejects_missing_required_projection(tmp_path):
     h5netcdf = pytest.importorskip("h5netcdf")
     path = tmp_path / "test_gunw_missing_projection.h5"
@@ -365,23 +396,28 @@ def _write_synthetic_gunw(
     h5netcdf,
     path,
     *,
+    frequency="frequencyA",
     polarization="HH",
     include_optional_layers=True,
     include_projection=True,
+    include_connected_components=False,
+    x_coordinates=(100.0, 110.0),
+    y_coordinates=(20.0, 10.0),
+    center_frequency_hz=1.0e9,
 ):
     import h5py
 
     with h5netcdf.File(path, "w") as root:
         base = root.create_group("science/LSAR/GUNW")
-        grids = base.create_group("grids/frequencyA")
+        grids = base.create_group(f"grids/{frequency}")
         center = grids.create_variable("centerFrequency", (), float)
-        center[()] = 1.0e9
+        center[()] = center_frequency_hz
         center.attrs["units"] = "hertz"
 
         phase_group = grids.create_group(f"unwrappedInterferogram/{polarization}")
         phase_group.dimensions = {"y": 2, "x": 2}
-        phase_group.create_variable("xCoordinates", ("x",), float)[:] = [100.0, 110.0]
-        phase_group.create_variable("yCoordinates", ("y",), float)[:] = [20.0, 10.0]
+        phase_group.create_variable("xCoordinates", ("x",), float)[:] = x_coordinates
+        phase_group.create_variable("yCoordinates", ("y",), float)[:] = y_coordinates
         phase = phase_group.create_variable("unwrappedPhase", ("y", "x"), float)
         phase[:] = [[1.0, 2.0], [3.0, 4.0]]
         phase.attrs["units"] = "radians"
@@ -391,6 +427,11 @@ def _write_synthetic_gunw(
             )
             coherence[:] = 0.8
             coherence.attrs["units"] = "1"
+        if include_connected_components:
+            components = phase_group.create_variable(
+                "connectedComponents", ("y", "x"), "i4"
+            )
+            components[:] = [[4, 4], [8, 8]]
         if include_projection:
             projection = phase_group.create_variable("projection", (), "u4")
             projection[()] = 0
@@ -399,8 +440,8 @@ def _write_synthetic_gunw(
 
         radar = base.create_group("metadata/radarGrid")
         radar.dimensions = {"height": 2, "y": 2, "x": 2}
-        radar.create_variable("xCoordinates", ("x",), float)[:] = [100.0, 110.0]
-        radar.create_variable("yCoordinates", ("y",), float)[:] = [20.0, 10.0]
+        radar.create_variable("xCoordinates", ("x",), float)[:] = x_coordinates
+        radar.create_variable("yCoordinates", ("y",), float)[:] = y_coordinates
         radar.create_variable("heightAboveEllipsoid", ("height",), float)[:] = [
             -1.0,
             1.0,

@@ -135,8 +135,11 @@ def _read_vector_source(
         ]
         vector_crs = getattr(vector, "crs", None)
         feature_count = len(geometries)
-    elif hasattr(vector, "__geo_interface__"):
-        interface = vector.__geo_interface__
+    elif isinstance(vector, Mapping) or hasattr(vector, "__geo_interface__"):
+        # The public API accepts GeoJSON mappings as well as objects exposing
+        # the GeoJSON protocol; a mapping itself should not fall through as an
+        # iterable of coordinate keys.
+        interface = vector if isinstance(vector, Mapping) else vector.__geo_interface__
         if interface.get("type") == "FeatureCollection":
             geometries = [
                 feature["geometry"]

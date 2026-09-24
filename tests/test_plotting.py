@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import builtins
 import csv
 import json
 from pathlib import Path
@@ -10,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 import xarray as xr
-from shapely.geometry import box, mapping
+from shapely.geometry import Polygon, box, mapping
 
 from snowin.io.gunw import GunwLayers
 from snowin.plotting.gunw import (
@@ -137,6 +138,129 @@ def test_geojson_crop_preserves_grid_order_and_masks_outside_polygon(tmp_path):
     assert empty_x.size == empty_y.size == 0
 
 
+def test_polygon_hole_masks_pixels_without_mutating_input():
+    polygon = Polygon(
+        [(0, 0), (4, 0), (4, 4), (0, 4)],
+        holes=[[(1, 1), (3, 1), (3, 3), (1, 3)]],
+    )
+    cropper = GeoJsonCropper(polygon)
+    original = np.arange(16, dtype=float).reshape(4, 4)
+    values = original.copy()
+    x = np.array([0.5, 1.5, 2.5, 3.5])
+    y = x[::-1]
+
+    masked = cropper.mask_array(values, x, y)
+
+    assert np.isnan(masked[1:3, 1:3]).all()
+    assert np.isfinite(masked[0, 0])
+    np.testing.assert_array_equal(values, original)
+
+
+def test_polygon_mask_uses_rasterio_fallback_without_shapely_accelerators(
+    monkeypatch,
+):
+    shapely = pytest.importorskip("shapely")
+    pytest.importorskip("rasterio")
+    monkeypatch.setattr(shapely, "contains_xy", None, raising=False)
+    original_import = builtins.__import__
+
+    def import_without_vectorized(
+        name, globals=None, locals=None, fromlist=(), level=0
+    ):
+        if name == "shapely" and "vectorized" in fromlist:
+            raise ImportError("exercise Rasterio mask fallback")
+        return original_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", import_without_vectorized)
+    cropper = GeoJsonCropper(box(0, 0, 4, 4))
+    values = np.arange(16, dtype=float).reshape(4, 4)
+
+    masked = cropper.mask_array(
+        values,
+        np.array([0.5, 1.5, 2.5, 3.5]),
+        np.array([3.5, 2.5, 1.5, 0.5]),
+    )
+
+    np.testing.assert_array_equal(masked, values)
+
+
+def test_geojson_feature_collection_reprojects_union_and_rejects_empty(tmp_path):
+    from pyproj import Transformer
+    from shapely.ops import transform, unary_union
+
+    path = tmp_path / "regions.geojson"
+    features = {
+        "type": "FeatureCollection",
+        "features": [
+            {"type": "Feature", "geometry": mapping(box(-111.1, 40, -111.0, 40.1))},
+            {"type": "Feature", "geometry": mapping(box(-110.9, 40, -110.8, 40.1))},
+        ],
+    }
+    path.write_text(json.dumps(features), encoding="utf-8")
+    cropper = GeoJsonCropper.from_geojson(
+        path, target_epsg=32612, source_epsg=4326, padding=125.0
+    )
+    transformer = Transformer.from_crs(4326, 32612, always_xy=True)
+    expected_geometry = transform(
+        transformer.transform,
+        unary_union([box(-111.1, 40, -111.0, 40.1), box(-110.9, 40, -110.8, 40.1)]),
+    )
+    xmin, ymin, xmax, ymax = expected_geometry.bounds
+    np.testing.assert_allclose(
+        cropper.bounds,
+        [xmin - 125.0, ymin - 125.0, xmax + 125.0, ymax + 125.0],
+        rtol=0,
+        atol=1e-8,
+    )
+
+    empty_path = tmp_path / "empty.geojson"
+    empty_path.write_text(
+        '{"type":"FeatureCollection","features":[]}', encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="no geometry"):
+        GeoJsonCropper.from_geojson(empty_path, target_epsg=32612)
+
+
+def test_plot_boundary_includes_polygon_exterior_and_hole():
+    polygon = Polygon(
+        [(0, 0), (4, 0), (4, 4), (0, 4)],
+        holes=[[(1, 1), (3, 1), (3, 3), (1, 3)]],
+    )
+    figure, axis = plt.subplots()
+    try:
+        GeoJsonCropper(polygon).plot_boundary(axis, color="black")
+        assert len(axis.lines) == 2
+        np.testing.assert_array_equal(axis.lines[0].get_xdata(), [0, 4, 4, 0, 0])
+        np.testing.assert_array_equal(axis.lines[1].get_xdata(), [1, 3, 3, 1, 1])
+    finally:
+        plt.close(figure)
+
+
+def test_plot_orientation_and_discrete_colorbar_tick_cap():
+    ascending_y = _grid(np.arange(12, dtype=float).reshape(3, 4)).assign_coords(
+        y=[10.0, 20.0, 30.0]
+    )
+    figure, axis = plt.subplots()
+    try:
+        plot_continuous(axis, ascending_y, "ascending", "viridis")
+        image = axis.images[0]
+        assert image.origin == "lower"
+        assert image.get_extent() == [0.0, 30.0, 10.0, 30.0]
+    finally:
+        plt.close(figure)
+
+    many_classes = _grid(np.arange(20, dtype=float).reshape(4, 5))
+    figure, axis = plt.subplots()
+    try:
+        plot_discrete(axis, many_classes, "class labels")
+        assert len(figure.axes) == 2
+        colorbar_axis = figure.axes[1]
+        assert len(colorbar_axis.get_xticks()) == 12
+        assert len(colorbar_axis.get_xticklabels()) == 12
+    finally:
+        plt.close(figure)
+
+
 def test_plot_helpers_report_missing_empty_and_rendered_data():
     figure, axes = plt.subplots(1, 4)
     try:
@@ -258,6 +382,27 @@ def test_plot_gunw_writes_quickview_summary_and_metadata(monkeypatch, tmp_path):
     assert result.metadata_json_path.is_file()
     assert len(result.summary_rows) == 19
     assert result.figure_paths[0].name == "synthetic_gunw_HH_quickview.png"
+
+    opened = []
+    shown = []
+    monkeypatch.setattr(plotting, "_open_file", lambda path: opened.append(path))
+    monkeypatch.setattr(
+        plotting.GunwPlotResult,
+        "show",
+        lambda self: shown.append(self.figure_paths),
+    )
+    without_metadata = plot_gunw(
+        gunw_file,
+        out_dir=tmp_path / "outputs_without_metadata",
+        dpi=30,
+        max_plot_dim=4,
+        write_metadata=False,
+        open_plot=True,
+        show=True,
+    )
+    assert without_metadata.metadata_json_path is None
+    assert opened == list(without_metadata.figure_paths)
+    assert shown == [without_metadata.figure_paths]
 
 
 def test_name_helpers_handle_empty_and_nisar_paths():
