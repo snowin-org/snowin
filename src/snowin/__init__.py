@@ -9,7 +9,14 @@ from snowin.quality import (
     summarize_support,
 )
 from snowin.reference import reference_phase
-from snowin.snow import compute_dswe
+from snowin.snow import (
+    compute_dswe,
+    compute_gun_dswe,
+    compute_guneriussen_dswe,
+    compute_leinss_dswe,
+    compute_ove_dswe,
+    compute_oveisgharan_dswe,
+)
 from snowin.temporal import accumulate_dswe
 
 __version__ = "0.1.0"
@@ -27,7 +34,13 @@ def plot_gunw(*args, **kwargs):
 
 
 def gunw_to_dswe(*args, **kwargs):
-    """Run the explicit GUNW-to-dSWE workflow scaffold."""
+    """Run the legacy GUNW-to-dSWE compatibility workflow.
+
+    Prefer the explicit ``snowin.io.open_gunw`` ->
+    ``snowin.io.add_gunw_incidence`` -> ``snowin.compute_dswe`` path. This
+    temporary root-level alias is retained for existing callers but is not
+    part of the stable facade.
+    """
     from snowin.workflows import gunw_to_dswe as _gunw_to_dswe
 
     return _gunw_to_dswe(*args, **kwargs)
@@ -39,8 +52,12 @@ __all__ = [
     "build_support_dataset",
     "compose_support_mask",
     "compute_dswe",
+    "compute_gun_dswe",
+    "compute_guneriussen_dswe",
+    "compute_leinss_dswe",
     "compute_metrics",
-    "gunw_to_dswe",
+    "compute_ove_dswe",
+    "compute_oveisgharan_dswe",
     "plot_gunw",
     "reference_phase",
     "summarize_support",

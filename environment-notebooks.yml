@@ -1,0 +1,8 @@
+# Layer onto environment.yml with:
+#   conda env update -n snowin -f environment-notebooks.yml
+name: snowin
+channels:
+  - conda-forge
+dependencies:
+  - ipykernel>=6.29
+  - jupyterlab>=4.2

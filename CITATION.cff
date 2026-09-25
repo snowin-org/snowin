@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+title: SnowIn
+message: >-
+  If you use SnowIn, please cite the repository commit or release used and the
+  primary scientific publication relevant to your retrieval method.
+type: software
+authors:
+  - name: SnowIn contributors
+repository-code: https://github.com/snowin-org/snowin
+url: https://github.com/snowin-org/snowin
+license: Apache-2.0
+version: 0.1.0
+date-released: 2026-09-22
+keywords:
+  - snow
+  - SAR
+  - InSAR
+  - NISAR
+  - SWE

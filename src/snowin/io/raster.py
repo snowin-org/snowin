@@ -43,7 +43,9 @@ def infer_affine_from_xy(x, y):
         north = float(y_arr[0] - dy_step / 2.0)
         dy = dy_step
 
-    return Affine.translation(west, north) @ Affine.scale(dx, dy)
+    # Construct directly to avoid the incompatible/deprecated composition
+    # operators across affine versions.
+    return Affine(dx, 0.0, west, 0.0, dy, north)
 
 
 def write_geotiff(

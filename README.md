@@ -47,11 +47,11 @@ Important limits remain:
   does not estimate absolute SWE. Validation metrics are available, but a
   validation workflow still depends on the observations and comparison choices
   supplied by the user.
-- The default geometry uses public Copernicus GLO-30 elevation data, whose
-  heights are referenced to the EGM2008 geoid, while GUNW radar-grid heights
-  use the WGS84 ellipsoid. Without a supplied geoid correction, the geometry
-  result is provisional. Geometry is computed eagerly; phase data can remain
-  lazy.
+- The default local-incidence geometry uses the NISAR-modified Copernicus DEM,
+  whose heights are WGS84 ellipsoidal like the GUNW radar-grid heights. The
+  separate public COP30 compatibility path uses EGM2008 orthometric heights
+  and needs an explicit geoid correction for a datum match. Geometry is
+  computed eagerly; phase data can remain lazy.
 - Reading NISAR GSLC products is not included in 0.1.
 - `SnowIn` has no published PyPI or Conda release and no hosted documentation
   site yet. Install from a checkout while the public API is still evolving.
@@ -106,7 +106,7 @@ The canonical kernel accepts normalized phase and incidence-angle
 `xarray.DataArray` objects. Both angles use radians, the phase must be
 `secondary - reference`, and wavelength is always explicit in metres:
 
-```python
+```python snowin-quickstart
 import math
 import xarray as xr
 from snowin import compute_dswe
@@ -130,23 +130,31 @@ print(f"dSWE: {dswe.item():.3f} m")
 ### Open a NISAR GUNW
 
 For a NISAR GUNW, `snowin.io.open_gunw` resolves wavelength from product
-metadata and, by default, computes local incidence from GUNW LOS vectors and a
-downloaded or cached Copernicus GLO-30 DEM:
+metadata and opens normalized phase and product layers without computing
+incidence geometry. Add local incidence explicitly when needed:
 
 ```python
-from snowin.io import open_gunw
+from snowin.io import add_gunw_incidence, open_gunw
 
 pair = open_gunw("product.h5")
 print(pair.attrs["wavelength_m"])
+add_gunw_incidence(pair, "product.h5")
 ```
+
+The default local-incidence step uses the NISAR-modified Copernicus DEM and
+GUNW radar-grid LOS vectors. It downloads and caches the DEM unless a local
+`nisar_cop30_dem="/path/to/dem.tif"` is supplied. The public COP30 source is a
+separate orthometric compatibility option and needs an explicit vertical
+correction when a datum match is required.
 
 The default GUNW path uses [`Dask`](https://www.dask.org/) for lazy loading.
 Without `Dask`, pass `chunks=None` for an eager read. The `gunw` extra supplies
 the HDF5, raster, geometry, scientific-computing, and plotting dependencies
 needed by this workflow.
 
-Use `cop30_dem="/path/to/cop30.tif"` to provide a local DEM, or provide an
-explicit `wavelength_m` override only when its scientific provenance is known.
+Provide a local NISAR-modified DEM with `nisar_cop30_dem="/path/to/dem.tif"`,
+or provide an explicit `wavelength_m` override only when its scientific
+provenance is known.
 See the
 [external-product fixture notes](https://github.com/snowin-org/snowin/blob/main/tests/fixtures/README.md)
 and [local/S3 GUNW example](https://github.com/snowin-org/snowin/blob/main/examples/demo_gunw_local_s3_dswe.py)
@@ -230,7 +238,7 @@ processing packages. Related open-source projects include:
 
 - [`nisar_pytools`](https://github.com/ZachHoppinen/nisar_pytools) — Python tools for
   loading and processing NISAR datasets.
-  
+
 - [`isce3`](https://github.com/isce-framework/isce3) — NASA/JPL's InSAR
   scientific-computing environment and core NISAR processing software.
 - [`dolphin`](https://github.com/isce-framework/dolphin) — high-resolution
@@ -301,12 +309,10 @@ metrics, diagnostics, cloud/raster I/O, and workflow/fixture behavior. The
 current CI job runs on Ubuntu with Python 3.12 and performs `pytest`, `Ruff`, and
 package-build checks; it does not yet publish coverage or hosted documentation.
 
-At the time of this README update, the local baseline is **133 passed and 1
-skipped**, with the optional external real-product geometry regression
-unavailable. The skipped-test setup is documented in the
+The focused review branch reported **267 passed and 3 skipped**. Tests that
+need external real-product data are optional; their inputs and provenance are
+documented in the
 [fixture notes](https://github.com/snowin-org/snowin/blob/main/tests/fixtures/README.md).
-Re-measure the count when changing the suite rather than treating it as a
-permanent quality guarantee.
 
 For release preparation, `README.md` is already declared as the project readme
 in `pyproject.toml`; build artifacts should also be checked with
@@ -328,12 +334,12 @@ improvements are useful contributions as well as new retrieval functionality.
 
 ## Citation
 
-`SnowIn` does not yet have a tagged release, DOI, or `CITATION.cff`. Until those
-are available, cite the repository and the commit used, and cite the primary
-scientific publications listed in the
+`SnowIn` does not yet have a tagged release or DOI. Until those are available,
+cite the repository and the commit used, and cite the primary scientific
+publications listed in the
 [code provenance record](https://github.com/snowin-org/snowin/blob/main/docs/code_provenance.md)
-for the relevant retrieval methods. A formal software citation file should be
-added before the first tagged release.
+for the relevant retrieval methods. `CITATION.cff` provides machine-readable
+software citation metadata for this pre-release version.
 
 ## License
 
