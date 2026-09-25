@@ -26,11 +26,11 @@ cross-check. Select a local TanDEM-X 30 m raster with
 selected with `dem_source="srtm30"` and `srtm30_dem=...`, but it is treated as
 orthometric (normally EGM96) and therefore needs an appropriate geoid
 correction for strict matching. Neither source is silently substituted for the
-Colorado COP30 workflow.
+NISAR-modified Copernicus DEM path.
 
 These alternatives are intentionally not part of the current default. They
-remain future extension points after the NISAR DEM path is validated on the
-Colorado workflow.
+remain explicit options for workflows that supply and document their own DEM
+source.
 
 When a correction or ellipsoidal export is unavailable, set
 `require_vertical_datum_match=True` so the workflow fails instead of presenting

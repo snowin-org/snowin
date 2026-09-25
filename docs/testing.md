@@ -132,8 +132,9 @@ Label the evidence accurately:
 * **Regression tests** reproduce a specific previously discovered defect and
   prove the corrected behavior remains protected.
 
-Keep the existing Colorado equation and phase-lineage characterization cases.
-Do not describe their frozen SnowIn outputs as independent validation.
+Retain useful frozen parameter characterizations where they document a supported
+scientific configuration, and label them as characterizations. Do not describe
+their frozen outputs as independent validation.
 
 ## Data, fixtures, and integration
 
@@ -152,8 +153,8 @@ should follow from a small analytical example.
 Tests requiring externally supplied real mission products should be marked
 `integration`, document their provenance and environment variables, and remain
 optional. They must not make the normal test suite depend on those files.
-The optional NISAR product checks, exact fixture provenance, and environment
-variables are documented in [the fixture guide](../tests/fixtures/README.md).
+Optional NISAR input provenance and environment variables are recorded in
+`tests/fixtures/README.md` alongside the tests and fixture manifests.
 
 ## Coverage and repository checks
 

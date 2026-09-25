@@ -5,19 +5,37 @@
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](#installation)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-SnowIn is a snow-focused SAR/InSAR Python package, initially NISAR-first. It
-turns phase-based snow retrieval inputs into analysis-ready xarray objects while
-keeping units, coordinates, support, and scientific provenance explicit.
+`SnowIn` is a Python package for estimating changes in snow water equivalent
+(dSWE) from interferometric phase. The initial 0.1 release focuses on NISAR
+geocoded unwrapped interferogram (GUNW) products: it reads and normalizes
+product phase, derives local incidence angles from radar geometry and
+elevation data, and provides named Leinss, Guneriussen, and Oveisgharan
+methods for converting phase to pairwise dSWE. It also provides reusable
+operations for reference-phase handling, phase corrections, support and
+quality layers, and accumulating dSWE across directed time intervals.
 
-The long-term scope is broader snow-based InSAR analysis across sensors such as
-Sentinel-1 and future ROSE-L products, but those adapters are planned rather
-than active work. SnowIn is intended to be the snow-analysis layer around
-mission-specific InSAR processors, not a replacement for general processors
-such as ISCE or Dolphin.
+SnowIn works with labeled [`xarray`](https://xarray.dev/) `DataArray` and
+`Dataset` objects. Operations retain coordinates and relevant units, masks,
+and processing details. Phase direction, angle units, wavelength, and geometry
+assumptions are explicit so users can inspect the inputs and results of a
+retrieval.
+
+SnowIn is NISAR-first. Other sensor adapters, including Sentinel-1 and ROSE-L,
+are future work. SnowIn provides snow-specific analysis around mission
+processing tools; it does not replace general InSAR processors such as ISCE or
+Dolphin.
+
+**Project links:** [repository](https://github.com/snowin-org/snowin) ·
+[roadmap](ROADMAP.md) ·
+[scientific conventions](docs/scientific_conventions.md) ·
+[data model](docs/data_model.md) ·
+[architecture](docs/architecture.md) ·
+[contributing](CONTRIBUTING.md) ·
+[issues](https://github.com/snowin-org/snowin/issues)
 
 ## Status
 
-SnowIn is under active pre-release development. The current line provides
+SnowIn is preparing its first alpha release, version 0.1.0. It provides
 xarray-native contracts and phase-to-dSWE calculations; ASF search and
 validated downloads through `nisar_pytools`; normalized NISAR GUNW reading;
 DEM- and LOS-based local-incidence geometry with an explicit geometry-validity
@@ -36,8 +54,8 @@ Important limits remain:
   support, including back-facing terrain, have missing incidence and are marked
   invalid in `geometry_valid` rather than being folded into the valid angle
   range.
-- SnowIn has no published PyPI or Conda release and no hosted documentation
-  site yet. Install from a checkout while the public API is still evolving.
+- SnowIn has no published PyPI or conda-forge release. Install from a checkout
+  while the public API is still evolving.
 
 Read the [API policy](docs/api_policy.md) for the distinction between the
 stable root-level facade, domain-specific submodules, and legacy compatibility
@@ -60,16 +78,24 @@ git clone https://github.com/snowin-org/snowin.git
 cd snowin
 conda env create -f environment.yml
 conda activate snowin
-python -m pip install -e .
+python -m pip install -e ".[gunw]"
 ```
 
 The runtime environment includes NumPy, xarray, Dask, GUNW/geospatial, cloud,
-and vector dependencies. It does not include notebook or contributor tools.
-Add either layer only when needed:
+and vector dependencies. Install the optional NISAR search and reader dependency
+through the `gunw` extra:
+
+```bash
+python -m pip install -e ".[gunw]"
+```
+
+The Conda environment does not include notebook or contributor tools. Add
+those layers when needed:
 
 ```bash
 conda env update -n snowin -f environment-notebooks.yml
 conda env update -n snowin -f environment-dev.yml
+python -m pip install -e ".[dev,gunw,notebooks]"
 ```
 
 For pip-only installations, the base package remains NumPy and xarray. The
@@ -119,8 +145,9 @@ shows this workflow through GUNW layer inspection, local-incidence geometry,
 and pairwise dSWE. Its incidence plot is in degrees; the retrieval uses the
 radar-grid incidence angles in radians. Correction layers are displayed for
 inspection and are not automatically applied. The notebook limits downloads
-to one product by default. For Zach Hoppinen's detailed NIVAL comparison, see
-the [NIVAL notebook](notebooks/05_nival_nisar_comparison.ipynb).
+to one product by default. The NIVAL research comparison remains on the
+development branch and is excluded from the planned 0.1 merge to `main`; see
+the [development-only NIVAL notebook](notebooks/05_nival_nisar_comparison.ipynb).
 
 ## Quick start
 
@@ -329,8 +356,9 @@ uncertainties.
 - [Notebook training materials](notebooks/README.md)
 - [External real-product fixture notes](tests/fixtures/README.md)
 
-The repository currently provides source documentation and examples; hosted
-documentation is not configured.
+The documentation source is built in CI with MkDocs. The documentation
+workflow publishes it from `main` when GitHub Pages is enabled for the
+repository.
 
 ## Development and testing
 
@@ -339,6 +367,7 @@ current GitHub Actions workflow:
 
 ```bash
 pytest -q
+pytest --cov=snowin --cov-report=term-missing --cov-report=xml
 ruff check .
 ruff format --check .
 python -m build
@@ -347,9 +376,11 @@ git diff --check
 
 The test suite covers scientific contracts and dSWE/SWE kernels, geometry,
 NISAR/GUNW adapters, reference phase, temporal accumulation, support and
-metrics, diagnostics, cloud/raster I/O, and workflow/fixture behavior. The
-current CI job runs on Ubuntu with Python 3.12 and performs pytest, Ruff, and
-package-build checks; it does not yet publish coverage or documentation.
+metrics, diagnostics, cloud/raster I/O, and workflow/fixture behavior. CI tests
+Python 3.12–3.14 and a minimum scientific-dependency set, checks coverage,
+Ruff, and the command-line entry point, and installs a built wheel in a clean
+environment. A separate workflow builds the documentation strictly and
+publishes it from `main` when Pages is enabled.
 
 Tests that need external real-product data are optional; their inputs and
 provenance are documented in [`tests/fixtures/README.md`](tests/fixtures/README.md).

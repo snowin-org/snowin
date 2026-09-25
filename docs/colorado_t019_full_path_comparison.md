@@ -8,7 +8,7 @@ station-derived offsets, and downstream checkout remain external inputs.
 ## Frozen inputs
 
 - SnowIn commit: `058990c8b2fffe33c6d2be5fa3fe2bac57db05fc`.
-- Downstream checkout: `/Users/jtarrico/ch13_nisar_prelim`.
+- Downstream repository: `jacktarricone/nisar-grl-colorado-firstlook`.
 - Downstream commit: `009005c2c6a415f4b9f74d04300fe62b89167730`.
 - Downstream tracked entry point:
   `scripts/nisar_firstlook/analysis/run_pair_retrieval.py` and

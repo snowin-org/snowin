@@ -1,7 +1,10 @@
 # SnowIn notebooks
 
-These notebooks are training material and executable baseline checks for the
-pre-release package.
+The notebooks illustrate SnowIn's 0.1 scientific API and NISAR GUNW adapter.
+Start with notebooks 01, 02, and 06 for the supported package workflows.
+Notebooks 03–05 are downstream study examples with additional local data and
+workflow requirements; they are not needed for the core examples or test
+suite.
 
 ## Core workflow
 
@@ -24,20 +27,19 @@ python -m pip install -e ".[dev,gunw,vectors,notebooks]"
 ```
 
 The real-product notebook does not store products or generated rasters in the
-repository. It first opens the product for metadata/phase inspection, then
-explicitly calls `add_gunw_incidence` for the slower DEM/LOS step before the
-local-incidence and simple pairwise dSWE preview.
+repository. It opens the product for metadata and phase inspection, including
+available correction layers, then calls `add_gunw_incidence` for the slower
+DEM/LOS step. Its final plot shows all opened GUNW layers, incidence, and
+pairwise dSWE. Correction layers are visualized but not applied automatically.
 
 [`06_nisar_pytools_search_and_snowin.ipynb`](06_nisar_pytools_search_and_snowin.ipynb)
 starts from an ASF search through `nisar_pytools`, downloads selected GUNW
 products with its HDF5 validation, and passes the local file to SnowIn's
-normalized GUNW reader and dSWE workflow. It defaults to downloading one
-matching GUNW; change `max_products` in the notebook if you intend to fetch
-more. A GSLC search can be run separately, but SnowIn's current retrieval
-adapter consumes GUNW rather than GSLC. For Zach Hoppinen's detailed NIVAL
-comparison, see [05_nival_nisar_comparison.ipynb](05_nival_nisar_comparison.ipynb);
-this notebook focuses on discovery, validated download, and the SnowIn
-processing handoff.
+normalized GUNW reader and dSWE workflow. It displays all layers returned by
+`open_gunw`, then plots local incidence in degrees and pairwise dSWE. It
+defaults to downloading one matching GUNW; change `max_products` only when you
+intend to fetch more. A GSLC search can be run separately, but SnowIn's current
+retrieval adapter consumes GUNW rather than GSLC.
 
 ## Colorado comparison workflow
 
@@ -68,7 +70,7 @@ latitude/longitude, expected phase in SnowIn's canonical convention, and
 coherence weights. The notebook samples observed phase from the GUNW unless an
 `observed_phase_rad` column is supplied.
 
-## NIVAL NISAR comparison reference
+## NIVAL NISAR comparison (development only)
 
 [`05_nival_nisar_comparison.ipynb`](05_nival_nisar_comparison.ipynb) adapts the
 load-bearing NISAR portion of Zach Hoppinen's
@@ -77,7 +79,10 @@ analysis to SnowIn. It documents the ASC-077 7–19 February 2026 operational
 GUNW comparison against NIVAL lidar dHS (7–22 February), reproducing the
 outlier gate, per-pixel local-incidence Leinss conversion, lidar SWE anchor,
 and coherence-stratified statistics using SnowIn's normalized phase and
-`compute_dswe` API. The notebook expects the GUNW and two lidar rasters locally;
+`compute_dswe` API. This research comparison stays on the `development` branch
+for Zach's review and is excluded from the planned 0.1 merge to `main`. The
+package-facing review sequence is notebooks 01, 02, and 06 above. The notebook
+expects the GUNW and two lidar rasters locally;
 it derives local incidence through SnowIn using
 Copernicus GLO-30, as in Zach's analysis. The download helper fetches the two
 required NIVAL snow-depth GeoTIFF assets, the named GUNW, and the one

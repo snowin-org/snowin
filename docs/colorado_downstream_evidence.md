@@ -62,8 +62,8 @@ has been explicitly migrated and checked.
 The downstream Colorado pair driver was rerun for the same T019/F021 raw GUNW
 with the retained native local-incidence raster and `offset_rad=0`. Its test
 suite passed (`51 passed`), and the fresh pair run wrote raw phase,
-referenced phase, pairwise dSWE, and provenance-class rasters under the
-external directory `/private/tmp/snowin-colorado-downstream-baseline/`.
+referenced phase, pairwise dSWE, and provenance-class rasters in an external
+directory; its machine-specific path is omitted here.
 
 The SnowIn canonical phase and the downstream raw phase were exact negatives
 over the complete product (`max(abs(phi_snowin + phi_downstream_raw)) = 0.0`
@@ -128,6 +128,6 @@ construction adds overhead. The eager path therefore remains the default;
 ## Reproduction record
 
 - SnowIn commit containing the NISAR DEM integration: `92f0206`.
-- Colorado downstream checkout: `/Users/jtarrico/ch13_nisar_prelim`.
+- Colorado downstream repository: `jacktarricone/nisar-grl-colorado-firstlook`.
 - Colorado downstream tests at the audited checkout: `51 passed`.
-- External DEM cache used for the run: `/private/tmp/snowin_real_nisar_cop30/`.
+- External DEM cache used for the run: `an external NISAR DEM cache`.

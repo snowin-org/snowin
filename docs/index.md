@@ -1,22 +1,22 @@
 # SnowIn
 
-SnowIn is a snow-focused SAR/InSAR Python package, initially NISAR-first. It
-turns phase-based snow retrieval inputs into analysis-ready xarray objects while
-keeping units, coordinates, support, and scientific provenance explicit.
+SnowIn estimates changes in snow water equivalent (dSWE) from interferometric
+phase. The initial 0.1 release focuses on NISAR GUNW products and provides
+phase normalization, local-incidence geometry, named dSWE methods, and
+xarray-based reference, correction, support, and temporal operations.
 
-SnowIn is pre-release software. Start with the [data model](data_model.md),
-[scientific conventions](scientific_conventions.md), and
-[development guide](development.md), and [API policy](api_policy.md). The
-real-product Colorado comparison is
-summarized in [downstream evidence](colorado_downstream_evidence.md).
-The current full-path records are [reference-offset reconstruction](colorado_t019_reference_offset_reconstruction.md),
-[controlled equivalence](colorado_t019_full_path_comparison.md), and the
-[native NISAR DEM benchmark](colorado_t019_native_geometry_benchmark.md).
-Vector-defined analysis regions are documented in
-[spatial masks](spatial_masks.md).
-The basin-matched measurements are recorded in
-[the Colorado basin comparison](colorado_t019_basin_comparison.md).
-Reviewer setup and notebook instructions are in the
-[reviewer handoff](reviewer_handoff.md).
-Use the [reviewer feedback template](reviewer_feedback_template.md) to record
-results and usability issues.
+Start with the [data model](data_model.md),
+[scientific conventions](scientific_conventions.md),
+[DEM vertical-datum notes](vertical_datums.md), and
+[API policy](api_policy.md). The [development guide](development.md) covers
+installation, environments, and quality checks. The [scientific testing
+policy](testing.md) explains how SnowIn protects equations, signs, xarray
+structure, failure behavior, and eager/lazy equivalence.
+
+The [reviewer handoff](reviewer_handoff.md) gives the review sequence, and the
+[feedback template](reviewer_feedback_template.md) records results and
+reproducible issues. The notebook collection includes a synthetic core example
+(`01`), a local-product GUNW workflow (`02`), and the NISAR search-to-dSWE
+workflow (`06`). Notebooks `03` and `04` are downstream study templates;
+`05` is a development-only NIVAL research comparison and is not part of the
+planned 0.1 release merge.

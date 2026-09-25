@@ -38,7 +38,3 @@ Compose them explicitly for a regional retrieval or metric. The vector mask
 does not change phase normalization, reference-offset estimation, station
 selection, or missing-value semantics. It should be applied to regional dSWE
 products, support summaries, plots, metrics, and optional final maps.
-
-For Colorado, ERB and Taylor River polygons should be rasterized separately and
-used for basin-matched SnowIn-versus-downstream comparisons. Their station/date
-policy remains outside SnowIn.

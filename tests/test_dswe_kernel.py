@@ -212,12 +212,8 @@ def test_mismatched_coordinates_fail_instead_of_implicitly_aligning():
         compute_dswe(phase, incidence, wavelength_m=WAVELENGTH_M)
 
 
-def test_colorado_frozen_parameters_characterize_same_equation():
-    """Characterize Colorado's verified frozen wavelength/path constant.
-
-    This is an input/output characterization of the configuration, not a
-    runtime dependency on the Colorado repository.
-    """
+def test_representative_l_band_wavelength_matches_equation():
+    """Check the equation at a representative stock L-band wavelength."""
 
     phase, incidence = _inputs(
         phase_data=1.0,

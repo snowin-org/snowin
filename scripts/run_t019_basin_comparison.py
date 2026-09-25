@@ -22,31 +22,16 @@ from snowin import accumulate_dswe, compute_dswe, reference_phase
 from snowin.io import add_gunw_incidence, open_gunw
 from snowin.spatial import rasterize_vector_mask
 
+DEFAULT_DATA_DIR = Path.home() / ".cache" / "snowin" / "colorado"
 MANIFEST = Path(
     os.environ.get(
-        "SNOWIN_COLORADO_MANIFEST",
-        "/private/tmp/snowin-colorado-comparison/t019_path_manifest.json",
+        "SNOWIN_COLORADO_MANIFEST", DEFAULT_DATA_DIR / "t019_path_manifest.json"
     )
 )
-DEM = Path(
-    os.environ.get(
-        "SNOWIN_NISAR_DEM",
-        "/private/tmp/snowin_real_nisar_cop30/"
-        "NISAR_L2_PR_GUNW_004_019_A_021_005_4000_SH_20251030T121115_20251030T121143_"
-        "20251111T121116_20251111T121144_X05010_N_F_J_001_nisar_cop30.tif",
-    )
-)
-ERB_VECTOR = Path(
-    os.environ.get(
-        "SNOWIN_ERB_VECTOR",
-        "/Users/jtarrico/ch13_nisar_prelim/data/vectors/erb.gpkg",
-    )
-)
+DEM = Path(os.environ.get("SNOWIN_NISAR_DEM", DEFAULT_DATA_DIR / "nisar_cop30.tif"))
+ERB_VECTOR = Path(os.environ.get("SNOWIN_ERB_VECTOR", DEFAULT_DATA_DIR / "erb.gpkg"))
 TAYLOR_VECTOR = Path(
-    os.environ.get(
-        "SNOWIN_TAYLOR_VECTOR",
-        "/Users/jtarrico/ch13_nisar_prelim/data/vectors/taylor.gpkg",
-    )
+    os.environ.get("SNOWIN_TAYLOR_VECTOR", DEFAULT_DATA_DIR / "taylor.gpkg")
 )
 ERB_LAYER = os.environ.get("SNOWIN_ERB_LAYER", "erb")
 TAYLOR_LAYER = os.environ.get(
@@ -54,14 +39,12 @@ TAYLOR_LAYER = os.environ.get(
 )
 DOWNSTREAM_DIR = Path(
     os.environ.get(
-        "SNOWIN_COLORADO_DOWNSTREAM_DIR",
-        "/private/tmp/snowin-colorado-comparison/downstream-path",
+        "SNOWIN_COLORADO_DOWNSTREAM_DIR", DEFAULT_DATA_DIR / "downstream-path"
     )
 )
 REPORT = Path(
     os.environ.get(
-        "SNOWIN_COLORADO_REPORT",
-        "/private/tmp/snowin-colorado-comparison/t019_basin_full_comparison.json",
+        "SNOWIN_COLORADO_REPORT", DEFAULT_DATA_DIR / "t019_basin_full_comparison.json"
     )
 )
 FROZEN_WAVELENGTH_M = 0.238403545

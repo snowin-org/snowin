@@ -1,132 +1,89 @@
 # Reviewer handoff: Ross and Zach
 
-This is the pre-release review setup for SnowIn. The review target is the
-`development` branch, currently containing the canonical xarray workflow, real
-NISAR validation, vector analysis masks, and the Colorado 23-edge comparison
-baseline.
+This handoff describes the `development` branch review for SnowIn 0.1. The
+branch includes the xarray scientific API, NISAR GUNW normalization and
+geometry, ASF search and validated downloads through `nisar_pytools`, the
+correction layers exposed by the GUNW reader, and synthetic/regression tests.
+The NIVAL comparison notebook remains on `development` for optional research
+review; it is not part of the planned 0.1 merge to `main`.
 
-## Environment setup
+## Set up
 
-Use Python 3.12 or newer:
+Use Python 3.12 or newer. From the branch checkout, install SnowIn and the
+notebook and test dependencies:
 
 ```bash
 git clone https://github.com/snowin-org/snowin.git
 cd snowin
 git switch development
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
 python -m pip install -e ".[dev,gunw,vectors,notebooks]"
-python -m pytest -q
+pytest -q
 jupyter lab
 ```
 
-On an existing checkout, use `git fetch` and `git switch development` before
-installing the editable package. The expected baseline is `153 passed, 3
-skipped`; warnings from Rasterio and one legacy synthetic workflow are known
-and do not currently fail the suite.
+No external product is needed for the standard test suite or Notebook 01.
+Notebook 02 uses a local GUNW and optional local NISAR-modified Copernicus DEM.
+Notebook 06 searches ASF and downloads one product by default; it requires
+network access and any Earthdata credentials requested by ASF. The NISAR
+search dates in the example begin after the mission's first acquisitions.
 
-## Review order
+## Review sequence
 
-Run these notebooks from the repository root:
+1. `notebooks/01_core_snowin_workflow.ipynb` — synthetic phase, dSWE,
+   reference, correction, support, temporal, and metrics workflow.
+2. `notebooks/02_real_nisar_gunw_workflow.ipynb` — inspect an existing GUNW,
+   expose its phase and correction layers, add local incidence, and view
+   incidence and pairwise dSWE.
+3. `notebooks/06_nisar_pytools_search_and_snowin.ipynb` — search ASF, download
+   and validate a GUNW through `nisar_pytools`, then process it with SnowIn.
+4. `notebooks/03_colorado_comparison_workflow.ipynb` and
+   `notebooks/04_transferable_nisar_snotel_workflow.ipynb` — optional,
+   caller-supplied study inputs and downstream policies.
+5. `notebooks/05_nival_nisar_comparison.ipynb` — optional development-only
+   NIVAL research comparison; it depends on external products and Zach's
+   reference checkout.
 
-1. `notebooks/01_core_snowin_workflow.ipynb` — synthetic core API and support
-   behavior.
-2. `notebooks/02_real_nisar_gunw_workflow.ipynb` — fast product inspection,
-   explicit incidence calculation, and real dSWE preview.
-3. `notebooks/03_colorado_comparison_workflow.ipynb` — controlled baseline
-   versus Colorado's adopted SnowIn-native phase, DEM geometry, and
-   product-metadata wavelength, with basin masks and residuals.
-4. `notebooks/04_transferable_nisar_snotel_workflow.ipynb` — a template for a
-   different NISAR box and SNOTEL station set.
+For real-product runs, set `SNOWIN_GUNW` and, if available,
+`SNOWIN_NISAR_DEM`. Set `SNOWIN_DEM_CACHE` to choose the local DEM cache.
+Notebook 03 also accepts Colorado incidence, reference-offset, and vector
+paths. Notebook 04 accepts an analysis vector and caller-prepared station
+table. The NIVAL notebook documents its own environment and data setup in
+`notebooks/README.md`.
 
-For the real-product notebooks, configure local paths rather than committing
-products or generated output:
-
-```bash
-export SNOWIN_GUNW=/path/to/NISAR_GUNW
-export SNOWIN_NISAR_DEM=/path/to/nisar_modified_cop30.tif
-```
-
-Notebook 03 additionally accepts `SNOWIN_COLORADO_INCIDENCE`,
-`SNOWIN_COLORADO_OFFSET_RAD`, `SNOWIN_ERB_VECTOR`, `SNOWIN_TAYLOR_VECTOR`,
-and the corresponding layer variables. Notebook 04 accepts
-`SNOWIN_ANALYSIS_VECTOR`, `SNOWIN_ANALYSIS_LAYER`, and
-`SNOWIN_SNOTEL_TABLE`; it can use `SNOWIN_REFERENCE_OFFSET_RAD` while station
-inputs are being prepared.
-
-## Canonical workflow to inspect
-
-Reviewers should use this path for new work:
+## Canonical GUNW workflow
 
 ```python
-from snowin import compute_dswe, reference_phase
+from snowin import compute_dswe
 from snowin.io import add_gunw_incidence, open_gunw
 
 pair = open_gunw(gunw_path, chunks="auto")
-add_gunw_incidence(pair, gunw_path, dem_source="nisar_cop30")
-pair = reference_phase(pair, ...)
+add_gunw_incidence(pair, gunw_path)
 dswe = compute_dswe(
-    pair["phase_referenced"],
+    pair["phase"],
     pair["incidence_angle"],
     wavelength_m=pair.attrs["wavelength_m"],
 )
 ```
 
-The GUNW path is supplied again to the incidence function intentionally. The
-first step is for inspection; the second step performs the slower DEM/LOS
-geometry calculation and appends `incidence_angle` to the same Dataset.
+`open_gunw` returns a normalized xarray Dataset. Its phase is
+`secondary_minus_reference`; product wavelength and source provenance are
+recorded. Available ionosphere and troposphere correction layers are exposed
+for inspection and are not applied automatically. `add_gunw_incidence` adds
+local incidence and the `geometry_valid` support mask. Cells without valid
+terrain/LOS support, including back-facing terrain, have missing incidence.
+Incidence is in radians for calculations; Notebook 02 and Notebook 06 plot it
+in degrees for readability.
 
-## Required review observations
+## What to report
 
-For each real test, record:
+For each run, record the commit and environment, notebook and cell, product
+granule and polarization/frequency, phase definition and transform, wavelength
+and source, CRS/grid, DEM and vertical datum, correction-layer status, geometry
+support fraction, output units, warnings, runtime, and any failure with enough
+information to reproduce it. Do not include credentials or private input paths
+in issues or commits.
 
-- GUNW granule, polarization, frequency, and analysis-box/vector path;
-- xarray Dataset dimensions, coordinates, and data variables;
-- phase definition and sign transform;
-- wavelength and `wavelength_source`;
-- DEM source, height reference, and incidence source;
-- station IDs, station/date matching, expected-phase construction, weights,
-  and exclusions;
-- analysis-region, geometry, and retrieval support fractions;
-- runtime, memory behavior, warnings, and usability issues.
-
-The vector mask must remain separate from phase normalization and station
-selection. The station table supplies study-specific policy; SnowIn only
-applies the explicit reference inputs and records their provenance.
-
-## Colorado acceptance check
-
-Notebook 03 should reproduce the documented basin-matched behavior:
-
-- ERB incidence correlation approximately `0.999183`, MAE approximately
-  `0.389°`;
-- Taylor incidence correlation approximately `0.999110`, MAE approximately
-  `0.348°`;
-- controlled SnowIn versus Colorado cumulative RMSE near `0.000005 mm` for
-  ERB and `0.000004 mm` for Taylor.
-
-The adopted SnowIn-native mode uses the wavelength resolved from product
-metadata and the NISAR-modified Copernicus DEM. It is expected to differ from
-the controlled historical baseline, which used Colorado's frozen wavelength
-and retained incidence raster. Report phase, wavelength, and geometry effects
-separately across the 23-edge path; assess the migrated result against its
-declared conventions rather than expecting zero residual to the old baseline.
-Keep the legacy retrieval available until this validation is reviewed.
-
-## Review outcome
-
-Please return:
-
-1. the exact notebook and cell where an issue occurred;
-2. the input type and product metadata involved;
-3. the printed provenance and support fractions;
-4. whether the issue is reproducible with a synthetic or local product;
-5. a proposed fix or clarification.
-
-Use [reviewer_feedback_template.md](reviewer_feedback_template.md) for a
-consistent record, or copy its fields into the project issue tracker.
-
-Keep the legacy `gunw_to_dswe()` path unchanged during this review. Its
-migration boundary should be revisited only after the new real-product and
-transferability checks are complete.
+Use [reviewer_feedback_template.md](reviewer_feedback_template.md) to record
+observations. Report product-specific scientific choices separately from
+package behavior; station selection, date matching, and downstream validation
+policies remain caller-owned.

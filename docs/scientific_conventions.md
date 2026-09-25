@@ -1,7 +1,7 @@
 # SnowIn scientific conventions
 
-Status: Stage 2 contract. These conventions retain the Stage 1 normalized
-data contracts and define the verified phase-to-dSWE kernel.
+These conventions define package-wide normalized data contracts and the
+supported phase-to-dSWE methods.
 
 ## Quantities and units
 
@@ -127,8 +127,8 @@ The Oveisgharan fit is scientifically distinct, not an alias for Leinss. Its
 independent approximation is described by
 [Oveisgharan et al. (2024)](https://tc.copernicus.org/articles/18/559/2024/):
 `A(theta) = -0.6784*theta**2 + 0.2899*theta - 0.8473` and
-`dSWE = phase / (-2*k_i*A(theta))`. It remains available only through the
-legacy method path in Stage 2 and is not selected by the canonical kernel.
+`dSWE = phase / (-2*k_i*A(theta))`. SnowIn exposes it through its own named
+method; it is not selected implicitly by the Leinss compatibility function.
 
 NISAR/ISCE3 source interferograms use the opposite source convention for this
 boundary:
@@ -137,7 +137,7 @@ boundary:
 source phase = phi_reference - phi_secondary
 ```
 
-The future NISAR adapter must explicitly normalize it:
+The NISAR adapter explicitly normalizes it:
 
 ```text
 snowin_phase = -gunw_source_phase
@@ -156,19 +156,18 @@ variable names. An adapter with a missing or unknown source convention must
 fail. An adapter may not silently negate phase or claim canonical output
 without recording the source convention and transform.
 
-The Colorado `sign_plus` exploratory/frozen branch is not physical sign
-authority. Its verified frozen parameters are used only as Stage 2
-characterization evidence; source-to-retrieval migration remains deferred.
+Legacy downstream sign switches are not physical sign authority. Product
+adapters must normalize the declared source convention and record the
+transform before a scientific retrieval runs.
 
 ## Wavelength and incidence angle
 
-`wavelength_m` is explicit, positive, and resolved before the canonical
-retrieval kernel runs. The generic kernel has no sensor registry or mission
-default. In particular, the approximate legacy NISAR value near 0.24 m is not
-a Stage 2 scientific default; an authoritative product adapter may later
-populate the explicit value from metadata. The Colorado frozen characterization
-uses `0.238403545` m, but that study value is not silently promoted to a
-generic default.
+`wavelength_m` is positive and resolved before the retrieval equation runs.
+The named public methods accept either an explicit wavelength or an explicitly
+selected stock sensor and band. NISAR GUNW adapters use the product's
+authoritative center-frequency metadata when available. SnowIn does not infer
+a sensor from array values or silently replace product metadata with a stock
+value.
 
 `incidence_angle` is a spatial variable in radians. Its
 `incidence_angle_reference` attribute is required and must distinguish at
@@ -192,10 +191,9 @@ step. A result must retain the method, signed offset, contributors,
 observations, weights, exclusions, support, and status. A scalar offset with
 no provenance is insufficient for validation or reproducibility.
 
-The Stage 5 reference API supports several explicit ways to obtain the
-additive offset. The coherence-weighted method is the one characterized by the
-verified Colorado frozen configuration and described by Zhou et al. (2025),
-Eq. 6:
+The reference API supports several explicit ways to obtain the additive
+offset. Its coherence-weighted method follows the calibration algebra
+described by Zhou et al. (2025), Eq. 6:
 
 ```text
 C_hat = sum_i[weight_i * (observed_phase_i - expected_phase_i)]
@@ -210,8 +208,8 @@ The xarray-native public function is `snowin.reference_phase()`. It supports:
 - `method="mean_additive_offset"` with an unweighted mean of eligible
   contributor residuals;
 - `method="median_additive_offset"` with the robust median residual; and
-- `method="coherence_weighted_additive_offset"` using the Colorado/Zhou
-  calibration weights.
+- `method="coherence_weighted_additive_offset"` using caller-supplied,
+  documented calibration weights.
 
 The non-coherence-weighted methods are explicit input/aggregation policies,
 not claims of additional published physical retrieval equations.

@@ -116,6 +116,5 @@ This is sufficient as a practical migration baseline: the canonical SnowIn
 workflow reproduces Colorado's regional cumulative result when the controlled
 inputs are held fixed, while the native path remains highly correlated and
 shows the magnitude of the deliberate DEM/incidence and wavelength differences.
-The machine-readable report is written to
-`/private/tmp/snowin-colorado-comparison/t019_basin_full_comparison.json` for
-the local product checkout.
+The machine-readable report is written to a local output file alongside the
+product checkout; its machine-specific path is omitted here.

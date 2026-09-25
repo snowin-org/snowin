@@ -1,8 +1,8 @@
 # Independent NIVAL 20 m unwrap and SnowIn result
 
 This run used the operational NISAR L2 GUNW and the two public NIVAL snow-depth
-rasters for Mores Creek Summit, Idaho. The source data were staged under
-`/private/tmp/snowin_nival_nisar`; the 2.3 GB GUNW and lidar inputs are not in
+rasters for Mores Creek Summit, Idaho. The source data were staged in a local
+NIVAL cache; the 2.3 GB GUNW and lidar inputs are not in
 the Git branch. The GUNW and lidar files were downloaded from ASF and NSIDC
 with the existing Earthdata `.netrc` login. No raw RSLC granules were needed.
 
@@ -76,4 +76,4 @@ conda run -n nisar_snotel python scripts/derive_unwrapped_gunw_dswe.py \
 ```
 
 The 80 m SnowIn workflow and optional handoff to Zach's Figure 2 plot are
-documented in [notebook 05](../notebooks/05_nival_nisar_comparison.ipynb).
+documented in [notebook 05 on the development branch](https://github.com/snowin-org/snowin/blob/development/notebooks/05_nival_nisar_comparison.ipynb).
