@@ -223,11 +223,14 @@ can continue to use the wider `xarray` ecosystem. For example,
 [`Zarr`](https://zarr.dev/) can be used through normal `xarray` I/O where that
 backend is appropriate; `SnowIn` does not currently define a separate Zarr API.
 
-## Related InSAR software
+## Related software
 
 `SnowIn` is snow-specific and intentionally narrower than general InSAR
 processing packages. Related open-source projects include:
 
+- [`nisar_pytools`](https://github.com/ZachHoppinen/nisar_pytools) — Python tools for
+  loading and processing NISAR datasets.
+  
 - [`isce3`](https://github.com/isce-framework/isce3) — NASA/JPL's InSAR
   scientific-computing environment and core NISAR processing software.
 - [`dolphin`](https://github.com/isce-framework/dolphin) — high-resolution
@@ -238,6 +241,8 @@ processing packages. Related open-source projects include:
   phase unwrapping for InSAR time series.
 - [`MintPy`](https://github.com/insarlab/MintPy) — general InSAR time-series
   analysis from stacks of unwrapped interferograms.
+- [`uavsar_pytools`](https://github.com/SnowEx/uavsar_pytools) — tools to search,
+  download, convert, and work with UAVSAR InSAR and PolSAR products from ASF and JPL.
 
 These projects are **not** `SnowIn` dependencies unless explicitly listed in
 `pyproject.toml`. They are linked here to clarify where `SnowIn` fits in the
@@ -246,15 +251,11 @@ already exists.
 
 ## Scientific conventions and data model
 
-The core contract is deliberately explicit:
-
-- canonical phase is `phi_secondary - phi_reference`;
+- phase is `phi_secondary - phi_reference`;
 - temporal edges run from `reference_time` to `secondary_time`;
 - phase and incidence angle use radians;
 - wavelength is explicit in metres;
-- local versus ellipsoid-referenced incidence is declared in metadata;
-- dimensions, coordinates, attributes, CRS, support, missing values, and
-  provenance are preserved where the operation permits;
+- dimensions, coordinates, CRS, support layers, and associated metadata are preserved;
 - `xarray`/`Dask`-compatible arithmetic is used for reusable phase calculations.
 
 Read the full
