@@ -27,12 +27,13 @@ the operation is tied to a product, file format, correction family, or lower-
 level diagnostic:
 
 ```python
-from snowin.io import add_gunw_incidence, open_gunw
+from snowin.io import add_gunw_incidence, find_nisar, open_gunw
 from snowin.corrections import PhaseCorrectionConfig, apply_phase_corrections
 from snowin.reference import estimate_reference_offset
 
 # NISAR-specific detail is also grouped by domain:
 from snowin.io.dem import DEMSource
+from snowin.io import download_urls
 from snowin.io.geometry import compute_cop30_local_incidence
 from snowin.io.phase_normalization import normalize_gunw_pair
 from snowin.spatial import rasterize_vector_mask
@@ -53,6 +54,13 @@ after its scientific contract, provenance, dependencies, and downstream use
 are reviewed.
 
 ## GUNW workflow status
+
+NISAR product discovery and downloads use the optional ``nisar_pytools``
+integration through ``snowin.io.find_nisar`` and
+``snowin.io.download_urls``. The GUNW adapter uses its DataTree reader, then
+SnowIn applies its documented phase normalization and scientific metadata.
+These product-specific calls remain in ``snowin.io`` rather than the stable
+root facade.
 
 The canonical NISAR workflow is explicitly composed:
 

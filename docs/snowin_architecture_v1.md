@@ -435,8 +435,10 @@ Goals:
 
 Stage 3 implementation decisions:
 
-- `snowin.io.open_gunw()` is a thin xarray/h5netcdf boundary after evaluating
-  `nisar_pytools`; `nisar_pytools` is not a SnowIn runtime dependency.
+- `snowin.io.open_gunw()` uses `nisar_pytools.open_nisar()` for lazy DataTree
+  access to the GUNW layer, then normalizes the product into SnowIn's xarray
+  contract. NISAR search and downloads are exposed in `snowin.io` through the
+  same optional dependency.
 - `open_gunw()` intentionally stops before incidence geometry so callers can
   inspect a GUNW without waiting for DEM access or LOS interpolation.
   `compute_gunw_incidence(gunw_file, target)` requires the explicit GUNW path,

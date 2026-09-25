@@ -1,4 +1,4 @@
-"""NISAR GUNW to SnowIn normalized-Dataset adapter.
+"""NISAR GUNW to SnowIn normalized-Dataset adapter using nisar_pytools.
 
 This module is the product boundary for NISAR GUNW semantics.  The generic
 scientific kernel in :mod:`snowin.snow.dswe` receives only the normalized
@@ -168,7 +168,7 @@ def _interpolate_incidence_chunk(
             -1.0,
             1.0,
         )
-        angle = np.arccos(dot)
+        angle = np.where(dot > 0.0, np.arccos(dot), np.nan)
     return angle.astype("float32")
 
 
@@ -386,7 +386,7 @@ def compute_cop30_local_incidence(
                 -1.0,
                 1.0,
             )
-            angle = np.arccos(dot)
+            angle = np.where(dot > 0.0, np.arccos(dot), np.nan)
         geometry_execution = "eager"
         geometry_chunk_metadata = "none"
     else:
@@ -424,7 +424,12 @@ def compute_cop30_local_incidence(
             "source_units": "degrees",
             "long_name": f"{source_label} terrain-surface local incidence angle",
             "valid_min": 0.0,
-            "valid_max": float(np.pi),
+            "valid_max": float(np.pi / 2.0),
+            "valid_max_exclusive": True,
+            "invalid_geometry_policy": (
+                "NaN where the target-to-sensor LOS has no positive projection "
+                "onto the local terrain normal"
+            ),
             "los_vector_direction": "target_to_sensor",
             "dem_vertical_datum": dem.attrs.get("vertical_datum", "unknown"),
             "los_height_reference": "WGS84 ellipsoid",
@@ -1354,6 +1359,62 @@ def _detect_pol_without_loading(gunw_file: Path) -> str:
     raise ValueError("GUNW does not contain an HH or VV unwrapped phase layer")
 
 
+def _open_nisar_gunw_layer(
+    path: Path,
+    *,
+    frequency: str,
+    polarization: str | None,
+    chunks: dict[str, int] | str | None,
+) -> tuple[Any, xr.Dataset, str]:
+    """Open a GUNW layer through nisar_pytools and return its owning tree."""
+    try:
+        from nisar_pytools import open_nisar
+        from nisar_pytools.utils.metadata import get_gunw
+    except ImportError as exc:
+        raise ImportError(
+            "Opening NISAR GUNW files requires nisar_pytools; install SnowIn "
+            "with the 'gunw' extra"
+        ) from exc
+
+    tree = open_nisar(path, chunks=chunks)
+    try:
+        layer_path = f"science/LSAR/GUNW/grids/{frequency}/unwrappedInterferogram"
+        available = list(tree[layer_path].children)
+        if polarization is None:
+            polarization = next((pol for pol in ("HH", "VV") if pol in available), None)
+        if polarization is None or polarization not in available:
+            raise ValueError(
+                "GUNW does not contain the requested HH or VV unwrapped phase "
+                f"layer; available polarizations: {available}"
+            )
+        layer = get_gunw(
+            tree,
+            polarization=polarization,
+            layer="unwrappedInterferogram",
+            frequency=frequency,
+            valid_mask=False,
+        )
+        if not isinstance(layer, xr.Dataset):
+            raise TypeError("nisar_pytools.get_gunw did not return an xarray Dataset")
+        return tree, layer, polarization
+    except Exception:
+        # nisar_pytools owns the HDF5 handle through a DataTree finalizer.
+        # Dropping this reference releases it on exceptional open paths.
+        del tree
+        raise
+
+
+def _nisar_acquisition_time(tree: Any, role: Literal["reference", "secondary"]) -> str:
+    """Read acquisition times from the upstream tree metadata helper."""
+    from nisar_pytools.utils.metadata import get_acquisition_time
+
+    times = get_acquisition_time(tree)
+    value = getattr(times, role)
+    if value is None or str(value) in {"NaT", ""}:
+        raise ValueError(f"GUNW is missing required {role} acquisition time metadata")
+    return _iso_utc(value.to_pydatetime(), f"{role}_time")
+
+
 def open_gunw(
     gunw_file: str | Path,
     *,
@@ -1366,8 +1427,12 @@ def open_gunw(
     """Open and normalize a NISAR GUNW without computing incidence geometry.
 
     This fast product-inspection step opens the phase, coherence, connected
-    components, coordinates, metadata, and wavelength.  It deliberately does
-    not download a DEM or read the radar-grid LOS cube.  Call
+    components, ionospheric screens, tropospheric screens, coordinates,
+    metadata, and wavelength. Radar-grid tropospheric screens retain their
+    native ``radar_height``, ``radar_y``, and ``radar_x`` dimensions because
+    they are not on the interferogram grid. Correction layers are exposed but
+    never applied. It deliberately does not download a DEM or read the
+    radar-grid LOS cube. Call
     :func:`add_gunw_incidence` with the same explicit GUNW path when the
     terrain-surface incidence angle is needed.
 
@@ -1380,20 +1445,31 @@ def open_gunw(
     if polarization is not None and polarization not in {"HH", "VV"}:
         raise ValueError("polarization must be 'HH', 'VV', or None")
     _progress(f"opening GUNW phase data from {path.name}", progress)
-    pol = polarization or _detect_pol_without_loading(path)
-    phase_group = f"/science/LSAR/GUNW/grids/{frequency}/unwrappedInterferogram/{pol}"
-    phase_ds = _open_group(path, phase_group, chunks=chunks)
+    tree, phase_ds, pol = _open_nisar_gunw_layer(
+        path,
+        frequency=frequency,
+        polarization=polarization,
+        chunks=chunks,
+    )
     try:
         if "unwrappedPhase" not in phase_ds:
-            raise ValueError(
-                f"GUNW phase layer is missing at {phase_group}/unwrappedPhase"
-            )
-        if "projection" not in phase_ds:
-            raise ValueError("GUNW phase group is missing its projection metadata")
+            raise ValueError("GUNW phase layer is missing unwrappedPhase")
+        if "x" not in phase_ds.coords or "y" not in phase_ds.coords:
+            raise ValueError("GUNW phase layer is missing x/y grid coordinates")
+        source_projection = phase_ds.get("spatial_ref")
+        if source_projection is None:
+            # nisar_pytools exposes the GUNW grid-mapping variable as
+            # ``projection`` and carries its EPSG code in Dataset attrs.
+            source_projection = phase_ds.get("projection")
+        if source_projection is None:
+            raise ValueError("GUNW phase layer is missing its projection metadata")
 
-        raw_phase = _grid_data(
-            phase_ds["unwrappedPhase"], phase_ds, name="unwrappedPhase"
-        )
+        raw_phase = phase_ds["unwrappedPhase"].rename("unwrappedPhase")
+        if raw_phase.dims != ("y", "x"):
+            raise ValueError(
+                "GUNW unwrappedPhase must use dimensions ('y', 'x'); "
+                f"got {raw_phase.dims!r}"
+            )
         raw_phase.attrs["units"] = raw_phase.attrs.get("units", "").lower()
         if raw_phase.attrs["units"] not in {"radians", "radian", "rad"}:
             raise ValueError("GUNW unwrappedPhase has missing or unknown angle units")
@@ -1402,27 +1478,140 @@ def open_gunw(
         for source_name, normalized_name in {
             "coherenceMagnitude": "coherence",
             "connectedComponents": "connected_component",
+            "ionospherePhaseScreen": "ionosphere",
+            "ionospherePhaseScreenUncertainty": "ionosphere_unc",
         }.items():
             if source_name in phase_ds:
-                additional[normalized_name] = _grid_data(
-                    phase_ds[source_name], phase_ds, name=normalized_name
+                variable = phase_ds[source_name]
+                if variable.dims != ("y", "x"):
+                    raise ValueError(
+                        f"GUNW {source_name} must use dimensions ('y', 'x')"
+                    )
+                layer_attrs = _serializable_attrs(variable.attrs)
+                layer_attrs.update(
+                    {
+                        "source_variable": source_name,
+                        "grid_mapping": "spatial_ref",
+                    }
+                )
+                if normalized_name in {"ionosphere", "ionosphere_unc"}:
+                    layer_attrs["correction_status"] = "available_not_applied"
+                additional[normalized_name] = xr.DataArray(
+                    variable.data,
+                    dims=("y", "x"),
+                    coords={
+                        "y": raw_phase.coords["y"],
+                        "x": raw_phase.coords["x"],
+                    },
+                    attrs=layer_attrs,
+                    name=normalized_name,
                 )
 
+        radar_grid_path = "science/LSAR/GUNW/metadata/radarGrid"
+        try:
+            radar_grid = tree[radar_grid_path].to_dataset()
+        except KeyError:
+            radar_grid = None
+        if radar_grid is not None:
+            for source_name, normalized_name in {
+                "hydrostaticTroposphericPhaseScreen": "hydro_tropo",
+                "wetTroposphericPhaseScreen": "wet_tropo",
+            }.items():
+                if source_name not in radar_grid:
+                    continue
+                variable = radar_grid[source_name]
+                if len(variable.dims) == 3 and variable.dims[-2:] == ("y", "x"):
+                    height_dim = variable.dims[0]
+                    dimensions = ("radar_height", "radar_y", "radar_x")
+                    source_dimensions = (height_dim, "y", "x")
+                elif variable.dims == ("y", "x"):
+                    dimensions = ("radar_y", "radar_x")
+                    source_dimensions = ("y", "x")
+                else:
+                    raise ValueError(
+                        f"GUNW {source_name} must use a radar-grid y/x plane, "
+                        "optionally with a leading height dimension; "
+                        f"got {variable.dims!r}"
+                    )
+                coords = {
+                    target: xr.DataArray(
+                        variable.coords[source].data,
+                        dims=(target,),
+                        attrs=_serializable_attrs(variable.coords[source].attrs),
+                    )
+                    for source, target in zip(source_dimensions, dimensions)
+                }
+                if "radar_height" in coords:
+                    coords["radar_height"].attrs.setdefault("units", "m")
+                    coords["radar_height"].attrs.setdefault(
+                        "long_name", "height above ellipsoid"
+                    )
+                layer_attrs = _serializable_attrs(variable.attrs)
+                layer_attrs.update(
+                    {
+                        "source_variable": source_name,
+                        "source_grid": "NISAR GUNW radarGrid",
+                        "grid_mapping": "spatial_ref",
+                        "correction_status": "available_not_applied",
+                    }
+                )
+                additional[normalized_name] = xr.DataArray(
+                    variable.data,
+                    dims=dimensions,
+                    coords=coords,
+                    attrs=layer_attrs,
+                    name=normalized_name,
+                )
+
+        spatial_ref_attrs = _serializable_attrs(source_projection.attrs)
+        if "epsg_code" not in spatial_ref_attrs:
+            dataset_epsg = phase_ds.attrs.get("projection")
+            if dataset_epsg is not None:
+                spatial_ref_attrs["epsg_code"] = _serializable_attrs(
+                    {"epsg_code": dataset_epsg}
+                )["epsg_code"]
         spatial_ref = xr.DataArray(
-            phase_ds["projection"].data,
-            attrs=_serializable_attrs(phase_ds["projection"].attrs),
+            source_projection.data,
+            attrs=spatial_ref_attrs,
             name="spatial_ref",
         )
         granule_id = read_scalar_hdf5(path, f"{IDENTIFICATION_GROUP}/granuleId")
-        source_provenance = {
-            "source_dataset_paths": json.dumps(
-                {
-                    "phase": f"{phase_group}/unwrappedPhase",
-                    "center_frequency": f"/science/LSAR/GUNW/grids/{frequency}/centerFrequency",
-                },
-                sort_keys=True,
+        source_paths = {
+            "phase": (
+                f"/science/LSAR/GUNW/grids/{frequency}/"
+                f"unwrappedInterferogram/{pol}/unwrappedPhase"
             ),
-            "source_reader": "snowin.io.nisar_product.open_gunw",
+            "center_frequency": (
+                f"/science/LSAR/GUNW/grids/{frequency}/centerFrequency"
+            ),
+        }
+        optional_layer_paths = {
+            "ionosphere": (
+                f"/science/LSAR/GUNW/grids/{frequency}/"
+                f"unwrappedInterferogram/{pol}/ionospherePhaseScreen"
+            ),
+            "ionosphere_unc": (
+                f"/science/LSAR/GUNW/grids/{frequency}/"
+                f"unwrappedInterferogram/{pol}/ionospherePhaseScreenUncertainty"
+            ),
+            "hydro_tropo": (
+                "/science/LSAR/GUNW/metadata/radarGrid/"
+                "hydrostaticTroposphericPhaseScreen"
+            ),
+            "wet_tropo": (
+                "/science/LSAR/GUNW/metadata/radarGrid/wetTroposphericPhaseScreen"
+            ),
+        }
+        source_paths.update(
+            {
+                name: path
+                for name, path in optional_layer_paths.items()
+                if name in additional
+            }
+        )
+        source_provenance = {
+            "source_dataset_paths": json.dumps(source_paths, sort_keys=True),
+            "source_reader": "nisar_pytools.open_nisar + SnowIn normalization",
             "wavelength_source": (
                 "explicit wavelength_m override"
                 if wavelength_m is not None
@@ -1446,8 +1635,8 @@ def open_gunw(
         attrs: dict[str, Any] = {
             "snowin_schema_version": "0.1-draft",
             "product_kind": "pairwise_interferogram",
-            "reference_time": _identification_time(path, "reference"),
-            "secondary_time": _identification_time(path, "secondary"),
+            "reference_time": _nisar_acquisition_time(tree, "reference"),
+            "secondary_time": _nisar_acquisition_time(tree, "secondary"),
             "temporal_edge": "reference_to_secondary",
             "phase_difference_definition": _CANONICAL_PHASE_DEFINITION,
             "source_phase_difference_definition": NISAR_GUNW_SOURCE_PHASE_DEFINITION,
@@ -1458,7 +1647,8 @@ def open_gunw(
                 else read_gunw_wavelength_m(path, frequency=frequency)
             ),
             "source_product_type": "NISAR_GUNW",
-            "source_reader": "snowin.io.nisar_product.open_gunw",
+            "source_reader": "nisar_pytools.open_nisar + SnowIn normalization",
+            "correction_layers_applied": False,
         }
         if granule_id is not None:
             attrs["source_granule_id"] = str(granule_id)
@@ -1481,11 +1671,13 @@ def open_gunw(
         result["x"].attrs.setdefault("units", "m")
         result["y"].attrs.setdefault("units", "m")
     except Exception:
-        phase_ds.close()
+        del tree
         raise
 
+    tree_holder = [tree]
+
     def close() -> None:
-        phase_ds.close()
+        tree_holder.clear()
 
     result.set_close(close)
     return result
@@ -1716,6 +1908,18 @@ def add_gunw_incidence(
     _require_aligned(target["phase"], incidence)
     target["incidence_angle"] = incidence
     target["incidence_angle"].attrs = _serializable_attrs(incidence.attrs)
+    geometry_valid = (
+        np.isfinite(incidence) & (incidence >= 0.0) & (incidence < math.pi / 2.0)
+    ).rename("geometry_valid")
+    geometry_valid.attrs = {
+        "units": "1",
+        "long_name": "valid incidence geometry support",
+        "definition": "incidence_angle is finite and in [0, pi/2)",
+        "incidence_angle_reference": incidence.attrs.get(
+            "incidence_angle_reference", "unknown"
+        ),
+    }
+    target["geometry_valid"] = geometry_valid
     target.attrs.update(
         {
             key: value

@@ -20,13 +20,24 @@ set `SNOWIN_NISAR_DEM` to a local NISAR-modified Copernicus DEM and
 Install the notebook/runtime dependencies from the checkout with:
 
 ```bash
-python -m pip install -e ".[dev,gunw,vectors]"
+python -m pip install -e ".[dev,gunw,vectors,notebooks]"
 ```
 
 The real-product notebook does not store products or generated rasters in the
 repository. It first opens the product for metadata/phase inspection, then
 explicitly calls `add_gunw_incidence` for the slower DEM/LOS step before the
 local-incidence and simple pairwise dSWE preview.
+
+[`06_nisar_pytools_search_and_snowin.ipynb`](06_nisar_pytools_search_and_snowin.ipynb)
+starts from an ASF search through `nisar_pytools`, downloads selected GUNW
+products with its HDF5 validation, and passes the local file to SnowIn's
+normalized GUNW reader and dSWE workflow. It defaults to downloading one
+matching GUNW; change `max_products` in the notebook if you intend to fetch
+more. A GSLC search can be run separately, but SnowIn's current retrieval
+adapter consumes GUNW rather than GSLC. For Zach Hoppinen's detailed NIVAL
+comparison, see [05_nival_nisar_comparison.ipynb](05_nival_nisar_comparison.ipynb);
+this notebook focuses on discovery, validated download, and the SnowIn
+processing handoff.
 
 ## Colorado comparison workflow
 

@@ -19,6 +19,7 @@ such as ISCE or Dolphin.
 
 SnowIn is under active pre-release development. The current line provides
 xarray-native contracts and phase-to-dSWE calculations, a NISAR GUNW adapter,
+`nisar_pytools`-based ASF search, download, and lazy GUNW reading,
 COP30-based local-incidence geometry, reference-phase methods, directed
 temporal accumulation, named support layers, reusable metrics, and GUNW
 diagnostics/plotting scaffolding.
@@ -71,8 +72,49 @@ conda env update -n snowin -f environment-dev.yml
 For pip-only installations, the base package remains NumPy and xarray. The
 `gunw`, `cloud`, `dask`, and `vectors` extras are available for installing
 those features selectively; `notebooks` and `dev` provide notebook and
-contributor tooling. See [development setup](docs/development.md#conda-environments)
+contributor tooling. The `gunw` extra includes the `nisar_pytools` search,
+download, and GUNW DataTree reader used by SnowIn's NISAR adapter. See
+[development setup](docs/development.md#conda-environments)
 for the layers and commands.
+
+## Find and open NISAR products
+
+The `snowin.io.find_nisar` and `snowin.io.download_urls` helpers use the public
+`nisar_pytools` APIs to find ASF product URLs and download/validate selected
+files. Search results are URL strings; downloads return local `Path` objects.
+The search supports GSLC and other NISAR product types, while SnowIn's current
+snow-retrieval adapter processes GUNW products. A GSLC reader and GSLC-based
+snow retrieval are not yet part of SnowIn's supported workflow.
+
+```python
+from pathlib import Path
+
+from snowin.io import download_urls, find_nisar, open_gunw
+
+gunw_urls = find_nisar(
+    aoi=[-115, 43, -114, 44],
+    start_date="2025-06-01",
+    end_date="2025-12-01",
+    product_type="GUNW",
+    path_number=77,
+    direction="ASCENDING",
+)
+if not gunw_urls:
+    raise RuntimeError("No matching GUNW products were found")
+
+out_dir = Path.home() / ".cache" / "snowin" / "gunw"
+files = download_urls(gunw_urls[:1], out_dir, validate=True)
+if not files:
+    raise RuntimeError("No GUNW product was downloaded and validated")
+
+with open_gunw(files[0]) as pair:
+    print(pair.attrs["reference_time"], "→", pair.attrs["secondary_time"])
+```
+
+The [search-to-SnowIn notebook](notebooks/06_nisar_pytools_search_and_snowin.ipynb)
+shows this workflow through pairwise dSWE. It limits the download to one
+product by default. For Zach Hoppinen's detailed NIVAL comparison, see the
+[NIVAL notebook](notebooks/05_nival_nisar_comparison.ipynb).
 
 ## Quick start
 
@@ -224,7 +266,9 @@ See the [fixture notes](tests/fixtures/README.md) and the
 ## What SnowIn provides
 
 - NISAR GUNW reading, phase-convention normalization, and product metadata
-  handling. A GSLC adapter is not yet part of the stable implementation.
+  handling using `nisar_pytools` as the base reader, plus ASF search and
+  validated downloads through the same package. A GSLC adapter is not yet
+  part of the stable implementation.
 - Named xarray-native Leinss, Guneriussen, and Oveisgharan pairwise dSWE
   retrievals, plus legacy NumPy compatibility helpers.
 - Explicit reference-phase methods, including manual and contributor-based
@@ -273,6 +317,7 @@ uncertainties.
 - [API policy](docs/api_policy.md)
 - [GUNW quick-look example](examples/plot_gunw_quickview.py)
 - [Local/S3 GUNW example](examples/demo_gunw_local_s3_dswe.py)
+- [NISAR search and SnowIn notebook](notebooks/06_nisar_pytools_search_and_snowin.ipynb)
 - [Notebook training materials](notebooks/README.md)
 - [External real-product fixture notes](tests/fixtures/README.md)
 
@@ -298,11 +343,8 @@ metrics, diagnostics, cloud/raster I/O, and workflow/fixture behavior. The
 current CI job runs on Ubuntu with Python 3.12 and performs pytest, Ruff, and
 package-build checks; it does not yet publish coverage or documentation.
 
-At the time of this update, the local baseline is **153 passed and 3 skipped**
-with the optional external real-product geometry regression unavailable. The
-skipped-test setup is documented in
-[`tests/fixtures/README.md`](tests/fixtures/README.md); the number should be
-re-measured rather than treated as a permanent quality guarantee.
+Tests that need external real-product data are optional; their inputs and
+provenance are documented in [`tests/fixtures/README.md`](tests/fixtures/README.md).
 
 ## Contributing
 

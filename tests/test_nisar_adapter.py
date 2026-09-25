@@ -134,12 +134,21 @@ def test_nisar_adapter_opens_lazy_normalized_gunw(tmp_path):
         assert result.incidence_angle.attrs["units"] == "rad"
         assert result.incidence_angle.attrs["incidence_angle_reference"] == "local"
         np.testing.assert_allclose(result.incidence_angle.values, np.deg2rad(30.0))
+        assert result.geometry_valid.dtype == bool
+        assert bool(result.geometry_valid.all())
         assert result.attrs["wavelength_m"] == pytest.approx(0.299792458)
         assert result.attrs["source_phase_difference_definition"] == (
             "reference_minus_secondary"
         )
         assert result.attrs["phase_transform"] == "multiply_by_-1"
         assert result.attrs["temporal_edge"] == "reference_to_secondary"
+        assert result.spatial_ref.attrs["epsg_code"] == 32611
+        np.testing.assert_allclose(result.ionosphere, [[0.1, 0.2], [0.3, 0.4]])
+        assert result.ionosphere_unc.attrs["units"] == "radians"
+        assert result.hydro_tropo.dims == ("radar_height", "radar_y", "radar_x")
+        assert result.radar_height.attrs["units"] == "m"
+        assert result.wet_tropo.attrs["correction_status"] == "available_not_applied"
+        assert result.attrs["correction_layers_applied"] is False
         assert result.attrs["incidence_angle_source"].startswith("COP30 DEM")
     finally:
         result.close()
@@ -179,7 +188,8 @@ def test_nisar_adapter_reads_nondefault_frequency_and_grid_orientation(tmp_path)
         path, frequency="frequencyB", polarization="VV", chunks=None, progress=False
     )
     try:
-        assert result.sizes == {"y": 2, "x": 2}
+        assert result.sizes["y"] == result.sizes["x"] == 2
+        assert result.sizes["radar_height"] == 2
         np.testing.assert_array_equal(result.x, [110.0, 100.0])
         np.testing.assert_array_equal(result.y, [10.0, 20.0])
         np.testing.assert_array_equal(result.phase, [[-1.0, -2.0], [-3.0, -4.0]])
@@ -401,6 +411,7 @@ def _write_synthetic_gunw(
     include_optional_layers=True,
     include_projection=True,
     include_connected_components=False,
+    include_correction_layers=True,
     x_coordinates=(100.0, 110.0),
     y_coordinates=(20.0, 10.0),
     center_frequency_hz=1.0e9,
@@ -432,9 +443,20 @@ def _write_synthetic_gunw(
                 "connectedComponents", ("y", "x"), "i4"
             )
             components[:] = [[4, 4], [8, 8]]
+        if include_correction_layers:
+            ionosphere = phase_group.create_variable(
+                "ionospherePhaseScreen", ("y", "x"), float
+            )
+            ionosphere[:] = [[0.1, 0.2], [0.3, 0.4]]
+            ionosphere.attrs["units"] = "radians"
+            ionosphere_uncertainty = phase_group.create_variable(
+                "ionospherePhaseScreenUncertainty", ("y", "x"), float
+            )
+            ionosphere_uncertainty[:] = 0.01
+            ionosphere_uncertainty.attrs["units"] = "radians"
         if include_projection:
             projection = phase_group.create_variable("projection", (), "u4")
-            projection[()] = 0
+            projection[()] = 32611
             projection.attrs["epsg_code"] = 32611
             projection.attrs["spatial_ref"] = "EPSG:32611"
 
@@ -449,6 +471,16 @@ def _write_synthetic_gunw(
         incidence = radar.create_variable("incidenceAngle", ("height", "y", "x"), float)
         incidence[:] = 30.0
         incidence.attrs["units"] = "degrees"
+        hydro_tropo = radar.create_variable(
+            "hydrostaticTroposphericPhaseScreen", ("height", "y", "x"), float
+        )
+        hydro_tropo[:] = 0.02
+        hydro_tropo.attrs["units"] = "radians"
+        wet_tropo = radar.create_variable(
+            "wetTroposphericPhaseScreen", ("height", "y", "x"), float
+        )
+        wet_tropo[:] = 0.03
+        wet_tropo.attrs["units"] = "radians"
         los_x = radar.create_variable("losUnitVectorX", ("height", "y", "x"), float)
         los_x[:] = math.sin(math.radians(30.0))
         los_y = radar.create_variable("losUnitVectorY", ("height", "y", "x"), float)
@@ -465,6 +497,77 @@ def _write_synthetic_gunw(
                 name, (), h5py.string_dtype(encoding="utf-8")
             )
             variable[()] = value
+
+    with h5py.File(path, "r+") as root:
+        if include_projection:
+            # Match the scalar EPSG attribute representation in NISAR GUNW files.
+            projection_attrs = root[
+                f"science/LSAR/GUNW/grids/{frequency}/"
+                f"unwrappedInterferogram/{polarization}/projection"
+            ].attrs
+            del projection_attrs["epsg_code"]
+            projection_attrs["epsg_code"] = np.int64(32611)
+
+        # Match NISAR's HDF5 dimension scales so nisar_pytools can retain the
+        # source x/y grid on each layer.
+        scale_specs = (
+            (
+                f"/science/LSAR/GUNW/grids/{frequency}/unwrappedInterferogram/{polarization}",
+                {"y": "yCoordinates", "x": "xCoordinates"},
+                {
+                    name: ("y", "x")
+                    for name in (
+                        "unwrappedPhase",
+                        "coherenceMagnitude",
+                        "connectedComponents",
+                        "ionospherePhaseScreen",
+                        "ionospherePhaseScreenUncertainty",
+                    )
+                    if name
+                    in root[
+                        f"science/LSAR/GUNW/grids/{frequency}/"
+                        f"unwrappedInterferogram/{polarization}"
+                    ]
+                },
+            ),
+            (
+                "/science/LSAR/GUNW/metadata/radarGrid",
+                {
+                    "height": "heightAboveEllipsoid",
+                    "y": "yCoordinates",
+                    "x": "xCoordinates",
+                },
+                {
+                    name: ("height", "y", "x")
+                    for name in (
+                        "incidenceAngle",
+                        "losUnitVectorX",
+                        "losUnitVectorY",
+                        "hydrostaticTroposphericPhaseScreen",
+                        "wetTroposphericPhaseScreen",
+                    )
+                    if name in root["/science/LSAR/GUNW/metadata/radarGrid"]
+                },
+            ),
+        )
+        for group_path, coordinate_names, variable_dimensions in scale_specs:
+            group = root[group_path]
+            scales = {
+                dim: group[coordinate_name]
+                for dim, coordinate_name in coordinate_names.items()
+            }
+            for dim, scale in scales.items():
+                if not scale.is_scale:
+                    for old_scale in list(scale.dims[0].values()):
+                        scale.dims[0].detach_scale(old_scale)
+                    scale.make_scale(dim)
+            for name, dimensions in variable_dimensions.items():
+                variable = group[name]
+                for axis, dim in enumerate(dimensions):
+                    for old_scale in list(variable.dims[axis].values()):
+                        variable.dims[axis].detach_scale(old_scale)
+                    variable.dims[axis].label = dim
+                    variable.dims[axis].attach_scale(scales[dim])
 
 
 def _synthetic_dem() -> xr.DataArray:
