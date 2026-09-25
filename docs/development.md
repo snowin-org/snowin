@@ -34,8 +34,9 @@ editable mode with `python -m pip install -e .`. The full runtime list is also
 the dependency target for a future conda-forge package. Jupyter and contributor
 tools belong in the environment overlays, not the installed library's runtime
 requirements. Setuptools discovers the installable package under `src/snowin`;
-repository notebooks and research scripts remain checkout examples, not
-package modules, runtime dependencies, or bundled study data.
+repository notebooks and research scripts remain checkout examples. In
+particular, the Zach/NIVAL notebook and its ISCE3/SNAPHU processing are not
+SnowIn package modules, runtime dependencies, or bundled study data.
 
 The eventual conda-forge recipe will be submitted separately to
 `conda-forge/staged-recipes/recipes/snowin/recipe.yaml` after a versioned source
@@ -117,17 +118,19 @@ current angle helper also retains an explicit `auto` compatibility path, and
 the GUNW timestamp parser returns naive datetimes. These are documented debt,
 not silently changed during package stabilization.
 
-## Geometry execution behavior
+## Geometry execution decision
 
 For the first public release, NISAR-modified Copernicus DEM reprojection and
 LOS interpolation remain eager by default. The phase and normalized product
 layers remain Dask-compatible and lazy. An opt-in ``geometry_chunks`` prototype
 now builds a Dask-backed incidence result by evaluating the SciPy interpolation
 one output chunk at a time. It still eagerly loads the DEM, LOS lookup cube,
-and terrain normals, so it is a bounded-memory execution option rather than a
-fully out-of-core geometry implementation. Keep the eager default until broader
-product tests and benchmarks establish an acceptable memory/performance
-tradeoff.
+and terrain normals, so it is a benchmark path rather than a distributed
+geometry implementation. The real Colorado product produced a numerically
+identical angle field with 512 x 512 chunks and reduced the observed peak from
+about 6.7 GiB to about 5.7 GiB in the current environment, while adding graph
+construction overhead. Keep the eager default until a larger benchmark and
+collaborator review establish an acceptable memory/performance tradeoff.
 
 ## Release checks
 

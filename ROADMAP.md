@@ -10,20 +10,25 @@ analysis masks, and result figures belong in downstream applications.
   directed temporal edges.
 - Named phase-to-dSWE methods with explicit units, wavelength handling, and
   model-specific inputs.
-- NISAR GUNW reading, source-phase normalization, product wavelength
-  resolution, and local-incidence geometry from DEM and LOS data.
+- `nisar_pytools`-based ASF search and validated downloads, plus NISAR GUNW
+  reading, source-phase normalization, and product wavelength resolution.
+- Local-incidence geometry from DEM and GUNW LOS data, with explicit invalid
+  support for missing or back-facing terrain. GUNW correction layers are
+  available for inspection and retain their source metadata; they are not
+  applied automatically.
 - Reference-phase operations, support composition, metrics, and temporal
   accumulation with explicit missing-data behavior.
+- GUNW layer, incidence-angle, and pairwise dSWE plots.
 - Synthetic and regression tests, property-based invariants, CI coverage,
   formatting, build, and wheel-install checks.
 
 ## Current focus
 
-- Review the public scientific API, phase conventions, product metadata, and
-  the xarray data model with domain collaborators.
-- Exercise the generic synthetic workflow and real-GUNW example in clean
-  environments.
-- Broaden synthetic coverage for spatial, plotting, and NISAR product variants.
+- Have domain collaborators review the public scientific API, phase
+  conventions, product metadata, xarray data model, and NISAR search-to-dSWE
+  workflow.
+- Keep the synthetic core notebook and NISAR search/GUNW notebooks aligned
+  with the package API; identify external-data study notebooks separately.
 - Keep NISAR DEM/LOS geometry eager by default while evaluating chunked
   execution with documented memory and runtime measurements.
 
@@ -31,10 +36,10 @@ analysis masks, and result figures belong in downstream applications.
 
 - Add optional real-product fixtures with public input provenance and no
   downloads or credentials in the required test suite.
-- Complete executable documentation for examples that can run without
-  external mission products.
-- Prepare a conda-forge recipe after a versioned source release and reviewed
-  package contents are available.
+- Finish the 0.1 review by checking installation, public imports, package
+  contents, and documented scientific limitations.
+- Publish a versioned source release and prepare a conda-forge recipe after
+  external review and release metadata checks.
 - Add scientific benchmarks and stricter static typing when their maintenance
   value is clear.
 

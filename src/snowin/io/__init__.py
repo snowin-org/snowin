@@ -19,6 +19,7 @@ from .gunw import (
     read_identification_metadata,
 )
 from .nisar_product import add_gunw_incidence, compute_gunw_incidence, open_gunw
+from .nisar_search import download_urls, find_nisar
 from .phase_normalization import (
     NISAR_GUNW_PHASE_TRANSFORM,
     NISAR_GUNW_SOURCE_PHASE_DEFINITION,
@@ -43,6 +44,8 @@ __all__ = [
     "detect_pol",
     "download_cop30_dem_for_gunw",
     "download_nisar_cop30_dem_for_gunw",
+    "download_urls",
+    "find_nisar",
     "is_s3_uri",
     "normalize_gunw_pair",
     "open_gunw",

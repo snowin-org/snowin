@@ -1,4 +1,4 @@
-# Optional real-product geometry fixture
+# Stage 4 real-product geometry fixture
 
 The JSON manifest in this directory records the expected local-incidence
 statistics for a real NISAR GUNW and a public Copernicus GLO-30 tile. The
@@ -22,6 +22,11 @@ See the [Copernicus DEM Product Handbook](https://dataspace.copernicus.eu/sites/
 for product reference-system and grid semantics. The expected values were
 generated independently with the verified Colorado implementation at commit
 `f5c17ef`; no ASO data was used for tuning.
+
+`colorado_phase_lineage.json` is a small data-free characterization fixture.
+It records the raw-versus-canonical phase definitions and the frozen
+downstream `phase_sign=+1` branch so the sign-lineage regression does not
+depend on a private Colorado checkout or a large product.
 
 ## Optional real NISAR product checks
 

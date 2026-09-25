@@ -34,6 +34,13 @@ Other internal conventions are:
 - projected grid coordinates use the declared CRS units;
 - dates are explicit ISO 8601 UTC values at the pair boundary.
 
+The local incidence angle used by the dSWE kernel must be in `[0, pi/2)`. The
+NISAR geometry adapter computes the angle between the target-to-sensor LOS and
+the upward terrain normal. Where their dot product is nonpositive, the terrain
+face is not oriented toward the sensor: the adapter stores incidence as missing
+and `geometry_valid=False`. It does not fold the angle with an absolute value
+or clip it into the valid range.
+
 Unit labels are required metadata. Scientific kernels must reject an absent or
 ambiguous angle unit rather than infer degrees or radians from value magnitude.
 The prototype `incidence_angle_unit="auto"` compatibility path is retained as

@@ -63,6 +63,20 @@ def test_sloped_dem_returns_known_incidence_angle():
     np.testing.assert_allclose(incidence, np.arctan(0.1), atol=1e-6)
 
 
+def test_back_facing_terrain_has_missing_incidence_support():
+    x = np.arange(3, dtype=float)
+    dem = _dem(np.broadcast_to(10.0 * x, (3, 3)), x=x)
+    incidence = compute_cop30_local_incidence(
+        dem,
+        *_constant_los(np.deg2rad(40.0), (2, 3, 3)),
+        heights=np.array([-1.0, 21.0]),
+        x_radar=x,
+        y_radar=np.arange(3, dtype=float),
+    )
+    assert np.isnan(incidence.values).all()
+    assert incidence.attrs["valid_max_exclusive"] is True
+
+
 def test_larger_grid_geometry_is_finite_and_shape_preserving():
     y = np.arange(16, dtype=float)
     x = np.arange(20, dtype=float)

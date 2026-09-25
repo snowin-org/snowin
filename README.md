@@ -1,8 +1,9 @@
 # SnowIn
 
 [![CI](https://github.com/snowin-org/snowin/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/snowin-org/snowin/actions/workflows/ci.yml)
+[![Lint and format with Ruff](https://img.shields.io/badge/lint%20%26%20format-Ruff-D7FF64?logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](#installation)
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/snowin-org/snowin/blob/main/LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
 `SnowIn` is a Python package for estimating changes in snow water equivalent
 (dSWE) from interferometric phase. The initial 0.1 release focuses on NISAR
@@ -14,10 +15,10 @@ operations for reference-phase handling, phase corrections, support and
 quality layers, and accumulating dSWE across directed time intervals.
 
 SnowIn works with labeled [`xarray`](https://xarray.dev/) `DataArray` and
-`Dataset` objects. Its operations retain coordinates and relevant units,
-masks, and processing details. Phase direction, angle units, wavelength, and
-geometry assumptions are stated so users can inspect the inputs and results of
-a retrieval.
+`Dataset` objects. Operations retain coordinates and relevant units, masks,
+and processing details. Phase direction, angle units, wavelength, and geometry
+assumptions are explicit so users can inspect the inputs and results of a
+retrieval.
 
 SnowIn is NISAR-first. Other sensor adapters, including Sentinel-1 and ROSE-L,
 are future work. SnowIn provides snow-specific analysis around mission
@@ -25,91 +26,141 @@ processing tools; it does not replace general InSAR processors such as ISCE or
 Dolphin.
 
 **Project links:** [repository](https://github.com/snowin-org/snowin) ·
-[roadmap](https://github.com/snowin-org/snowin/blob/main/ROADMAP.md) ·
-[scientific conventions](https://github.com/snowin-org/snowin/blob/main/docs/scientific_conventions.md) ·
-[data model](https://github.com/snowin-org/snowin/blob/main/docs/data_model.md) ·
-[architecture](https://github.com/snowin-org/snowin/blob/main/docs/architecture.md) ·
-[contributing](https://github.com/snowin-org/snowin/blob/main/CONTRIBUTING.md) ·
+[roadmap](ROADMAP.md) ·
+[scientific conventions](docs/scientific_conventions.md) ·
+[data model](docs/data_model.md) ·
+[architecture](docs/architecture.md) ·
+[contributing](CONTRIBUTING.md) ·
 [issues](https://github.com/snowin-org/snowin/issues)
 
 ## Status
 
-SnowIn is preparing its first alpha release, version 0.1.0. This release
-provides xarray-based snow retrieval operations, a NISAR GUNW reader, local
-incidence geometry, named phase-to-dSWE methods, reference-phase operations,
-directed temporal accumulation, support and quality tools, and GUNW
-diagnostics and quick-look plots. See [Core API and scope](#core-api-and-scope)
-for the current feature list.
+SnowIn is preparing its first alpha release, version 0.1.0. It provides
+xarray-native contracts and phase-to-dSWE calculations; ASF search and
+validated downloads through `nisar_pytools`; normalized NISAR GUNW reading;
+DEM- and LOS-based local-incidence geometry with an explicit geometry-validity
+mask; reference-phase and temporal-accumulation methods; named support layers
+and metrics; and plots for opened GUNW layers, incidence angle, and dSWE.
 
 Important limits remain:
 
-- The retrieval produces pairwise or accumulated changes in SWE (dSWE); it
-  does not estimate absolute SWE. Validation metrics are available, but a
-  validation workflow still depends on the observations and comparison choices
-  supplied by the user.
-- The default local-incidence geometry uses the NISAR-modified Copernicus DEM,
-  whose heights are WGS84 ellipsoidal like the GUNW radar-grid heights. The
-  separate public COP30 compatibility path uses EGM2008 orthometric heights
-  and needs an explicit geoid correction for a datum match. Geometry is
-  computed eagerly; phase data can remain lazy.
-- Reading NISAR GSLC products is not included in 0.1.
-- `SnowIn` has no published PyPI or Conda release and no hosted documentation
-  site yet. Install from a checkout while the public API is still evolving.
+- The canonical retrieval produces pairwise or accumulated dSWE. It is not an
+  absolute SWE product or a universal validation workflow.
+- The default GUNW geometry path uses the NISAR-modified Copernicus DEM, whose
+  heights are WGS84 ellipsoidal like the GUNW radar-grid heights. The original
+  public COP30 compatibility path remains orthometric and requires an explicit
+  EGM2008 geoid-undulation correction. Incidence geometry is currently eagerly
+  materialized; phase data can remain lazy. Cells without valid terrain/LOS
+  support, including back-facing terrain, have missing incidence and are marked
+  invalid in `geometry_valid` rather than being folded into the valid angle
+  range.
+- SnowIn has no published PyPI or conda-forge release. Install from a checkout
+  while the public API is still evolving.
 
-The active implementation plan is in
-[`ROADMAP.md`](https://github.com/snowin-org/snowin/blob/main/ROADMAP.md).
-Scientific contracts and limitations are documented in the
-[data model](https://github.com/snowin-org/snowin/blob/main/docs/data_model.md),
-[scientific conventions](https://github.com/snowin-org/snowin/blob/main/docs/scientific_conventions.md),
-and [architecture](https://github.com/snowin-org/snowin/blob/main/docs/architecture.md)
-documents.
+Read the [API policy](docs/api_policy.md) for the distinction between the
+stable root-level facade, domain-specific submodules, and legacy compatibility
+paths.
+
+The active implementation plan is in [`ROADMAP.md`](ROADMAP.md). Scientific
+contracts and limitations are documented in the [data model](docs/data_model.md),
+[scientific conventions](docs/scientific_conventions.md),
+[DEM vertical-datum notes](docs/vertical_datums.md), and
+[architecture](docs/architecture.md) documents.
 
 ## Installation
 
-### Current development checkout
-
-There is not yet a released user installation. For the current repository:
+There is not yet a published PyPI or conda-forge release. To create the full
+scientific runtime from a checkout, install the Conda-forge geospatial stack
+and then install SnowIn in editable mode:
 
 ```bash
 git clone https://github.com/snowin-org/snowin.git
 cd snowin
-python -m pip install -e .
+conda env create -f environment.yml
+conda activate snowin
+python -m pip install -e ".[gunw]"
 ```
 
-`SnowIn` requires Python 3.12 or newer. The base runtime depends only on
-[`numpy`](https://numpy.org/) and [`xarray`](https://xarray.dev/).
-
-Install optional capabilities as needed:
+The runtime environment includes NumPy, xarray, Dask, GUNW/geospatial, cloud,
+and vector dependencies. Install the optional NISAR search and reader dependency
+through the `gunw` extra:
 
 ```bash
-python -m pip install -e ".[gunw]"        # NISAR GUNW, HDF5, raster, geometry, plotting
-python -m pip install -e ".[cloud]"       # fsspec + S3 access
-python -m pip install -e ".[gunw,cloud]"  # both user-facing optional stacks
-python -m pip install -e ".[dev]"         # tests, build tools, Dask, GUNW/geospatial dev deps
+python -m pip install -e ".[gunw]"
 ```
 
-The `dev` extra includes the dependencies used by the repository's test/build
-workflow, including [`pytest`](https://docs.pytest.org/),
-[`Ruff`](https://docs.astral.sh/ruff/), [`build`](https://build.pypa.io/), and
-optional [`Dask`](https://www.dask.org/) support. `Dask` is optional at runtime;
-`xarray` is a core dependency.
+The Conda environment does not include notebook or contributor tools. Add
+those layers when needed:
 
-When releases are published, this section should lead with the normal
-`pip install snowin` and `conda`/`mamba` commands and retain source installation
-as a development option.
+```bash
+conda env update -n snowin -f environment-notebooks.yml
+conda env update -n snowin -f environment-dev.yml
+python -m pip install -e ".[dev,gunw,notebooks]"
+```
+
+For pip-only installations, the base package remains NumPy and xarray. The
+`gunw`, `cloud`, `dask`, and `vectors` extras are available for installing
+those features selectively; `notebooks` and `dev` provide notebook and
+contributor tooling. The `gunw` extra includes the `nisar_pytools` search,
+download, and GUNW DataTree reader used by SnowIn's NISAR adapter. See
+[development setup](docs/development.md#conda-environments)
+for the layers and commands.
+
+## Find and open NISAR products
+
+The `snowin.io.find_nisar` and `snowin.io.download_urls` helpers use the public
+`nisar_pytools` APIs to find ASF product URLs and download/validate selected
+files. Search results are URL strings; downloads return local `Path` objects.
+The search supports GSLC and other NISAR product types, while SnowIn's current
+snow-retrieval adapter processes GUNW products. A GSLC reader and GSLC-based
+snow retrieval are not yet part of SnowIn's supported workflow.
+
+```python
+from pathlib import Path
+
+from snowin.io import download_urls, find_nisar, open_gunw
+
+gunw_urls = find_nisar(
+    aoi=[-115, 43, -114, 44],
+    start_date="2025-08-01",
+    end_date="2025-12-01",
+    product_type="GUNW",
+    path_number=77,
+    direction="ASCENDING",
+)
+if not gunw_urls:
+    raise RuntimeError("No matching GUNW products were found")
+
+out_dir = Path.home() / ".cache" / "snowin" / "gunw"
+files = download_urls(gunw_urls[:1], out_dir, validate=True)
+if not files:
+    raise RuntimeError("No GUNW product was downloaded and validated")
+
+with open_gunw(files[0]) as pair:
+    print(pair.attrs["reference_time"], "→", pair.attrs["secondary_time"])
+```
+
+The [search-to-SnowIn notebook](notebooks/06_nisar_pytools_search_and_snowin.ipynb)
+shows this workflow through GUNW layer inspection, local-incidence geometry,
+and pairwise dSWE. Its incidence plot is in degrees; the retrieval uses the
+radar-grid incidence angles in radians. Correction layers are displayed for
+inspection and are not automatically applied. The notebook limits downloads
+to one product by default. The NIVAL research comparison remains
+development-only and is not included in the 0.1 release on `main`; see the
+[NIVAL notebook on `development`](https://github.com/snowin-org/snowin/blob/development/notebooks/05_nival_nisar_comparison.ipynb).
 
 ## Quick start
 
-### Phase to dSWE
-
-The canonical kernel accepts normalized phase and incidence-angle
-`xarray.DataArray` objects. Both angles use radians, the phase must be
-`secondary - reference`, and wavelength is always explicit in metres:
+The named retrievals accept normalized phase and incidence-angle DataArrays.
+Both angles use radians and the phase must be `secondary - reference`. Supply
+the wavelength in metres or explicitly select a stock sensor/band:
 
 ```python snowin-quickstart
 import math
+
 import xarray as xr
-from snowin import compute_dswe
+
+from snowin import compute_leinss_dswe
 
 phase = xr.DataArray(
     1.2,
@@ -123,15 +174,60 @@ incidence = xr.DataArray(
     attrs={"units": "rad", "incidence_angle_reference": "local"},
 )
 
-dswe = compute_dswe(phase, incidence, wavelength_m=0.238403545)
+dswe = compute_leinss_dswe(phase, incidence, wavelength_m=0.238403545)
 print(f"dSWE: {dswe.item():.3f} m")
 ```
 
-### Open a NISAR GUNW
+## Named dSWE retrieval methods
 
-For a NISAR GUNW, `snowin.io.open_gunw` resolves wavelength from product
-metadata and opens normalized phase and product layers without computing
-incidence geometry. Add local incidence explicitly when needed:
+SnowIn exposes one xarray-native function per phase-to-dSWE model. All require
+canonical `secondary - reference` phase and aligned incidence angles in
+radians. Pass the product wavelength explicitly when known, or select a stock
+mission value with `sensor` and, for multi-band missions, `band`. SnowIn does
+not guess a sensor or wavelength. Product metadata is preferred to registry
+values.
+
+| Function | Model | Method-specific inputs and stock settings |
+| --- | --- | --- |
+| `compute_leinss_dswe` | Leinss et al. (2015) approximation | `alpha=1.0` and snow-path constant `1.59` are the stock values; `alpha` may be calibrated. |
+| `compute_guneriussen_dswe` (`compute_gun_dswe`) | Density-dependent Guneriussen relation | Requires `snow_density_kg_m3`; `permittivity_model="guneriussen2001"` is the stock model. Also supports `"webb2021"` and `"maetzler"`. |
+| `compute_oveisgharan_dswe` (`compute_ove_dswe`) | Oveisgharan et al. (2024) fitted relation | Uses the published incidence-angle polynomial; it has no density or `alpha` input. |
+
+The common wavelength registry includes UAVSAR L-band (`0.2384035457` m),
+NISAR L/S-band (`0.24`/`0.10` m), and other supported missions. For NISAR GUNW
+products, `open_gunw` obtains the wavelength from product metadata. The
+Guneriussen dSWE method requires snow density even though some source inversion
+code defaults permittivity for snow-depth retrieval: converting snow-depth
+change to SWE also needs the snow-to-water density ratio. No stock snow density
+is assumed. Density may be a scalar in kg m-3 or a same-grid DataArray declaring
+`units="kg m-3"`.
+
+The Guneriussen and Webb density-permittivity alternatives are also represented
+in [SnowEx/uavsar_snow](https://github.com/SnowEx/uavsar_snow), which documents
+the UAVSAR L-band wavelength as a stock value.
+
+```python
+from snowin import compute_gun_dswe, compute_leinss_dswe, compute_ove_dswe
+
+dswe_leinss = compute_leinss_dswe(
+    phase, incidence, sensor="uavsar"
+)
+dswe_oveisgharan = compute_ove_dswe(
+    phase, incidence, sensor="uavsar"
+)
+dswe_guneriussen = compute_gun_dswe(
+    phase,
+    incidence,
+    sensor="uavsar",
+    snow_density_kg_m3=300.0,  # illustrative; use a scene-specific value
+)
+```
+
+`compute_dswe` remains as a backwards-compatible spelling of
+`compute_leinss_dswe`; it still requires `wavelength_m` explicitly.
+
+For a NISAR GUNW, `open_gunw` resolves wavelength from product metadata and
+opens the normalized phase/product data without waiting for DEM geometry:
 
 ```python
 from snowin.io import add_gunw_incidence, open_gunw
@@ -141,162 +237,137 @@ print(pair.attrs["wavelength_m"])
 add_gunw_incidence(pair, "product.h5")
 ```
 
-The default local-incidence step uses the NISAR-modified Copernicus DEM and
-GUNW radar-grid LOS vectors. It downloads and caches the DEM unless a local
-`nisar_cop30_dem="/path/to/dem.tif"` is supplied. The public COP30 source is a
-separate orthometric compatibility option and needs an explicit vertical
-correction when a datum match is required.
+The explicit `add_gunw_incidence` step computes local incidence from the
+GUNW LOS vectors and the modified Copernicus DEM used by NISAR, then appends
+`pair["incidence_angle"]`, the boolean `pair["geometry_valid"]` support mask,
+and their provenance. Unsupported and back-facing terrain cells receive
+missing incidence values. It requires the GUNW path so a slow geometry
+calculation cannot accidentally use a different product.
 
-The default GUNW path uses [`Dask`](https://www.dask.org/) for lazy loading.
-Without `Dask`, pass `chunks=None` for an eager read. The `gunw` extra supplies
-the HDF5, raster, geometry, scientific-computing, and plotting dependencies
-needed by this workflow.
+The default GUNW path uses Dask for lazy loading; the `dev` extra includes it.
+Without Dask, pass `chunks=None` for an eager read. The `gunw` extra supplies
+the product, raster, geometry, and plotting dependencies.
 
-Provide a local NISAR-modified DEM with `nisar_cop30_dem="/path/to/dem.tif"`,
-or provide an explicit `wavelength_m` override only when its scientific
-provenance is known.
-See the
-[external-product fixture notes](https://github.com/snowin-org/snowin/blob/main/tests/fixtures/README.md)
-and [local/S3 GUNW example](https://github.com/snowin-org/snowin/blob/main/examples/demo_gunw_local_s3_dswe.py)
-for fuller workflows.
+Use `nisar_cop30_dem="/path/to/dem.tif"` to provide a local NISAR DEM and
+avoid network access:
 
-Authoritative NISAR references are available in the
-[ASF NISAR Data User Guide](https://nisar-docs.asf.alaska.edu/), including the
-[GUNW product guide](https://nisar-docs.asf.alaska.edu/gunw/),
-[product specifications](https://nisar-docs.asf.alaska.edu/product-specification/),
-and [NISAR data-access guidance](https://nisar-docs.asf.alaska.edu/accessing-nisar/access-overview/).
+```python
+pair = open_gunw("product.h5")
+add_gunw_incidence(
+    pair,
+    "product.h5",
+    nisar_cop30_dem="/path/to/nisar_dem.tif",
+    require_vertical_datum_match=True,
+)
+```
 
-## Core API and scope
+The default incidence calculation is eager. For benchmarking a Dask-backed
+prototype, pass `geometry_chunks=512` (or a `(y, x)` chunk pair) to
+`add_gunw_incidence`; it preserves the eager default and is not yet a fully
+out-of-core geometry implementation.
 
-The public API is still evolving, but the current top-level interface exposes:
+The default `dem_source="nisar_cop30"` downloads and caches the modified
+Copernicus DEM used by NISAR. Use `dem_cache_dir=...` to control that cache.
+The ASF Earthdata service may require standard Earthdata credentials in
+`~/.netrc`. Other named local sources can be selected explicitly:
 
-| Import | Purpose |
-| --- | --- |
-| `snowin.compute_dswe` | Convert normalized interferometric phase to pairwise dSWE with the Leinss method. |
-| `snowin.compute_leinss_dswe` | Apply the named Leinss phase-to-dSWE method. |
-| `snowin.compute_gun_dswe` | Apply the density-dependent Guneriussen method. |
-| `snowin.compute_ove_dswe` | Apply the Oveisgharan phase-to-dSWE method. |
-| `snowin.reference_phase` | Estimate/apply explicit reference-phase strategies. |
-| `snowin.accumulate_dswe` | Accumulate directed dSWE edges through time with explicit support behavior. |
-| `snowin.build_support_dataset` | Construct named support/quality layers. |
-| `snowin.compose_support_mask` | Combine named support criteria without silently redefining missing data. |
-| `snowin.summarize_support` | Summarize retrieval support. |
-| `snowin.compute_metrics` | Compute reusable validation-ready metrics. |
-| `snowin.io.open_gunw` | Open and normalize supported NISAR GUNW inputs. |
-| `snowin.gunw_to_dswe` | Run the legacy GUNW-to-dSWE workflow; new workflows should use `snowin.io.open_gunw`. |
-| `snowin.plot_gunw` | Produce GUNW quick-look plots and diagnostics when optional dependencies are installed. |
+```python
+pair = open_gunw("product.h5")
+add_gunw_incidence(
+    pair,
+    "product.h5",
+    dem_source="tandem30",
+    tandem30_dem="/path/to/tandem30.tif",
+    require_vertical_datum_match=True,
+)
+```
 
-The package also installs the provisional `snowin-plot-gunw` command-line entry
-point. Running that command requires the relevant `gunw` optional dependencies.
+Supported sources are `nisar_cop30`, `cop30`, `tandem30`, and `srtm30`.
+Only `nisar_cop30` and `cop30` have automatic download paths. TanDEM-X 30 m
+and SRTM 30 m inputs must be provided locally; SnowIn does not silently
+substitute one source for another. TanDEM-X is treated as ellipsoidal
+WGS84-G1150, while SRTM30 is treated as orthometric and normally requires a
+geoid correction for strict matching.
 
-`SnowIn` does **not** silently convert missing support to zero, impose a
-universal quality mask, or move study-specific station/date policy into the
-general package. It is also not intended to replace a general SAR processor,
-phase-linking system, phase unwrapper, or deformation time-series package.
+For public orthometric COP30 tiles selected with `dem_source="cop30"`, pass
+`dem_vertical_correction_m="/path/to/egm2008_geoid.tif"` or a same-grid
+xarray DataArray. The legacy `cop30_vertical_correction_m` spelling remains
+accepted. Set `require_vertical_datum_match=True` to fail rather than run
+provisionally. An explicit `wavelength_m` override should only be used when
+its scientific provenance is known.
+See the [fixture notes](tests/fixtures/README.md) and the
+[GUNW example](examples/demo_gunw_local_s3_dswe.py) for fuller workflows.
 
-## Scientific Python ecosystem
+## What SnowIn provides
 
-`SnowIn` deliberately builds on established packages rather than reimplementing
-their core capabilities.
+- NISAR GUNW reading, phase-convention normalization, and product metadata
+  handling using `nisar_pytools` as the base reader, plus ASF search and
+  validated downloads through the same package. A GSLC adapter is not yet
+  part of the stable implementation.
+- Named xarray-native Leinss, Guneriussen, and Oveisgharan pairwise dSWE
+  retrievals, plus legacy NumPy compatibility helpers.
+- Explicit reference-phase methods, including manual and contributor-based
+  aggregation policies.
+- Directed temporal dSWE accumulation with explicit missing-support behavior.
+- Named support and quality layers, support composition, summaries, and
+  validation-ready metrics.
+- COP30/local-DEM incidence geometry with CRS, grid, interpolation, and
+  provenance checks.
+- GUNW diagnostics, quick-look plotting, and a CLI where the optional
+  dependencies are installed.
 
-### Core dependencies
+The older `gunw_to_dswe` workflow remains available for compatibility but is
+legacy. New NISAR workflows should use `open_gunw`, `add_gunw_incidence`, and
+the named dSWE function matching the selected physical model. `compute_dswe`
+continues to mean Leinss for compatibility; it is not a method dispatcher.
 
-- [`numpy`](https://numpy.org/) — numerical array operations.
-- [`xarray`](https://xarray.dev/) — labeled `DataArray`/`Dataset` objects,
-  coordinate-aware computation, metadata, and interoperability.
-
-### Optional workflow dependencies
-
-The `gunw`, `cloud`, and `dev` extras use established packages for specific
-capabilities. Exact dependency constraints in
-[`pyproject.toml`](https://github.com/snowin-org/snowin/blob/main/pyproject.toml)
-are the source of truth:
-
-- [`Dask`](https://www.dask.org/) — lazy and parallel array execution.
-- [`h5py`](https://www.h5py.org/) and
-  [`h5netcdf`](https://h5netcdf.org/) — HDF5/netCDF-backed product access.
-- [`Rasterio`](https://rasterio.readthedocs.io/) — raster I/O and geospatial
-  grid handling.
-- [`pyproj`](https://pyproj4.github.io/pyproj/) — CRS and coordinate
-  transformations.
-- [`Shapely`](https://shapely.readthedocs.io/) — vector geometry operations.
-- [`SciPy`](https://scipy.org/) — scientific numerical routines used by
-  optional workflows.
-- [`Matplotlib`](https://matplotlib.org/) — diagnostics and quick-look plotting.
-- [`fsspec`](https://filesystem-spec.readthedocs.io/) and
-  [`s3fs`](https://s3fs.readthedocs.io/) — filesystem abstraction and S3 access.
-
-Because `SnowIn` operates on standard `xarray` objects, downstream workflows
-can continue to use the wider `xarray` ecosystem. For example,
-[`Zarr`](https://zarr.dev/) can be used through normal `xarray` I/O where that
-backend is appropriate; `SnowIn` does not currently define a separate Zarr API.
-
-## Related software
-
-`SnowIn` is snow-specific and intentionally narrower than general InSAR
-processing packages. Related open-source projects include:
-
-- [`nisar_pytools`](https://github.com/ZachHoppinen/nisar_pytools) — Python tools for
-  loading and processing NISAR datasets.
-
-- [`isce3`](https://github.com/isce-framework/isce3) — NASA/JPL's InSAR
-  scientific-computing environment and core NISAR processing software.
-- [`dolphin`](https://github.com/isce-framework/dolphin) — high-resolution
-  wrapped-phase estimation and PS/DS phase-linking workflows.
-- [`sweets`](https://github.com/isce-framework/sweets) — end-to-end InSAR
-  time-series workflows, including Sentinel-1/OPERA and NISAR GSLC pathways.
-- [`spurt`](https://github.com/isce-framework/spurt) — spatial and temporal
-  phase unwrapping for InSAR time series.
-- [`MintPy`](https://github.com/insarlab/MintPy) — general InSAR time-series
-  analysis from stacks of unwrapped interferograms.
-- [`uavsar_pytools`](https://github.com/SnowEx/uavsar_pytools) — tools to search,
-  download, convert, and work with UAVSAR InSAR and PolSAR products from ASF and JPL.
-
-These projects are **not** `SnowIn` dependencies unless explicitly listed in
-`pyproject.toml`. They are linked here to clarify where `SnowIn` fits in the
-broader processing ecosystem and where upstream/general-purpose functionality
-already exists.
+SnowIn does not silently convert missing support to zero, apply a universal
+quality mask, or move Colorado study-specific station/date policy into the
+general package.
 
 ## Scientific conventions and data model
 
-- phase is `phi_secondary - phi_reference`;
+The core contract is deliberately explicit:
+
+- canonical phase is `phi_secondary - phi_reference`;
 - temporal edges run from `reference_time` to `secondary_time`;
 - phase and incidence angle use radians;
-- wavelength is explicit in metres;
-- dimensions, coordinates, CRS, support layers, and associated metadata are preserved;
-- `xarray`/`Dask`-compatible arithmetic is used for reusable phase calculations.
+- wavelength is explicit in metres or resolved from an explicitly named stock
+  sensor/band;
+- local versus ellipsoid-referenced incidence is declared in metadata;
+- dimensions, coordinates, attributes, CRS, support, missing values, and
+  provenance are preserved where the operation permits;
+- xarray/Dask-compatible arithmetic is used for reusable phase calculations.
 
-Read the full
-[data model](https://github.com/snowin-org/snowin/blob/main/docs/data_model.md)
-and
-[scientific conventions](https://github.com/snowin-org/snowin/blob/main/docs/scientific_conventions.md)
-before building a workflow. The
-[code provenance record](https://github.com/snowin-org/snowin/blob/main/docs/code_provenance.md)
+Read the full [data model](docs/data_model.md) and [scientific conventions](docs/scientific_conventions.md)
+before building a workflow. The [code provenance record](docs/code_provenance.md)
 lists the scientific equations, external implementations reviewed, and known
 uncertainties.
 
 ## Examples and documentation
 
-- [Architecture and design status](https://github.com/snowin-org/snowin/blob/main/docs/architecture.md)
-- [Detailed architecture plan](https://github.com/snowin-org/snowin/blob/main/docs/snowin_architecture_v1.md)
-- [Development guide](https://github.com/snowin-org/snowin/blob/main/docs/development.md)
-- [GUNW quick-look example](https://github.com/snowin-org/snowin/blob/main/examples/plot_gunw_quickview.py)
-- [Local/S3 GUNW example](https://github.com/snowin-org/snowin/blob/main/examples/demo_gunw_local_s3_dswe.py)
-- [Search and download NISAR GUNW products, then calculate dSWE](https://github.com/snowin-org/snowin/blob/main/notebooks/nisar_pytools_snowin_gunw.ipynb)
-- [External real-product fixture notes](https://github.com/snowin-org/snowin/blob/main/tests/fixtures/README.md)
+- [Architecture and design status](docs/architecture.md)
+- [Detailed architecture plan](docs/snowin_architecture_v1.md)
+- [Development guide](docs/development.md)
+- [API policy](docs/api_policy.md)
+- [GUNW quick-look example](examples/plot_gunw_quickview.py)
+- [Local/S3 GUNW example](examples/demo_gunw_local_s3_dswe.py)
+- [NISAR search and SnowIn notebook](notebooks/06_nisar_pytools_search_and_snowin.ipynb)
+- [Notebook training materials](notebooks/README.md)
+- [External real-product fixture notes](tests/fixtures/README.md)
 
-The repository currently provides source documentation and examples; hosted API
-and user documentation are not yet configured. Once hosted documentation is
-available, it should become the primary home for tutorials and API detail while
-this README remains a concise project entry point.
+The documentation source is built in CI with MkDocs. The documentation
+workflow publishes it from `main` when GitHub Pages is enabled for the
+repository.
 
 ## Development and testing
 
-After installing the development extra, run the same checks used by the current
-GitHub Actions workflow:
+After installing the development extra, run the same checks used by the
+current GitHub Actions workflow:
 
 ```bash
 pytest -q
+pytest --cov=snowin --cov-report=term-missing --cov-report=xml
 ruff check .
 ruff format --check .
 python -m build
@@ -305,43 +376,32 @@ git diff --check
 
 The test suite covers scientific contracts and dSWE/SWE kernels, geometry,
 NISAR/GUNW adapters, reference phase, temporal accumulation, support and
-metrics, diagnostics, cloud/raster I/O, and workflow/fixture behavior. The
-current CI job runs on Ubuntu with Python 3.12 and performs `pytest`, `Ruff`, and
-package-build checks; it does not yet publish coverage or hosted documentation.
+metrics, diagnostics, cloud/raster I/O, and workflow/fixture behavior. CI tests
+Python 3.12–3.14 and a minimum scientific-dependency set, checks coverage,
+Ruff, and the command-line entry point, and installs a built wheel in a clean
+environment. A separate workflow builds the documentation strictly and
+publishes it from `main` when Pages is enabled.
 
-The focused review branch reported **267 passed and 3 skipped**. Tests that
-need external real-product data are optional; their inputs and provenance are
-documented in the
-[fixture notes](https://github.com/snowin-org/snowin/blob/main/tests/fixtures/README.md).
-
-For release preparation, `README.md` is already declared as the project readme
-in `pyproject.toml`; build artifacts should also be checked with
-[`twine check`](https://packaging.python.org/en/latest/guides/making-a-pypi-friendly-readme/)
-before upload so the long description renders correctly on PyPI.
+Tests that need external real-product data are optional; their inputs and
+provenance are documented in [`tests/fixtures/README.md`](tests/fixtures/README.md).
 
 ## Contributing
 
-Please read
-[`CONTRIBUTING.md`](https://github.com/snowin-org/snowin/blob/main/CONTRIBUTING.md)
-before opening a pull request. Contributions should include relevant tests,
-update public API docstrings and documentation, preserve `SnowIn`'s
-units/phase/temporal/support conventions, and keep notebooks or exploratory
-material out of core package logic.
-
-Use the [GitHub issue tracker](https://github.com/snowin-org/snowin/issues) for
-bugs and feature discussion. Small documentation, test, and reproducibility
-improvements are useful contributions as well as new retrieval functionality.
+Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a pull request.
+Contributions should include relevant tests, update public API docstrings and
+documentation, preserve SnowIn's units/phase/temporal/support conventions, and
+keep notebooks or exploratory material out of core package logic. Use the
+[GitHub issue tracker](https://github.com/snowin-org/snowin/issues) for bugs and
+feature discussion.
 
 ## Citation
 
-`SnowIn` does not yet have a tagged release or DOI. Until those are available,
+SnowIn does not yet have a tagged release or DOI. Until those are available,
 cite the repository and the commit used, and cite the primary scientific
-publications listed in the
-[code provenance record](https://github.com/snowin-org/snowin/blob/main/docs/code_provenance.md)
-for the relevant retrieval methods. `CITATION.cff` provides machine-readable
-software citation metadata for this pre-release version.
+publications listed in [`docs/code_provenance.md`](docs/code_provenance.md) for
+the relevant retrieval methods. `CITATION.cff` provides machine-readable
+software citation metadata for the pre-release package.
 
 ## License
 
-`SnowIn` is distributed under the
-[Apache License 2.0](https://github.com/snowin-org/snowin/blob/main/LICENSE).
+SnowIn is distributed under the [Apache License 2.0](LICENSE).

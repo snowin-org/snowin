@@ -121,14 +121,25 @@ pair. An adapter must resolve it from authoritative metadata or an explicit
 caller value before a scientific kernel runs. The normalized contract does
 not permit a silent approximate mission fallback.
 
+The NISAR GUNW adapter retains correction screens on their source grids. The
+ionosphere fields share the unwrapped-phase `y`/`x` grid. Hydrostatic and wet
+tropospheric screens use separate `radar_height`/`radar_y`/`radar_x`
+dimensions because their native radar grid may have a different resolution.
+The adapter exposes these fields for inspection; correction application still
+requires an explicit method and sign.
+
 The following variables are optional and retain distinct scientific roles:
 
 | Variable | Units/type | Role |
 | --- | --- | --- |
 | `coherence` | dimensionless float | Coherence diagnostic; it is not itself a universal validity mask. |
 | `connected_component` | integer label | Product connected-component identity; label values must not be collapsed into a dominant-component assumption. |
+| `ionosphere` | `("y", "x")`, radians | GUNW ionospheric phase screen on the unwrapped-interferogram grid; exposed as a correction input and never applied automatically. |
+| `ionosphere_unc` | `("y", "x")`, radians | Uncertainty reported for the ionospheric phase screen. |
+| `hydro_tropo` | `("radar_height", "radar_y", "radar_x")`, radians | Hydrostatic tropospheric phase screen on the native radar grid. |
+| `wet_tropo` | `("radar_height", "radar_y", "radar_x")`, radians | Wet tropospheric phase screen on the native radar grid. |
 | `product_valid` | boolean | Whether product support/validity is known for the sample. Absence means unknown, not valid. |
-| `geometry_valid` | boolean | Whether the geometry required by the operation is supported. |
+| `geometry_valid` | boolean | Whether the selected incidence angle is finite and in `[0, pi/2)`; false samples have missing incidence and are excluded from dSWE. |
 | `reference_supported` | boolean | Whether the sample has support for a declared reference operation. |
 | `temporal_path_supported` | boolean | Whether a cumulative result has a complete supported path. |
 | `evaluation_supported` | boolean | Whether independent evaluation data support the sample. |

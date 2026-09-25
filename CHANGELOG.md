@@ -2,12 +2,19 @@
 
 ## 0.1.0 - unreleased
 
-This is the first release-oriented SnowIn package line. It includes the
-xarray-native scientific contracts, named phase-to-dSWE methods, NISAR GUNW
-adapter and local-incidence geometry, reference-phase and temporal APIs,
-named support layers, metrics, diagnostics, and plotting scaffolding. It also
-adds synthetic scientific tests, CI coverage, wheel-install checks, and
-separate scientific-runtime, notebook, and contributor environments.
+The first 0.1 release line provides xarray-native scientific contracts and
+named phase-to-dSWE methods; NISAR GUNW phase normalization and product
+metadata; `nisar_pytools`-based ASF search and validated downloads; DEM/LOS
+local-incidence geometry with explicit geometry support; GUNW correction
+layers for inspection; reference-phase operations, directed temporal
+accumulation, quality/support layers, metrics, and diagnostic plots.
 
-The package is not yet published to PyPI or conda-forge. Optional real-product
-validation requires caller-supplied data and is not part of the fast test suite.
+The release line also includes synthetic and regression tests, CI coverage,
+wheel-install checks, separate runtime and authoring environments, and
+examples for synthetic analysis, real GUNW processing, product search, and
+downstream study workflows. dSWE products represent change between radar
+epochs, not absolute SWE. Correction layers are exposed and recorded but are
+not automatically applied.
+
+SnowIn is not yet published to PyPI or conda-forge. Real-product validation
+requires caller-supplied data and remains optional to the fast test suite.
