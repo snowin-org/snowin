@@ -106,7 +106,7 @@ The canonical kernel accepts normalized phase and incidence-angle
 `xarray.DataArray` objects. Both angles use radians, the phase must be
 `secondary - reference`, and wavelength is always explicit in metres:
 
-```python
+```python snowin-quickstart
 import math
 import xarray as xr
 from snowin import compute_dswe
