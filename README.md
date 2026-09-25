@@ -95,9 +95,7 @@ The canonical kernel accepts normalized phase and incidence-angle
 
 ```python
 import math
-
 import xarray as xr
-
 from snowin import compute_dswe
 
 phase = xr.DataArray(
