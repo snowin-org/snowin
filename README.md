@@ -4,16 +4,25 @@
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](#installation)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/snowin-org/snowin/blob/main/LICENSE)
 
-`SnowIn` is a snow-focused SAR/InSAR Python package, initially NISAR-first. It
-turns phase-based snow-retrieval inputs into analysis-ready [`xarray`](https://xarray.dev/)
-objects while keeping units, coordinates, support, and scientific provenance
-explicit.
+`SnowIn` is a Python package for estimating changes in snow water equivalent
+(dSWE) from interferometric phase. The initial 0.1 release focuses on NISAR
+geocoded unwrapped interferogram (GUNW) products: it reads and normalizes
+product phase, derives local incidence angles from radar geometry and
+elevation data, and provides named Leinss, Guneriussen, and Oveisgharan
+methods for converting phase to pairwise dSWE. It also provides reusable
+operations for reference-phase handling, phase corrections, support and
+quality layers, and accumulating dSWE across directed time intervals.
 
-`SnowIn` is intended to be a **thin, scientifically opinionated layer on top of
-the established scientific-Python and InSAR ecosystems**. Users should be able
-to pass ordinary `xarray.DataArray` or `xarray.Dataset` objects into reusable
-snow-specific operations and receive ordinary `xarray` objects back, without
-hiding phase conventions, units, masks, geometry assumptions, or provenance.
+SnowIn works with labeled [`xarray`](https://xarray.dev/) `DataArray` and
+`Dataset` objects. Its operations retain coordinates and relevant units,
+masks, and processing details. Phase direction, angle units, wavelength, and
+geometry assumptions are stated so users can inspect the inputs and results of
+a retrieval.
+
+SnowIn is NISAR-first. Other sensor adapters, including Sentinel-1 and ROSE-L,
+are future work. SnowIn provides snow-specific analysis around mission
+processing tools; it does not replace general InSAR processors such as ISCE or
+Dolphin.
 
 **Project links:** [repository](https://github.com/snowin-org/snowin) ·
 [roadmap](https://github.com/snowin-org/snowin/blob/main/ROADMAP.md) ·
@@ -25,21 +34,25 @@ hiding phase conventions, units, masks, geometry assumptions, or provenance.
 
 ## Status
 
-`SnowIn` is under active **pre-release / alpha development**. The current line
-provides `xarray`-native contracts and phase-to-dSWE calculations, a NISAR GUNW
-adapter, COP30-based local-incidence geometry, reference-phase methods, directed
-temporal accumulation, named support layers, reusable metrics, and GUNW
-diagnostics/plotting scaffolding.
+SnowIn is preparing its first alpha release, version 0.1.0. This release
+provides xarray-based snow retrieval operations, a NISAR GUNW reader, local
+incidence geometry, named phase-to-dSWE methods, reference-phase operations,
+directed temporal accumulation, support and quality tools, and GUNW
+diagnostics and quick-look plots. See [Core API and scope](#core-api-and-scope)
+for the current feature list.
 
 Important limits remain:
 
-- The canonical retrieval produces pairwise or accumulated dSWE. It is not an
-  absolute SWE product or a universal validation workflow.
-- The default GUNW geometry path is explicitly provisional until the
-  COP30-orthometric versus GUNW-ellipsoidal vertical-datum relationship is
-  validated for the product workflow. Geometry is currently eagerly
-  materialized; phase data can remain lazy.
-- A GSLC adapter is not yet part of the stable implementation.
+- The retrieval produces pairwise or accumulated changes in SWE (dSWE); it
+  does not estimate absolute SWE. Validation metrics are available, but a
+  validation workflow still depends on the observations and comparison choices
+  supplied by the user.
+- The default geometry uses public Copernicus GLO-30 elevation data, whose
+  heights are referenced to the EGM2008 geoid, while GUNW radar-grid heights
+  use the WGS84 ellipsoid. Without a supplied geoid correction, the geometry
+  result is provisional. Geometry is computed eagerly; phase data can remain
+  lazy.
+- Reading NISAR GSLC products is not included in 0.1.
 - `SnowIn` has no published PyPI or Conda release and no hosted documentation
   site yet. Install from a checkout while the public API is still evolving.
 
@@ -151,7 +164,10 @@ The public API is still evolving, but the current top-level interface exposes:
 
 | Import | Purpose |
 | --- | --- |
-| `snowin.compute_dswe` | Convert normalized interferometric phase to pairwise dSWE. |
+| `snowin.compute_dswe` | Convert normalized interferometric phase to pairwise dSWE with the Leinss method. |
+| `snowin.compute_leinss_dswe` | Apply the named Leinss phase-to-dSWE method. |
+| `snowin.compute_gun_dswe` | Apply the density-dependent Guneriussen method. |
+| `snowin.compute_ove_dswe` | Apply the Oveisgharan phase-to-dSWE method. |
 | `snowin.reference_phase` | Estimate/apply explicit reference-phase strategies. |
 | `snowin.accumulate_dswe` | Accumulate directed dSWE edges through time with explicit support behavior. |
 | `snowin.build_support_dataset` | Construct named support/quality layers. |
@@ -159,7 +175,7 @@ The public API is still evolving, but the current top-level interface exposes:
 | `snowin.summarize_support` | Summarize retrieval support. |
 | `snowin.compute_metrics` | Compute reusable validation-ready metrics. |
 | `snowin.io.open_gunw` | Open and normalize supported NISAR GUNW inputs. |
-| `snowin.gunw_to_dswe` | Run the explicit GUNW-to-dSWE workflow scaffold. |
+| `snowin.gunw_to_dswe` | Run the legacy GUNW-to-dSWE workflow; new workflows should use `snowin.io.open_gunw`. |
 | `snowin.plot_gunw` | Produce GUNW quick-look plots and diagnostics when optional dependencies are installed. |
 
 The package also installs the provisional `snowin-plot-gunw` command-line entry
