@@ -18,11 +18,11 @@ such as ISCE or Dolphin.
 ## Status
 
 SnowIn is under active pre-release development. The current line provides
-xarray-native contracts and phase-to-dSWE calculations, a NISAR GUNW adapter,
-`nisar_pytools`-based ASF search, download, and lazy GUNW reading,
-COP30-based local-incidence geometry, reference-phase methods, directed
-temporal accumulation, named support layers, reusable metrics, and GUNW
-diagnostics/plotting scaffolding.
+xarray-native contracts and phase-to-dSWE calculations; ASF search and
+validated downloads through `nisar_pytools`; normalized NISAR GUNW reading;
+DEM- and LOS-based local-incidence geometry with an explicit geometry-validity
+mask; reference-phase and temporal-accumulation methods; named support layers
+and metrics; and plots for opened GUNW layers, incidence angle, and dSWE.
 
 Important limits remain:
 
@@ -31,8 +31,11 @@ Important limits remain:
 - The default GUNW geometry path uses the NISAR-modified Copernicus DEM, whose
   heights are WGS84 ellipsoidal like the GUNW radar-grid heights. The original
   public COP30 compatibility path remains orthometric and requires an explicit
-  EGM2008 geoid-undulation correction. Geometry is currently eagerly
-  materialized; phase data can remain lazy.
+  EGM2008 geoid-undulation correction. Incidence geometry is currently eagerly
+  materialized; phase data can remain lazy. Cells without valid terrain/LOS
+  support, including back-facing terrain, have missing incidence and are marked
+  invalid in `geometry_valid` rather than being folded into the valid angle
+  range.
 - SnowIn has no published PyPI or Conda release and no hosted documentation
   site yet. Install from a checkout while the public API is still evolving.
 
@@ -93,7 +96,7 @@ from snowin.io import download_urls, find_nisar, open_gunw
 
 gunw_urls = find_nisar(
     aoi=[-115, 43, -114, 44],
-    start_date="2025-06-01",
+    start_date="2025-08-01",
     end_date="2025-12-01",
     product_type="GUNW",
     path_number=77,
@@ -112,9 +115,12 @@ with open_gunw(files[0]) as pair:
 ```
 
 The [search-to-SnowIn notebook](notebooks/06_nisar_pytools_search_and_snowin.ipynb)
-shows this workflow through pairwise dSWE. It limits the download to one
-product by default. For Zach Hoppinen's detailed NIVAL comparison, see the
-[NIVAL notebook](notebooks/05_nival_nisar_comparison.ipynb).
+shows this workflow through GUNW layer inspection, local-incidence geometry,
+and pairwise dSWE. Its incidence plot is in degrees; the retrieval uses the
+radar-grid incidence angles in radians. Correction layers are displayed for
+inspection and are not automatically applied. The notebook limits downloads
+to one product by default. For Zach Hoppinen's detailed NIVAL comparison, see
+the [NIVAL notebook](notebooks/05_nival_nisar_comparison.ipynb).
 
 ## Quick start
 
@@ -206,8 +212,10 @@ add_gunw_incidence(pair, "product.h5")
 
 The explicit `add_gunw_incidence` step computes local incidence from the
 GUNW LOS vectors and the modified Copernicus DEM used by NISAR, then appends
-`pair["incidence_angle"]` and its provenance. It requires the GUNW path so a
-slow geometry calculation cannot accidentally use a different product.
+`pair["incidence_angle"]`, the boolean `pair["geometry_valid"]` support mask,
+and their provenance. Unsupported and back-facing terrain cells receive
+missing incidence values. It requires the GUNW path so a slow geometry
+calculation cannot accidentally use a different product.
 
 The default GUNW path uses Dask for lazy loading; the `dev` extra includes it.
 Without Dask, pass `chunks=None` for an eager read. The `gunw` extra supplies
