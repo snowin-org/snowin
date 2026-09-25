@@ -274,6 +274,7 @@ uncertainties.
 - [Development guide](https://github.com/snowin-org/snowin/blob/main/docs/development.md)
 - [GUNW quick-look example](https://github.com/snowin-org/snowin/blob/main/examples/plot_gunw_quickview.py)
 - [Local/S3 GUNW example](https://github.com/snowin-org/snowin/blob/main/examples/demo_gunw_local_s3_dswe.py)
+- [Search and download NISAR GUNW products, then calculate dSWE](https://github.com/snowin-org/snowin/blob/main/notebooks/nisar_pytools_snowin_gunw.ipynb)
 - [External real-product fixture notes](https://github.com/snowin-org/snowin/blob/main/tests/fixtures/README.md)
 
 The repository currently provides source documentation and examples; hosted API
