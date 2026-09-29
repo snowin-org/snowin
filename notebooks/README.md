@@ -1,10 +1,10 @@
 # SnowIn notebooks
 
 The notebooks illustrate SnowIn's 0.1 scientific API and NISAR GUNW adapter.
-Start with notebooks 01, 02, and 06 for the supported package workflows.
-Notebooks 03–05 are downstream study examples with additional local data and
-workflow requirements; they are not needed for the core examples or test
-suite.
+Use notebook 00 to smoke-check a local base install, then start with notebooks
+01, 02, 06, and 07 for the supported package workflows. Notebooks 03–05 are
+downstream study examples with additional local data and workflow
+requirements; they are not needed for the core examples or test suite.
 
 ## Core workflow
 
@@ -35,6 +35,15 @@ NISAR integrations; general data discovery and ancillary preparation belong to
 the caller. Its final plot uses xarray and Matplotlib to show GUNW layers,
 incidence, and pairwise dSWE. Correction layers are visualized but not applied
 automatically.
+
+[`07_local_gunw_dem_smoke.ipynb`](07_local_gunw_dem_smoke.ipynb) is a focused
+real-data smoke check for a local GUNW and its matching prepared DEM. Set
+`SNOWIN_GUNW` and `SNOWIN_NISAR_DEM`; the notebook checks available DEM
+provenance, opens a 128 × 128 center window, computes local incidence, and
+retrieves dSWE. It does not download data, make plots, or save product files.
+Install the `nisar`, `geometry`, and `dask` extras plus the notebook dependency
+group as shown above. The check confirms that this local processing path runs;
+it is not a scientific validation of the product's dSWE values.
 
 [`06_nisar_pytools_search_and_snowin.ipynb`](06_nisar_pytools_search_and_snowin.ipynb)
 starts from an ASF search through `nisar_pytools`, downloads selected GUNW
