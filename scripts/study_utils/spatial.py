@@ -1,4 +1,4 @@
-"""Spatial region masks aligned to SnowIn xarray grids."""
+"""Spatial masks for repository-owned study workflows."""
 
 from __future__ import annotations
 
@@ -26,8 +26,7 @@ def _optional_spatial_dependencies():
         from shapely.ops import transform, unary_union
     except ImportError as exc:  # pragma: no cover - exercised by install tests
         raise ImportError(
-            "vector region masks require the optional 'vectors' dependencies; "
-            "install snowin[vectors] or snowin[dev]"
+            "workflow vector masks require GeoPandas, Rasterio, PyProj, and Shapely"
         ) from exc
     return (
         gpd,

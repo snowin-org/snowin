@@ -18,9 +18,9 @@ import numpy as np
 import rasterio
 import xarray as xr
 
+from scripts.study_utils.spatial import rasterize_vector_mask
 from snowin import accumulate_dswe, compute_dswe, reference_phase
 from snowin.io import add_gunw_incidence, open_gunw
-from snowin.spatial import rasterize_vector_mask
 
 DEFAULT_DATA_DIR = Path.home() / ".cache" / "snowin" / "colorado"
 MANIFEST = Path(
@@ -225,7 +225,7 @@ def main() -> None:
                     native,
                     product,
                     dem_source="nisar_cop30",
-                    nisar_cop30_dem=DEM,
+                    dem=DEM,
                     progress=False,
                 )
                 native = reference_phase(

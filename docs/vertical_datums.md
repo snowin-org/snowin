@@ -1,40 +1,39 @@
 # DEM vertical datums
 
-NISAR GUNW radar-grid `heightAboveEllipsoid` values are WGS84 ellipsoidal
-heights. The original public Copernicus DEM tiles exposed by SnowIn's
-compatibility AWS download path are EGM2008 orthometric heights. Horizontal
-reprojection does not change that vertical reference.
+NISAR GUNW radar-grid heightAboveEllipsoid values use WGS84 ellipsoidal
+heights. The NISAR-modified Copernicus DEM is re-referenced to the WGS84
+ellipsoid. Public Copernicus GLO-30 values are EGM2008 orthometric heights.
+Horizontal reprojection does not change a DEM's vertical reference.
 
-The default SnowIn source is the modified Copernicus DEM distributed for NISAR.
-It is derived from Copernicus GLO-30, re-referenced from EGM2008 to the WGS84
-ellipsoid, and is therefore the preferred source for GUNW geometry.
+SnowIn computes local incidence from the GUNW LOS vectors and a caller-supplied
+prepared DEM. It does not discover, download, mosaic, or cache DEM tiles. The
+dem_source argument declares the prepared product and its expected vertical
+datum:
 
-There are two supported scientific routes for the default path:
+- nisar_cop30: NISAR-modified Copernicus DEM, ellipsoidal;
+- cop30: Copernicus GLO-30, orthometric;
+- tandem30: TanDEM-X 30 m, WGS84-G1150 ellipsoidal;
+- srtm30: SRTM 30 m, normally EGM96 orthometric.
 
-1. Let `add_gunw_incidence()` download and cache the NISAR DEM with
-   `dem_source="nisar_cop30"` (the default), or provide a local raster with
-   `nisar_cop30_dem=...`. `open_gunw()` itself only opens the product for
-   inspection.
-2. Select raw `dem_source="cop30"` and provide an EGM2008 geoid undulation
-   raster or same-grid xarray DataArray through
-   `dem_vertical_correction_m`. SnowIn applies `h = H + N` before LOS
-   interpolation and records the correction source in the output metadata.
+Pass the prepared file or same-grid DataArray through dem. For example:
 
-TanDEM-X 30 m (or 90 m) is a possible independent ellipsoidal-height
-cross-check. Select a local TanDEM-X 30 m raster with
-`dem_source="tandem30"` and `tandem30_dem=...`. SRTM 30 m can likewise be
-selected with `dem_source="srtm30"` and `srtm30_dem=...`, but it is treated as
-orthometric (normally EGM96) and therefore needs an appropriate geoid
-correction for strict matching. Neither source is silently substituted for the
-NISAR-modified Copernicus DEM path.
+    add_gunw_incidence(
+        pair,
+        gunw_path,
+        dem="/data/nisar_modified_cop30.tif",
+        dem_source="nisar_cop30",
+        require_vertical_datum_match=True,
+    )
 
-These alternatives are intentionally not part of the current default. They
-remain explicit options for workflows that supply and document their own DEM
-source.
+For orthometric input, provide an appropriate vertical correction through
+dem_vertical_correction_m. SnowIn applies h = H + N before LOS interpolation
+and records the correction source in output metadata. Set
+require_vertical_datum_match=True to fail rather than proceed with unmatched
+vertical datums.
 
-When a correction or ellipsoidal export is unavailable, set
-`require_vertical_datum_match=True` so the workflow fails instead of presenting
-provisional geometry as datum-matched geometry.
+The source label is part of the scientific input contract; it does not verify
+external DEM provenance. The workflow must record where its prepared file came
+from, its coverage, CRS, resolution, no-data handling, and vertical datum.
 
 References:
 

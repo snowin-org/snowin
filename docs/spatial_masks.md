@@ -1,40 +1,29 @@
-# Vector-defined analysis regions
+# Preparing analysis-region masks in workflows
 
-SnowIn treats vector-defined study areas as explicit analysis-region masks.
-They are separate from phase validity, incidence geometry support, connected
-components, and temporal support.
+SnowIn's retrieval functions consume aligned xarray masks and arrays. They do
+not read vectors or choose a study region. Load and rasterize GeoPackages,
+Shapefiles, or GeoJSON in the study workflow, then pass the resulting boolean
+DataArray into support composition.
 
-```python
-from snowin.spatial import rasterize_vector_mask
+The Colorado comparison script uses a repository-owned helper:
 
-pair["analysis_region"] = rasterize_vector_mask(
-    "data/vectors/erb.gpkg",
-    target=pair,
-    layer="erb",
-)
-```
+    from scripts.study_utils.spatial import rasterize_vector_mask
 
-`rasterize_vector_mask` accepts GeoPackages, Shapefiles, GeoJSON, GeoDataFrames,
-Shapely geometries, and geometry iterables. File-backed vector inputs require
-the optional `vectors` dependencies (`python -m pip install -e ".[vectors]"`).
-The function reprojects geometries into
-the target grid CRS and returns an aligned boolean `xarray.DataArray`.
+    pair["analysis_region"] = rasterize_vector_mask(
+        "regions.gpkg",
+        target=pair,
+        layer="basin",
+        name="analysis_region",
+    )
 
-The default `all_touched=False` policy uses pixel-center inclusion. Set
-`all_touched=True` only when the study explicitly requires boundary-touching
-pixels. The output records source path, layer, feature count, source/target
-CRS, and rasterization settings in its attributes.
+That helper is study-workflow code and is not installed as part of SnowIn.
+Other projects can use their established GIS stack, such as GeoPandas and
+Rasterio, to create a mask on the target coordinates. The mask should have the
+same dimensions and coordinates as the retrieval arrays and should carry an
+explicit CRS. SnowIn will not reproject or silently align it inside the
+scientific kernel.
 
-## Mask roles
-
-Keep these layers separate:
-
-- `analysis_region`: whether the pixel is inside the study polygon;
-- `geometry_support`: whether incidence is finite and in the valid domain;
-- `retrieval_support`: phase, geometry, and declared quality support;
-- connected-component and provenance layers.
-
-Compose them explicitly for a regional retrieval or metric. The vector mask
-does not change phase normalization, reference-offset estimation, station
-selection, or missing-value semantics. It should be applied to regional dSWE
-products, support summaries, plots, metrics, and optional final maps.
+The analysis-region mask is an input to caller-defined support, not a
+universal SnowIn quality policy. Coherence thresholds, connected-component
+selection, basin boundaries, and other study rules remain explicit in the
+workflow.

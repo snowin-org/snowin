@@ -27,8 +27,11 @@ analysis masks, and result figures belong in downstream applications.
 - Have domain collaborators review the public scientific API, phase
   conventions, product metadata, xarray data model, and NISAR search-to-dSWE
   workflow.
-- Keep the synthetic core notebook and NISAR search/GUNW notebooks aligned
-  with the package API; identify external-data study notebooks separately.
+- Keep the base package focused on retrieval science over normalized xarray
+  pairs; keep NISAR reading and geometry as opt-in integrations.
+- Keep notebooks in this repository as synthetic core examples, integration
+  guides, and downstream study workflows. Keep their data access and study
+  policies out of SnowIn's runtime API.
 - Keep NISAR DEM/LOS geometry eager by default while evaluating chunked
   execution with documented memory and runtime measurements.
 
@@ -39,7 +42,9 @@ analysis masks, and result figures belong in downstream applications.
 - Finish the 0.1 review by checking installation, public imports, package
   contents, and documented scientific limitations.
 - Publish a versioned source release and prepare a conda-forge recipe after
-  external review and release metadata checks.
+  external review and release metadata checks. The recipe's default
+  requirements should match the NumPy/xarray core, not the full contributor
+  environment.
 - Add scientific benchmarks and stricter static typing when their maintenance
   value is clear.
 

@@ -1,3 +1,5 @@
+> Historical design proposal. Some capabilities described below, including the custom GUNW report, generic vector/raster utilities, search wrappers, and legacy NumPy workflows, were later removed from SnowIn package scope. For the current boundary see the [architecture guide](architecture.md) and [API policy](api_policy.md).
+
 # SnowIn architecture and development plan v1
 
 Status: design source of truth for the next SnowIn development cycle.
@@ -24,6 +26,12 @@ It is also not intended to become:
 - an all-sensor Earth-observation framework.
 
 SnowIn should provide reusable scientific machinery needed to interpret SAR/InSAR observations of seasonal snow.
+
+Its base installation should remain NumPy and xarray. Sensor product readers
+are optional adapters to the normalized pair contract; ancillary-data access,
+station/date matching, and study validation policy belong in companion tools or
+downstream workflows. Repository notebooks remain available as examples and
+workflow documentation without becoming package runtime dependencies.
 
 ## 2. Relationship to study repositories
 
@@ -285,10 +293,14 @@ Add dependencies only when they are required by stable core functionality.
 Potential future extras may include:
 
 - NISAR/product I/O;
-- geospatial functionality;
-- data access;
-- plotting;
-- development/testing.
+- local-incidence geometry;
+- vector masks, plotting, cloud staging, and optional data-access helpers.
+
+Use PEP 735 dependency groups for development, docs, and notebook tools so
+those requirements stay out of built package metadata. The full Conda workflow
+environment may include every integration for contributor convenience; a
+future conda-forge recipe should start with the base project dependencies and
+add optional outputs only when their maintenance cost is justified.
 
 Compatibility with Pangeo does not mean depending on the entire Pangeo ecosystem.
 
@@ -437,20 +449,22 @@ Stage 3 implementation decisions:
 
 - `snowin.io.open_gunw()` uses `nisar_pytools.open_nisar()` for lazy DataTree
   access to the GUNW layer, then normalizes the product into SnowIn's xarray
-  contract. NISAR search and downloads are exposed in `snowin.io` through the
-  same optional dependency.
+  contract. The `snowin[nisar]` extra contains the adapter dependencies. Thin
+  search/download helpers may pass through to `nisar_pytools`; the upstream
+  package owns product discovery, download, and validation behavior.
 - `open_gunw()` intentionally stops before incidence geometry so callers can
   inspect a GUNW without waiting for DEM access or LOS interpolation.
+  Local-incidence calculation is a separate `snowin[geometry]` integration.
   `compute_gunw_incidence(gunw_file, target)` requires the explicit GUNW path,
   and `add_gunw_incidence(target, gunw_file)` appends the result and provenance.
 - The default retrieval incidence is NISAR-modified Copernicus DEM-derived local incidence from
   the GUNW radar-grid LOS cube. The product ellipsoid-normal `incidenceAngle`
   is an explicit opt-in compatibility mode, never a silent substitute.
-- If no DEM is supplied, `add_gunw_incidence()` downloads and caches the
-  NISAR-modified Copernicus DEM tiles covering the GUNW phase-grid footprint;
-  callers may provide a local DEM or cache directory to control network and
-  storage behavior. The original public orthometric COP30 path remains an
-  explicit compatibility source.
+- Callers should prepare and supply the DEM for reproducible workflows. An
+  optional Earthdata extra retains the NISAR-modified Copernicus DEM download
+  convenience path; it is specific to the NISAR adapter and does not establish
+  a general ancillary-data API. The original public orthometric COP30 path
+  remains an explicit compatibility source.
 - GUNW center-frequency metadata is converted to wavelength with `c / f`;
   `open_gunw()` resolves this automatically, while an explicit `wavelength_m`
   override is available for documented special cases. No mission wavelength

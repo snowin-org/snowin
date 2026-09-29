@@ -16,21 +16,25 @@ temporal accumulation, metrics, and plots.
 ## Real NISAR GUNW workflow
 
 [`02_real_nisar_gunw_workflow.ipynb`](02_real_nisar_gunw_workflow.ipynb) is a
-small real-product example. Set `SNOWIN_GUNW` to a local GUNW path. Optionally
-set `SNOWIN_NISAR_DEM` to a local NISAR-modified Copernicus DEM and
-`SNOWIN_DEM_CACHE` to choose the automatic DEM cache directory.
+small real-product example. Set `SNOWIN_GUNW` to a local GUNW path. Set `SNOWIN_NISAR_DEM` to a prepared local NISAR-modified Copernicus DEM.
 
-Install the notebook/runtime dependencies from the checkout with:
+Install the notebook groups and only the integrations exercised by these
+examples from the checkout with pip 25.1 or newer:
 
 ```bash
-python -m pip install -e ".[dev,gunw,vectors,notebooks]"
+python -m pip install --upgrade pip
+python -m pip install -e ".[nisar,geometry,dask]" \
+  --group notebooks
 ```
 
 The real-product notebook does not store products or generated rasters in the
 repository. It opens the product for metadata and phase inspection, including
-available correction layers, then calls `add_gunw_incidence` for the slower
-DEM/LOS step. Its final plot shows all opened GUNW layers, incidence, and
-pairwise dSWE. Correction layers are visualized but not applied automatically.
+available correction layers, then calls `add_gunw_incidence` with the prepared local
+DEM for the slower geometry step. The reader and DEM geometry are optional
+NISAR integrations; general data discovery and ancillary preparation belong to
+the caller. Its final plot uses xarray and Matplotlib to show GUNW layers,
+incidence, and pairwise dSWE. Correction layers are visualized but not applied
+automatically.
 
 [`06_nisar_pytools_search_and_snowin.ipynb`](06_nisar_pytools_search_and_snowin.ipynb)
 starts from an ASF search through `nisar_pytools`, downloads selected GUNW
@@ -89,7 +93,8 @@ required NIVAL snow-depth GeoTIFF assets, the named GUNW, and the one
 Copernicus GLO-30 tile covering the Mores Creek AOI:
 
 ```bash
-python -m pip install -e ".[gunw]"
+python -m pip install -e ".[nisar,geometry,dask]" \
+  --group notebooks
 python scripts/download_nival_nisar_inputs.py --inputs all --interactive-login
 ```
 
@@ -137,8 +142,8 @@ phase orientation, whereas SnowIn canonicalizes phase to
 `dswe` (negated to match the paper's source-phase polarity). The 80 m notebook
 uses the same explicit sign bridge for its Zach-compatible plotting product.
 Pass `--cop30-dem` with a local Copernicus GLO-30 tile to limit DEM staging to
-the analysis area; without it SnowIn's automatic helper stages DEM tiles for
-the full GUNW footprint.
+the analysis area; SnowIn consumes the supplied DEM and does not stage or
+acquire DEM tiles.
 
 Example, using an environment with ISCE3 for the unwrap and the SnowIn geospatial
 dependencies for the dSWE step:
@@ -153,8 +158,10 @@ conda run -n nisar_snotel python scripts/derive_unwrapped_gunw_dswe.py \
   --cop30-dem /path/to/copernicus_glo30_tile.tif
 ```
 
-For the complete reviewer environment, install the notebook extra as well:
+For the complete reviewer environment, install the internal notebook group as well:
 
 ```bash
-python -m pip install -e ".[dev,gunw,vectors,notebooks]"
+python -m pip install --upgrade pip
+python -m pip install -e ".[nisar,geometry,dask]" \
+  --group dev --group notebooks
 ```

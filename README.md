@@ -35,119 +35,86 @@ Dolphin.
 
 ## Status
 
-SnowIn is preparing its first alpha release, version 0.1.0. It provides
-xarray-native contracts and phase-to-dSWE calculations; ASF search and
-validated downloads through `nisar_pytools`; normalized NISAR GUNW reading;
-DEM- and LOS-based local-incidence geometry with an explicit geometry-validity
-mask; reference-phase and temporal-accumulation methods; named support layers
-and metrics; and plots for opened GUNW layers, incidence angle, and dSWE.
+SnowIn 0.1.0 is an alpha scientific package for named xarray dSWE retrievals,
+reference and correction operations, support composition, directed temporal
+accumulation, and a narrow optional NISAR GUNW adapter. Local-incidence
+geometry is also optional and requires a prepared DEM supplied by the caller.
 
 Important limits remain:
 
 - The canonical retrieval produces pairwise or accumulated dSWE. It is not an
   absolute SWE product or a universal validation workflow.
-- The default GUNW geometry path uses the NISAR-modified Copernicus DEM, whose
-  heights are WGS84 ellipsoidal like the GUNW radar-grid heights. The original
-  public COP30 compatibility path remains orthometric and requires an explicit
-  EGM2008 geoid-undulation correction. Incidence geometry is currently eagerly
-  materialized; phase data can remain lazy. Cells without valid terrain/LOS
-  support, including back-facing terrain, have missing incidence and are marked
-  invalid in `geometry_valid` rather than being folded into the valid angle
-  range.
+- Local incidence uses NISAR LOS geometry and an explicitly declared prepared
+  DEM source. Cells without valid terrain or LOS support, including
+  back-facing terrain, have missing incidence and are marked invalid in
+  geometry_valid.
+- Product search, downloads, S3 staging, DEM acquisition, GIS utilities,
+  plotting, and study policy are caller-owned workflow operations.
 - SnowIn has no published PyPI or conda-forge release. Install from a checkout
   while the public API is still evolving.
 
-Read the [API policy](docs/api_policy.md) for the distinction between the
-stable root-level facade, domain-specific submodules, and legacy compatibility
-paths.
-
-The active implementation plan is in [`ROADMAP.md`](ROADMAP.md). Scientific
-contracts and limitations are documented in the [data model](docs/data_model.md),
-[scientific conventions](docs/scientific_conventions.md),
-[DEM vertical-datum notes](docs/vertical_datums.md), and
-[architecture](docs/architecture.md) documents.
+Read the API policy for supported imports and the package boundary. Scientific
+contracts and limitations are documented in the data model, scientific
+conventions, DEM vertical-datum notes, and architecture guide.
 
 ## Installation
 
-There is not yet a published PyPI or conda-forge release. To create the full
-scientific runtime from a checkout, install the Conda-forge geospatial stack
-and then install SnowIn in editable mode:
+There is not yet a published PyPI or conda-forge release. Install the SnowIn
+scientific core from a checkout with:
 
-```bash
-git clone https://github.com/snowin-org/snowin.git
-cd snowin
-conda env create -f environment.yml
-conda activate snowin
-python -m pip install -e ".[gunw]"
-```
+    python -m pip install -e .
 
-The runtime environment includes NumPy, xarray, Dask, GUNW/geospatial, cloud,
-and vector dependencies. Install the optional NISAR search and reader dependency
-through the `gunw` extra:
+The base install requires NumPy and xarray. The maintained runtime extras are:
 
-```bash
-python -m pip install -e ".[gunw]"
-```
+- nisar for local NISAR GUNW reading and HDF5 support;
+- geometry for NISAR local-incidence calculation from a prepared DEM;
+- dask for Dask-backed arrays.
 
-The Conda environment does not include notebook or contributor tools. Add
-those layers when needed:
+For repository notebooks and contributor tools, use pip 25.1 or newer and the
+internal dependency groups. The notebook group includes Matplotlib, GIS,
+Earthdata, and cloud libraries used by examples and study workflows; these are
+not SnowIn runtime requirements.
 
-```bash
-conda env update -n snowin -f environment-notebooks.yml
-conda env update -n snowin -f environment-dev.yml
-python -m pip install -e ".[dev,gunw,notebooks]"
-```
+    python -m pip install --upgrade pip
+    python -m pip install -e ".[nisar,geometry,dask]" --group dev --group notebooks
 
-For pip-only installations, the base package remains NumPy and xarray. The
-`gunw`, `cloud`, `dask`, and `vectors` extras are available for installing
-those features selectively; `notebooks` and `dev` provide notebook and
-contributor tooling. The `gunw` extra includes the `nisar_pytools` search,
-download, and GUNW DataTree reader used by SnowIn's NISAR adapter. See
-[development setup](docs/development.md#conda-environments)
-for the layers and commands.
+The full-workflow Conda environment is convenient for repository examples but
+does not define SnowIn's package dependencies. See the development guide for
+the Conda and notebook setup.
 
 ## Find and open NISAR products
 
-The `snowin.io.find_nisar` and `snowin.io.download_urls` helpers use the public
-`nisar_pytools` APIs to find ASF product URLs and download/validate selected
-files. Search results are URL strings; downloads return local `Path` objects.
-The search supports GSLC and other NISAR product types, while SnowIn's current
-snow-retrieval adapter processes GUNW products. A GSLC reader and GSLC-based
-snow retrieval are not yet part of SnowIn's supported workflow.
+SnowIn does not wrap product search or downloads. Use nisar-pytools directly
+for ASF product discovery and validated downloads. Search results are URL
+strings and downloads return local paths. Search supports GSLC and other NISAR
+product types, while SnowIn's current normalized adapter reads GUNW products.
 
-```python
-from pathlib import Path
+    from pathlib import Path
+    from nisar_pytools import download_urls, find_nisar
+    from snowin.io import open_gunw
 
-from snowin.io import download_urls, find_nisar, open_gunw
+    gunw_urls = find_nisar(
+        aoi=[-115, 43, -114, 44],
+        start_date="2025-08-01",
+        end_date="2025-12-01",
+        product_type="GUNW",
+        path_number=77,
+        direction="ASCENDING",
+    )
+    if not gunw_urls:
+        raise RuntimeError("No matching GUNW products were found")
 
-gunw_urls = find_nisar(
-    aoi=[-115, 43, -114, 44],
-    start_date="2025-08-01",
-    end_date="2025-12-01",
-    product_type="GUNW",
-    path_number=77,
-    direction="ASCENDING",
-)
-if not gunw_urls:
-    raise RuntimeError("No matching GUNW products were found")
+    out_dir = Path.home() / ".cache" / "snowin" / "gunw"
+    files = download_urls(gunw_urls[:1], out_dir, validate=True)
+    if not files:
+        raise RuntimeError("No GUNW product was downloaded and validated")
 
-out_dir = Path.home() / ".cache" / "snowin" / "gunw"
-files = download_urls(gunw_urls[:1], out_dir, validate=True)
-if not files:
-    raise RuntimeError("No GUNW product was downloaded and validated")
+    with open_gunw(files[0]) as pair:
+        print(pair.attrs["reference_time"], "→", pair.attrs["secondary_time"])
 
-with open_gunw(files[0]) as pair:
-    print(pair.attrs["reference_time"], "→", pair.attrs["secondary_time"])
-```
-
-The [search-to-SnowIn notebook](notebooks/06_nisar_pytools_search_and_snowin.ipynb)
-shows this workflow through GUNW layer inspection, local-incidence geometry,
-and pairwise dSWE. Its incidence plot is in degrees; the retrieval uses the
-radar-grid incidence angles in radians. Correction layers are displayed for
-inspection and are not automatically applied. The notebook limits downloads
-to one product by default. The NIVAL research comparison remains
-development-only and is not included in the 0.1 release on `main`; see the
-[NIVAL notebook on `development`](https://github.com/snowin-org/snowin/blob/development/notebooks/05_nival_nisar_comparison.ipynb).
+The search-to-SnowIn notebook demonstrates direct nisar-pytools discovery,
+local GUNW reading, prepared-DEM geometry, and pairwise dSWE. SnowIn does not
+read GSLC products or fetch ancillary datasets.
 
 ## Quick start
 
@@ -226,104 +193,57 @@ dswe_guneriussen = compute_gun_dswe(
 `compute_dswe` remains as a backwards-compatible spelling of
 `compute_leinss_dswe`; it still requires `wavelength_m` explicitly.
 
-For a NISAR GUNW, `open_gunw` resolves wavelength from product metadata and
-opens the normalized phase/product data without waiting for DEM geometry:
+For a NISAR GUNW,  from product metadata and
+opens normalized phase without waiting for geometry. Local incidence is a
+separate calculation. Pass a prepared DEM explicitly:
 
-```python
-from snowin.io import add_gunw_incidence, open_gunw
+    from snowin.io import add_gunw_incidence, open_gunw
 
-pair = open_gunw("product.h5")
-print(pair.attrs["wavelength_m"])
-add_gunw_incidence(pair, "product.h5")
-```
+    pair = open_gunw("product.h5")
+    add_gunw_incidence(
+        pair,
+        "product.h5",
+        dem="/path/to/nisar_dem.tif",
+        dem_source="nisar_cop30",
+        require_vertical_datum_match=True,
+    )
 
-The explicit `add_gunw_incidence` step computes local incidence from the
-GUNW LOS vectors and the modified Copernicus DEM used by NISAR, then appends
-`pair["incidence_angle"]`, the boolean `pair["geometry_valid"]` support mask,
-and their provenance. Unsupported and back-facing terrain cells receive
-missing incidence values. It requires the GUNW path so a slow geometry
-calculation cannot accidentally use a different product.
+The geometry calculation uses the GUNW LOS vectors and caller-supplied DEM,
+then appends incidence, a geometry-valid support mask, and provenance.
+Unsupported and back-facing terrain cells receive missing incidence values.
+The explicit GUNW path prevents geometry from being inferred from another
+product. Use chunks=None for eager loading when Dask is not installed.
 
-The default GUNW path uses Dask for lazy loading; the `dev` extra includes it.
-Without Dask, pass `chunks=None` for an eager read. The `gunw` extra supplies
-the product, raster, geometry, and plotting dependencies.
+For other prepared DEMs, set dem_source to cop30, tandem30, or srtm30 and pass
+the same dem argument. SnowIn does not download or cache DEMs. The source name
+declares the vertical-datum contract; orthometric sources may need a prepared
+vertical correction through dem_vertical_correction_m. Set
+require_vertical_datum_match=True to reject unmatched geometry. Use the
+fixture notes and GUNW example for fuller workflows.
 
-Use `nisar_cop30_dem="/path/to/dem.tif"` to provide a local NISAR DEM and
-avoid network access:
-
-```python
-pair = open_gunw("product.h5")
-add_gunw_incidence(
-    pair,
-    "product.h5",
-    nisar_cop30_dem="/path/to/nisar_dem.tif",
-    require_vertical_datum_match=True,
-)
-```
-
-The default incidence calculation is eager. For benchmarking a Dask-backed
-prototype, pass `geometry_chunks=512` (or a `(y, x)` chunk pair) to
-`add_gunw_incidence`; it preserves the eager default and is not yet a fully
-out-of-core geometry implementation.
-
-The default `dem_source="nisar_cop30"` downloads and caches the modified
-Copernicus DEM used by NISAR. Use `dem_cache_dir=...` to control that cache.
-The ASF Earthdata service may require standard Earthdata credentials in
-`~/.netrc`. Other named local sources can be selected explicitly:
-
-```python
-pair = open_gunw("product.h5")
-add_gunw_incidence(
-    pair,
-    "product.h5",
-    dem_source="tandem30",
-    tandem30_dem="/path/to/tandem30.tif",
-    require_vertical_datum_match=True,
-)
-```
-
-Supported sources are `nisar_cop30`, `cop30`, `tandem30`, and `srtm30`.
-Only `nisar_cop30` and `cop30` have automatic download paths. TanDEM-X 30 m
-and SRTM 30 m inputs must be provided locally; SnowIn does not silently
-substitute one source for another. TanDEM-X is treated as ellipsoidal
-WGS84-G1150, while SRTM30 is treated as orthometric and normally requires a
-geoid correction for strict matching.
-
-For public orthometric COP30 tiles selected with `dem_source="cop30"`, pass
-`dem_vertical_correction_m="/path/to/egm2008_geoid.tif"` or a same-grid
-xarray DataArray. The legacy `cop30_vertical_correction_m` spelling remains
-accepted. Set `require_vertical_datum_match=True` to fail rather than run
-provisionally. An explicit `wavelength_m` override should only be used when
-its scientific provenance is known.
 See the [fixture notes](tests/fixtures/README.md) and the
 [GUNW example](examples/demo_gunw_local_s3_dswe.py) for fuller workflows.
 
 ## What SnowIn provides
 
-- NISAR GUNW reading, phase-convention normalization, and product metadata
-  handling using `nisar_pytools` as the base reader, plus ASF search and
-  validated downloads through the same package. A GSLC adapter is not yet
-  part of the stable implementation.
+- Optional NISAR GUNW reading and source-phase normalization through the
+  nisar-pytools adapter.
 - Named xarray-native Leinss, Guneriussen, and Oveisgharan pairwise dSWE
-  retrievals, plus legacy NumPy compatibility helpers.
-- Explicit reference-phase methods, including manual and contributor-based
-  aggregation policies.
+  retrievals.
+- Explicit reference-phase methods and phase-correction operations.
 - Directed temporal dSWE accumulation with explicit missing-support behavior.
-- Named support and quality layers, support composition, summaries, and
-  validation-ready metrics.
-- COP30/local-DEM incidence geometry with CRS, grid, interpolation, and
-  provenance checks.
-- GUNW diagnostics, quick-look plotting, and a CLI where the optional
-  dependencies are installed.
+- Named support layers, support composition, summaries, and validation metrics.
+- Optional NISAR local-incidence geometry from a prepared DEM.
 
-The older `gunw_to_dswe` workflow remains available for compatibility but is
-legacy. New NISAR workflows should use `open_gunw`, `add_gunw_incidence`, and
-the named dSWE function matching the selected physical model. `compute_dswe`
-continues to mean Leinss for compatibility; it is not a method dispatcher.
+Product discovery, downloads, cloud staging, ancillary-data preparation,
+vector loading, file export, and plotting belong to the calling workflow.
+New NISAR workflows compose open_gunw, add_gunw_incidence, and the named dSWE
+function matching the selected physical model. compute_dswe is the Leinss
+retrieval, not a method dispatcher. For routine plots, use xarray's .plot
+methods in an environment with Matplotlib.
 
 SnowIn does not silently convert missing support to zero, apply a universal
-quality mask, or move Colorado study-specific station/date policy into the
-general package.
+quality mask, or move Colorado station/date policy into the general package.
 
 ## Scientific conventions and data model
 
@@ -362,7 +282,7 @@ repository.
 
 ## Development and testing
 
-After installing the development extra, run the same checks used by the
+After installing the development and notebook groups, run the same checks used by the
 current GitHub Actions workflow:
 
 ```bash

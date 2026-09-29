@@ -1,21 +1,24 @@
 # GitHub issues starter set
 
-## 1. Define SnowIn public API boundaries
-**Why:** lock down naming and public-vs-internal rules before migration accelerates.
-**Deliverables:** API naming guide, top-level namespace decisions, doc update.
+## 1. Maintain the normalized scientific API
+Keep phase direction, units, grid alignment, missing support, and provenance
+explicit in the named xarray retrieval methods.
 
-## 2. Implement and document core `phase_to_dswe(...)` methods
-**Why:** establish a tested scientific core for the package.
-**Deliverables:** method implementations, tests, docs, examples.
+## 2. Add source adapters only for demonstrated user needs
+A new adapter should normalize an authoritative product convention into the
+SnowIn pair contract without adding provider access or ancillary-data policy
+to the scientific core.
 
-## 3. Design normalized GUNW/GSLC reader interfaces
-**Why:** create stable SnowIn I/O entry points before importing legacy code.
-**Deliverables:** design doc, stub interfaces, example usage.
+## 3. Keep study workflows composable
+Station/date selection, vector loading, DEM acquisition, calibration policy,
+validation outputs, and report figures belong in companion tools and
+notebooks. Pass prepared, aligned arrays or local inputs to SnowIn.
 
-## 4. Map legacy functions from `nisar_pytools` and `snowsar`
-**Why:** migration should be deliberate and traceable.
-**Deliverables:** migration matrix with source file, target module, action, owner.
+## 4. Review dependency and API costs together
+Add a runtime extra only for a maintained package feature. Keep repository-only
+notebook, docs, and development tools in dependency groups.
 
-## 5. Set up contributor workflow and CI
-**Why:** prevent code sprawl as the team grows.
-**Deliverables:** issue templates, CI, CONTRIBUTING.md, code review rules.
+## 5. Preserve analytical and integration evidence
+Add independent equation checks for scientific changes, plus small synthetic
+tests for xarray labels, support, missing values, and eager/lazy behavior.
+Real products remain opt-in integration evidence.

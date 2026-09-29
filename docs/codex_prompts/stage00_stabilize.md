@@ -1,3 +1,7 @@
+> Historical planning prompt. Its proposed broad extras and workflow
+> APIs were superseded by the current package boundary in
+> [architecture.md](../architecture.md) and [api_policy.md](../api_policy.md).
+
 # Stage 0 prompt: stabilize the project
 
 Using `docs/codex_prompts/master.md` and the SnowIn master development
@@ -57,7 +61,8 @@ GitHub planning documentation, preserve local work and report the discrepancy.
 Where available, run:
 
 ```bash
-python -m pip install -e ".[dev]"
+python -m pip install --upgrade pip
+python -m pip install -e ".[nisar,geometry,plot,vectors,cloud,dask,earthdata]" --group dev
 pytest -q
 ruff check .
 ruff format --check .

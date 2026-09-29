@@ -6,10 +6,12 @@ multi-layer lidar granules. The GUNW is selected by its full granule name from
 ASF's ``NISAR_L2_GUNW_PROVISIONAL_V1`` collection. The ``dem`` input stages
 one public Copernicus GLO-30 tile covering the Mores Creek AOI.
 
-Requires ``pip install -e '.[gunw]'`` and a free NASA Earthdata Login for the
-lidar and GUNW. The DEM-only download requires no login. If a stale ``.netrc``
-entry is configured, pass ``--interactive-login`` to enter a current Earthdata
-username/password without changing that file.
+This repository workflow uses ``earthaccess`` and ``requests`` from the
+internal ``notebooks`` dependency group (pip 25.1 or newer), plus a free NASA
+Earthdata Login for the lidar and GUNW. The public DEM tile download requires
+no login. If a stale ``.netrc`` entry is configured, pass
+``--interactive-login`` to enter a current Earthdata username/password without
+changing that file.
 """
 
 from __future__ import annotations

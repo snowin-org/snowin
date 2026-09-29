@@ -9,7 +9,7 @@ import pytest
 import xarray as xr
 from shapely.geometry import box, mapping
 
-from snowin.spatial import rasterize_vector_mask
+from scripts.study_utils.spatial import rasterize_vector_mask
 
 
 def _grid_target(x=(5.0, 15.0, 25.0, 35.0), y=(35.0, 25.0, 15.0, 5.0)):

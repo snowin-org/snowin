@@ -38,7 +38,7 @@ def derive_dswe(
     phase_path: Path,
     output: Path,
     *,
-    cop30_dem: Path | None = None,
+    dem: Path,
 ) -> Path:
     raster = rioxarray.open_rasterio(phase_path, masked=True).squeeze()
     if raster.ndim != 2 or raster.dims != ("y", "x"):
@@ -85,7 +85,7 @@ def derive_dswe(
         target,
         gunw,
         dem_source="cop30",
-        cop30_dem=cop30_dem if cop30_dem is not None else "auto",
+        dem=dem,
         progress=True,
     )
     phase_median = float(canonical_phase.median(skipna=True).values)
@@ -153,16 +153,17 @@ def main() -> None:
     parser.add_argument(
         "--cop30-dem",
         type=Path,
-        help="local Copernicus GLO-30 raster covering the phase crop; defaults to SnowIn auto-download",
+        required=True,
+        help="prepared local Copernicus GLO-30 raster covering the phase crop",
     )
     args = parser.parse_args()
     if not args.gunw.is_file():
         raise FileNotFoundError(args.gunw)
     if not args.phase.is_file():
         raise FileNotFoundError(args.phase)
-    if args.cop30_dem is not None and not args.cop30_dem.is_file():
+    if not args.cop30_dem.is_file():
         raise FileNotFoundError(args.cop30_dem)
-    derive_dswe(args.gunw, args.phase, args.output, cop30_dem=args.cop30_dem)
+    derive_dswe(args.gunw, args.phase, args.output, dem=args.cop30_dem)
 
 
 if __name__ == "__main__":

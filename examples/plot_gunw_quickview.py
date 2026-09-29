@@ -1,18 +1,19 @@
-"""Example: make GUNW quick-look plots and diagnostic CSVs with SnowIn."""
+"""Plot normalized GUNW phase through xarray's plotting interface."""
 
 from pathlib import Path
 
-from snowin import plot_gunw
+import matplotlib.pyplot as plt
 
-GUNW_FILE = Path("/path/to/NISAR_L2_PR_GUNW_....nc")
-OUT_DIR = Path("plots/gunw_quicklooks")
-CROP_GEOJSON = Path("/path/to/basin.geojson")  # or None
+from snowin.io import open_gunw
 
-result = plot_gunw(
-    GUNW_FILE,
-    out_dir=OUT_DIR,
-    crop_geojson=CROP_GEOJSON,
-    grid_epsg=None,  # auto-detect when possible; pass 32611/32613/etc if needed
-    show=True,  # display inline in Jupyter notebooks
-    verbose=True,
-)
+GUNW_FILE = Path("/path/to/NISAR_L2_PR_GUNW_....h5")
+
+with open_gunw(GUNW_FILE, chunks=None) as pair:
+    axes = pair["phase"].plot.imshow(
+        cmap="twilight",
+        robust=True,
+        figsize=(9, 6),
+        cbar_kwargs={"label": "Normalized phase (rad)"},
+    )
+    axes.set_title(GUNW_FILE.name)
+    plt.show()

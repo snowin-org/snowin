@@ -1,122 +1,74 @@
 # SnowIn architecture
 
-This document describes the current package boundary. The staged decisions in
-[`snowin_architecture_v1.md`](snowin_architecture_v1.md) are the design source
-of truth for the next development cycle. Stage 0 establishes packaging and
-development safeguards; it does not change the scientific architecture.
+SnowIn owns the reusable snow-InSAR retrieval science. Its base install is
+NumPy and xarray; optional features are limited to a NISAR GUNW adapter,
+NISAR local-incidence geometry, and Dask support.
 
-## Current package areas
+## Package boundary
 
-- `snow/`: core snow-science transforms, including phase-to-dSWE and snow-depth-change relationships.
-- `temporal.py`: strict chronological accumulation of pairwise dSWE edges.
-- `reference/`: xarray-native phase-reference estimation and provenance.
-- `io/`: mission/product readers and normalized loading interfaces. First implemented target: NISAR GUNW.
-- `plotting/`: user-facing quick-look and publication-adjacent plotting functions. First implemented target: `plot_gunw()`.
-- `diagnostics/`: reusable raster and workflow summary statistics. These are intentionally independent of a specific product where possible.
-- `cli.py`: thin command-line wrappers around public package functions.
+The science API accepts labeled DataArray and Dataset inputs. A retrieval-ready
+pair carries canonical phase direction, acquisition order, wavelength,
+incidence angle and units, coordinates, CRS, support, and provenance. SnowIn
+preserves those labels and missing-data behavior through dSWE retrieval,
+reference operations, support composition, corrections, metrics, and directed
+temporal accumulation.
 
-Upcoming:
+SnowIn is not a general SAR processor, catalog, credential manager,
+ancillary-data service, plotting package, GIS file utility, or study-validation
+framework. It does not select stations, acquisition windows, AOIs, thresholds,
+or validation policy.
 
-- `subset/`: spatial cropping, masking, and AOI tools that are reusable outside plotting.
-- `corrections/`: atmospheric, ionospheric, ramp, and reference-phase correction utilities.
-- `calval/`: CDEC/SNOTEL/ASO/iSnobal alignment, extraction, and validation summaries.
-- `workflows/`: end-to-end user-facing workflows built from lower-level modules.
+## Data-source composition
 
-## Why this layout
+Different products and ancillary sources meet at the normalized xarray
+boundary:
 
-This layout keeps the public API predictable and makes it easier to migrate legacy scripts without preserving their one-off naming, local paths, or mixed R/Python implementation details.
+    mission reader and caller-prepared data
+                  |
+                  v
+    thin product adapter -> normalized xarray pair
+                  |
+                  v
+    SnowIn retrieval science -> pairwise or accumulated dSWE
+                  |
+                  v
+    study workflow adds reference data, support policy, validation, and output
 
-The key rule is:
+The NISAR adapter reads local GUNW files through nisar-pytools and applies
+SnowIn's documented phase normalization. The optional local-incidence
+calculation reads GUNW LOS geometry and requires a prepared DEM. SnowIn does
+not fetch DEMs, station observations, ASO, lidar, or other ancillary data.
 
-> exploratory scripts should become short workflow drivers; scientific logic should live in package modules.
+Search and download wrappers were removed because they only forwarded calls
+to nisar-pytools. S3 staging, vector-mask preparation, general raster export,
+and specialized GUNW reports now belong in examples or companion workflows.
+The repository keeps its study notebooks and workflow helpers; they are not
+installed as SnowIn runtime modules.
 
-## Public API philosophy
+## Dependency scope
 
-Users should see stable names such as:
+The base package declares NumPy and xarray. Optional extras declare only
+maintained library capabilities:
 
-- `compute_dswe`
-- `reference_phase`
-- `accumulate_dswe`
-- `plot_gunw`
-- `read_gunw_layer`
-- `read_gslc`
-- `load_snotel`
-- `crop_to_basin`
-- `remove_planar_ramp`
-- `apply_quality_mask`
-- `run_gunw_to_dswe_workflow`
+- nisar: nisar-pytools and HDF5 support for local GUNW reading;
+- geometry: PyProj, Rasterio, and SciPy for the NISAR local-incidence path;
+- dask: lazy, chunked array support.
 
-`compute_dswe` is the canonical xarray-native phase-to-dSWE function. The
-legacy `phase_to_dswe` method-selector API remains only as compatibility code;
-new product adapters and workflows must use the normalized Dataset contract.
+Notebook, docs, and development requirements use dependency groups. The
+repository's full Conda environment can include Matplotlib, GeoPandas, Shapely,
+Earthaccess, fsspec, s3fs, and other tools needed by its study workflows; those
+do not become SnowIn package runtime requirements.
 
-Internal helpers may be specialized, but the user-facing package should feel unified.
+Fewer optional runtime dependencies mean fewer transitive combinations the
+package must document and validate. Pip explains that dependency resolution
+explores transitive requirements and may backtrack when version choices
+conflict. The maintenance benefit of dropping unneeded dependencies is an
+inference from that resolver model, not a guarantee that every installation
+will be faster. See the
+[pip dependency-resolution guide](https://pip.pypa.io/en/stable/topics/dependency-resolution/).
 
-## Implemented first-pass GUNW plotting flow
-
-`plot_gunw()` is the first workflow-style function. It currently:
-
-1. Detects or accepts HH/VV polarization.
-2. Reads standard GUNW diagnostic layers from `frequencyA`:
-   - unwrapped phase
-   - unwrapped and wrapped coherence
-   - connected components
-   - wrapped interferogram phase and amplitude in dB
-   - ionospheric phase screen and uncertainty
-   - mask
-   - pixel offsets and correlation peak
-   - radar-grid incidence angle, baselines, slant range, and tropospheric phase screens
-3. Optionally crops and masks all panels/summaries to a GeoJSON AOI.
-4. Writes one standard compact PNG quick-look figure.
-5. Writes one CSV row per layer/derived layer with reproducible summary statistics.
-6. Writes metadata JSON with granule, orbit, track/frame, version, DOI, look direction, and acquisition timing.
-
-## `plot_gunw()` outputs
-
-For a file `NISAR_L2_PR_GUNW_...nc`, the function writes:
-
-- `*_quickview.png`
-- `*_summary_stats.csv`
-- `*_metadata.json`, unless disabled
-
-The summary CSV includes:
-
-- layer name
-- source layer
-- transform, such as native, magnitude, magnitude dB, angle, integer labels, or QA mask
-- presence flag
-- total and valid pixel counts
-- valid and NaN fraction
-- mean, standard deviation, min, max
-- p01, p05, p50, p95, p99
-- product-provided summary attributes when present
-- connected-component dominant label/fraction when applicable
-- mask unique values and fill-255 fraction when applicable
-
-## CLI entry point
-
-Install in development mode with GUNW dependencies:
-
-```bash
-python -m pip install -e ".[dev]"
-```
-
-Then run:
-
-```bash
-snowin-plot-gunw /path/to/NISAR_L2_PR_GUNW_....nc \
-  --out-dir plots/gunw_quicklooks \
-  --crop-geojson /path/to/basin.geojson \
-```
-
-If the grid CRS cannot be auto-detected, pass `--grid-epsg 32611` or the relevant projected EPSG.
-
-## Development documentation
-
-- [`development.md`](development.md): supported Python, installation, checks,
-  and repository workflow.
-- [`data_model.md`](data_model.md): provisional xarray-centered data model.
-- [`scientific_conventions.md`](scientific_conventions.md): conventions and
-  unresolved contract work.
-- [`code_provenance.md`](code_provenance.md): provenance record framework for
-  migrated or independently reimplemented science.
+For routine plots, xarray's DataArray.plot selects common plots from array
+dimensions and coordinates. It uses Matplotlib, which belongs in the notebook
+or workflow environment rather than SnowIn's base requirements. See the
+[xarray plotting API](https://docs.xarray.dev/en/latest/generated/xarray.DataArray.plot.html)
+and [xarray installation guide](https://docs.xarray.dev/en/stable/installing.html).

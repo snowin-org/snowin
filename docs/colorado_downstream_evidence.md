@@ -30,8 +30,9 @@ valid 0–90° geometry domain. A central 128 × 128 window was used for the
 numerical retrieval comparison.
 
 The DEM is retained outside the repository cache/workspace because it is a
-large external product. SnowIn natively downloads, mosaics, caches, and
-records this DEM source; raw GUNW and DEM files are not release artifacts.
+large external product. The original development adapter downloaded and cached this DEM. The scoped
+adapter now requires a caller-prepared local DEM; raw GUNW and DEM files remain
+external workflow inputs and are not release artifacts.
 
 ## Phase-sign lineage
 
@@ -54,8 +55,11 @@ SnowIn's product-normalized canonical phase. Colorado has decided to migrate
 to SnowIn's `secondary_minus_reference` phase, NISAR-modified Copernicus DEM
 geometry, and product-metadata wavelength treatment. The duplicate downstream
 retrieval code remains in place during validation of that adopted configuration;
-SnowIn must not silently rewire `gunw_to_dswe()` before the Colorado workflow
-has been explicitly migrated and checked.
+The package migration removes the generic gunw_to_dswe() wrapper rather
+than changing its legacy calculations. The in-repository T019 comparison
+exercises the canonical SnowIn path with selected phase, wavelength,
+reference-offset, and geometry inputs; the Colorado downstream implementation
+remains unchanged.
 
 ## Downstream pair reproduction
 
@@ -120,10 +124,11 @@ a Dask-backed incidence result for the same 4,347 x 4,410 product. The result
 was exactly equal to the eager angle field (`max_abs_rad = 0.0` in the direct
 comparison), with a measured peak of approximately 5.7 GiB and a total
 geometry time of approximately 6.4 seconds after a 4.7-second graph-building
-step. The reduction is useful but not yet a complete out-of-core solution:
-the DEM, LOS lookup cube, and terrain normals are still eager, and graph
-construction adds overhead. The eager path therefore remains the default;
-``geometry_chunks`` is retained for validation and future optimization work.
+step. The reduction is useful but not a complete out-of-core solution: the DEM,
+LOS lookup cube, and terrain normals are still eager, and graph construction
+adds overhead. SnowIn retains ``geometry_chunks`` as an opt-in for large grids
+where its measured memory reduction is useful; eager execution remains the
+default. The option does not provide out-of-core processing.
 
 ## Reproduction record
 

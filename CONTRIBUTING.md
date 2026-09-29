@@ -6,7 +6,8 @@ Thanks for contributing.
 
 ```bash
 python --version  # Python 3.12 or newer
-python -m pip install -e ".[dev]"
+python -m pip install --upgrade pip  # dependency groups need pip 25.1+
+python -m pip install -e ".[nisar,geometry,dask]" --group dev --group notebooks
 pytest -q
 pytest --cov=snowin --cov-report=term-missing --cov-report=xml
 ruff check .
@@ -17,6 +18,12 @@ git diff --check
 
 SnowIn uses a `src/` layout. Tests and examples should import the installed
 package (`snowin`), not files by path or by modifying `sys.path`.
+
+The base package contains the snow–InSAR science API and depends on NumPy and
+xarray. NISAR/GUNW reading, local-incidence geometry, and Dask support are
+optional. Keep product discovery, provider acquisition, cloud staging, GIS
+operations, plots, and study selection policies in upstream tools or
+workflows; pass prepared inputs through the normalized xarray contract.
 
 ## Branch naming
 

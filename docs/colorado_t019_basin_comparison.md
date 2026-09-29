@@ -74,9 +74,10 @@ These basin-matched results support SnowIn as the forward-looking framework:
   policy.
 
 The next Colorado migration comparison should use these basin masks for all
-regional metrics. `gunw_to_dswe()` should remain unchanged until Colorado
-chooses its phase, wavelength, reference-offset, and geometry policies
-explicitly.
+regional metrics. The generic gunw_to_dswe() wrapper has been retired instead of being
+rewired. The checked 23-edge comparison records explicit canonical phase,
+wavelength, reference offsets, and controlled/native geometry. Colorado's
+separate downstream implementation remains unchanged.
 
 ## 23-edge basin-aware path
 

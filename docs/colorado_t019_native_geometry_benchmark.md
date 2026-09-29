@@ -5,7 +5,7 @@ native geometry workflow:
 
 ```text
 open_gunw(product)
-    -> add_gunw_incidence(product, nisar_cop30_dem=...)
+    -> add_gunw_incidence(product, dem=..., dem_source="nisar_cop30")
     -> reference_phase(..., method="manual_offset")
     -> compute_dswe(..., wavelength_m=product.attrs["wavelength_m"])
 ```

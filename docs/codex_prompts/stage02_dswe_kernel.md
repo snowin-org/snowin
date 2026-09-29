@@ -1,3 +1,7 @@
+> Historical planning prompt. Its proposed broad extras and workflow
+> APIs were superseded by the current package boundary in
+> [architecture.md](../architecture.md) and [api_policy.md](../api_policy.md).
+
 # SnowIn Stage 2: reusable phase-to-dSWE kernel
 
 Execute STAGE 2 ONLY.
@@ -269,7 +273,8 @@ VALIDATION
 
 Run:
 
-    python -m pip install -e ".[dev]"
+    python -m pip install --upgrade pip
+    python -m pip install -e ".[nisar,geometry,plot,vectors,cloud,dask,earthdata]" --group dev
     pytest -q
     ruff check .
     ruff format --check .

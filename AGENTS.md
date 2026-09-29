@@ -3,19 +3,19 @@
 ## Project overview and code map
 
 SnowIn is a Python 3.12+ scientific package for snow-focused SAR/InSAR
-analysis. It uses a `src/` layout, with NumPy and xarray as core dependencies;
-GUNW, geospatial, plotting, cloud, and Dask capabilities are optional. Read
-`docs/api_policy.md` before changing exports or choosing a public import path.
+analysis. It uses a src layout, with NumPy and xarray as core dependencies.
+The maintained optional integrations are local NISAR GUNW reading, NISAR
+local-incidence geometry from a prepared DEM, and Dask arrays. Read the API
+policy before changing exports or choosing a public import path.
 
 | Area | Main files | Responsibility |
 |---|---|---|
-| Public API | `src/snowin/__init__.py` | Stable, generic root-level functions |
-| Retrieval science | `src/snowin/snow/` | Named phase-to-dSWE methods and SWE helpers |
-| Product I/O | `src/snowin/io/` | GUNW reading, phase normalization, DEM and incidence adapters |
-| Corrections and reference | `src/snowin/corrections/`, `src/snowin/reference/` | Phase correction and reference methods |
-| Quality and time | `src/snowin/quality/`, `src/snowin/temporal.py` | Support masks, metrics, directed accumulation |
-| Workflows | `src/snowin/workflows/` | Composition of product readers and scientific operations |
-| Spatial and plots | `src/snowin/spatial.py`, `src/snowin/plotting/` | Vector masks and GUNW diagnostics |
+| Public API | src/snowin/__init__.py | Stable, generic root-level functions |
+| Retrieval science | src/snowin/snow/ | Named phase-to-dSWE methods |
+| Product I/O | src/snowin/io/ | Local GUNW reading, phase normalization, prepared-DEM geometry |
+| Corrections and reference | src/snowin/corrections/, src/snowin/reference/ | Phase correction and reference methods |
+| Quality and time | src/snowin/quality/, src/snowin/temporal.py | Support composition, metrics, directed accumulation |
+| Workflow examples | notebooks/, scripts/, examples/ | Product discovery, ancillary preparation, GIS masks, plots, study policy |
 
 Keep product-specific normalization in adapters and general equations in the
 scientific layer. Prefer the root facade for stable generic operations and
@@ -24,16 +24,20 @@ following the API policy.
 
 ## Development environment
 
-Install the editable development environment from the repository root:
+Install the editable package and workflow/test environment from the
+repository root. PEP 735 dependency groups require pip 25.1 or newer:
 
 ```bash
-python -m pip install -e ".[dev]"
+python -m pip install --upgrade pip
+python -m pip install -e ".[nisar,geometry,dask]" --group dev --group notebooks
 ```
 
-Other extras are declared in `pyproject.toml` for GUNW/geospatial, cloud,
-vector, docs, and notebook workflows. Do not assume Pixi or another dependency
-manager is configured. The base package should remain usable without optional
-mission-product dependencies.
+Only maintained runtime integrations are declared in `pyproject.toml`; internal
+development, docs, and notebook requirements are dependency groups. Search,
+cloud staging, GIS file operations, and plots stay in workflows. The repository
+notebooks remain available as examples and downstream workflows.
+Do not assume Pixi or another dependency manager is configured. The base
+package should remain usable without optional mission-product dependencies.
 
 Use focused tests while iterating, then run the full quality commands listed
 under Repository quality before completing a code change. Examples:

@@ -120,15 +120,15 @@ optimized alpha, and larger error toward high incidence angles; the fixed
 The canonical `snowin.snow.compute_dswe` function requires xarray DataArrays,
 explicit radians metadata, explicit positive `wavelength_m`, and no phase-sign
 or angle-unit switch. It assumes that source normalization has already
-produced canonical phase. The old NumPy `phase_to_dswe` function remains a
-legacy characterization path only.
+produced canonical phase. The retired NumPy method dispatcher is not part of the supported scientific
+API; use the named xarray retrieval methods.
 
 The Oveisgharan fit is scientifically distinct, not an alias for Leinss. Its
 independent approximation is described by
 [Oveisgharan et al. (2024)](https://tc.copernicus.org/articles/18/559/2024/):
 `A(theta) = -0.6784*theta**2 + 0.2899*theta - 0.8473` and
 `dSWE = phase / (-2*k_i*A(theta))`. SnowIn exposes it through its own named
-method; it is not selected implicitly by the Leinss compatibility function.
+method; it is selected explicitly through its named xarray function.
 
 NISAR/ISCE3 source interferograms use the opposite source convention for this
 boundary:

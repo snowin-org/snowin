@@ -14,7 +14,7 @@ from typing import Literal
 import numpy as np
 import xarray as xr
 
-from snowin.snow.swe import sensor_wavelength_m
+from snowin.snow.sensors import sensor_wavelength_m
 
 LEINSS_SNOW_PATH_CONSTANT = 1.59
 """Empirical dry-snow path constant in the Leinss approximation."""

@@ -10,9 +10,9 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from snowin.io.nisar import (
+from snowin.io._nisar_hdf5 import _read_radar_los
+from snowin.io.geometry import (
     _open_cop30_dem,
-    _read_radar_los,
     compute_cop30_local_incidence,
 )
 

@@ -7,7 +7,7 @@ import pytest
 import xarray as xr
 from shapely.geometry import box
 
-from snowin.spatial import rasterize_vector_mask
+from scripts.study_utils.spatial import rasterize_vector_mask
 
 
 def _target() -> xr.Dataset:

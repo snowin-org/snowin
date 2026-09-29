@@ -1,3 +1,5 @@
+# Convenience environment for the repository's full local workflows.
+# Package runtime requirements are defined separately in pyproject.toml.
 name: snowin
 channels:
   - conda-forge

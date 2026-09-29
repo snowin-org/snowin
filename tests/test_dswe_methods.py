@@ -17,7 +17,6 @@ from snowin.snow import (
     compute_leinss_dswe,
     compute_ove_dswe,
     compute_oveisgharan_dswe,
-    phase_to_dswe,
     sensor_wavelength_m,
 )
 
@@ -197,14 +196,10 @@ def test_oveisgharan_matches_published_polynomial():
     assert compute_gun_dswe is compute_guneriussen_dswe
 
 
-def test_oveisgharan_matches_legacy_implementation():
+def test_oveisgharan_matches_analytical_equation():
     phase, incidence = _inputs()
-    expected = phase_to_dswe(
-        0.75,
-        "oveisgharan",
-        THETA,
-        wavelength_m=WAVELENGTH_M,
-    )
+    a_theta = -0.6784 * THETA**2 + 0.2899 * THETA - 0.8473
+    expected = 0.75 / (-2.0 * (2.0 * math.pi / WAVELENGTH_M) * a_theta)
 
     result = compute_oveisgharan_dswe(phase, incidence, wavelength_m=WAVELENGTH_M)
 
@@ -225,14 +220,14 @@ def test_named_signatures_keep_method_specific_parameters_separate():
     assert "alpha" not in oveisgharan_parameters
 
 
-def test_guneriussen_maetzler_matches_legacy_implementation():
+def test_guneriussen_maetzler_matches_analytical_equation():
     phase, incidence = _inputs()
-    expected = phase_to_dswe(
-        0.75,
-        "guneriussen",
-        THETA,
-        wavelength_m=WAVELENGTH_M,
-        snow_density_g_cm3=0.3,
+    density_kg_m3 = 300.0
+    density_g_cm3 = density_kg_m3 / 1000.0
+    permittivity = 1.0 + 1.5995 * density_g_cm3 + 1.861 * density_g_cm3**3
+    refraction = math.cos(THETA) - math.sqrt(permittivity - math.sin(THETA) ** 2)
+    expected = 0.75 / (
+        -2.0 * (2.0 * math.pi / WAVELENGTH_M) * refraction * (density_kg_m3 / 1000.0)
     )
 
     result = _run_guneriussen(phase, incidence, permittivity_model="maetzler")
