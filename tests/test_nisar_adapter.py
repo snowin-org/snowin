@@ -132,6 +132,8 @@ def test_nisar_adapter_opens_lazy_normalized_gunw(tmp_path):
             "reference_minus_secondary"
         )
         assert result.attrs["phase_transform"] == "multiply_by_-1"
+        assert result.attrs["reference_time"] == "2025-01-01T00:00:00Z"
+        assert result.attrs["secondary_time"] == "2025-01-13T00:00:00Z"
         assert result.attrs["temporal_edge"] == "reference_to_secondary"
         assert result.spatial_ref.attrs["epsg_code"] == 32611
         np.testing.assert_allclose(result.ionosphere, [[0.1, 0.2], [0.3, 0.4]])

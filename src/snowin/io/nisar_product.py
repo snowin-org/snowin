@@ -118,7 +118,6 @@ def _open_nisar_gunw_layer(
     """Open a GUNW layer through nisar_pytools and return its owning tree."""
     try:
         from nisar_pytools import open_nisar
-        from nisar_pytools.utils.metadata import get_gunw
     except ImportError as exc:
         raise ImportError(
             "Opening NISAR GUNW files requires nisar_pytools; install SnowIn "
@@ -136,15 +135,10 @@ def _open_nisar_gunw_layer(
                 "GUNW does not contain the requested HH or VV unwrapped phase "
                 f"layer; available polarizations: {available}"
             )
-        layer = get_gunw(
-            tree,
-            polarization=polarization,
-            layer="unwrappedInterferogram",
-            frequency=frequency,
-            valid_mask=False,
-        )
+        layer_path = f"{layer_path}/{polarization}"
+        layer = tree[layer_path].to_dataset()
         if not isinstance(layer, xr.Dataset):
-            raise TypeError("nisar_pytools.get_gunw did not return an xarray Dataset")
+            raise TypeError("nisar_pytools did not expose the GUNW layer as a Dataset")
         return tree, layer, polarization
     except Exception:
         # nisar_pytools owns the HDF5 handle through a DataTree finalizer.
@@ -153,15 +147,15 @@ def _open_nisar_gunw_layer(
         raise
 
 
-def _nisar_acquisition_time(tree: Any, role: Literal["reference", "secondary"]) -> str:
-    """Read acquisition times from the upstream tree metadata helper."""
-    from nisar_pytools.utils.metadata import get_acquisition_time
-
-    times = get_acquisition_time(tree)
-    value = getattr(times, role)
+def _nisar_acquisition_time(path: Path, role: Literal["reference", "secondary"]) -> str:
+    """Read the pair-specific acquisition time from GUNW identification metadata."""
+    value = read_scalar_hdf5(
+        path,
+        f"{IDENTIFICATION_GROUP}/{role}ZeroDopplerStartTime",
+    )
     if value is None or str(value) in {"NaT", ""}:
         raise ValueError(f"GUNW is missing required {role} acquisition time metadata")
-    return _iso_utc(value.to_pydatetime(), f"{role}_time")
+    return _iso_utc(value, f"{role}_time")
 
 
 def open_gunw(
@@ -374,8 +368,8 @@ def open_gunw(
         attrs: dict[str, Any] = {
             "snowin_schema_version": "0.1-draft",
             "product_kind": "pairwise_interferogram",
-            "reference_time": _nisar_acquisition_time(tree, "reference"),
-            "secondary_time": _nisar_acquisition_time(tree, "secondary"),
+            "reference_time": _nisar_acquisition_time(path, "reference"),
+            "secondary_time": _nisar_acquisition_time(path, "secondary"),
             "temporal_edge": "reference_to_secondary",
             "phase_difference_definition": _CANONICAL_PHASE_DEFINITION,
             "source_phase_difference_definition": NISAR_GUNW_SOURCE_PHASE_DEFINITION,

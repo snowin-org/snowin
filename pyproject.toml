@@ -77,6 +77,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = ["--strict-config", "--strict-markers"]
 filterwarnings = [
   "error::Warning:snowin(\\.|$)",
