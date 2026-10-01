@@ -9,8 +9,6 @@ Built on [xarray](https://xarray.dev/), SnowIn uses labeled `DataArray` and `Dat
 
 **SnowIn** currently supports NASA–ISRO SAR ([NISAR](https://nisar-docs.asf.alaska.edu/nisar-intro/)) Geocoded Unwrapped Interferogram ([GUNW](https://nisar-docs.asf.alaska.edu/gunw/)) products by preserving phase convention, wavelength, geometry, grid, and source metadata. The underlying scientific operations remain product-independent, with the goal of supporting additional InSAR missions and product types as the package develops.
 
-**SnowIn** intentionally does not choose or download remote-sensing products, apply phase corrections, select masks or reference contributors, read station data, or define study-specific validation. Those decisions remain in the user's workflow. 
-
 ## Installation
 
 SnowIn 0.1.0 is not published yet. For now, install this checkout:
