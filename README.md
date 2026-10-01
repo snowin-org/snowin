@@ -3,8 +3,8 @@
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](#installation)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-SnowIn is a scientific Python package for estimating pairwise changes in snow
-water equivalent (dSWE) from interferometric phase. It provides named
+`SnowIn` is a scientific Python package for estimating pairwise changes in snow
+water equivalent ($\Delta$SWE) from InSAR phase. It provides named
 phase-to-dSWE methods, explicit xarray reference and support operations,
 chronological accumulation, and an optional NISAR GUNW adapter.
 
