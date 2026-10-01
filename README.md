@@ -1,11 +1,15 @@
-# SnowIn
+# SnowIn: InSAR tools for snow
 
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](#installation)
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/snowin-org/snowin/blob/main/LICENSE)
 
-`SnowIn` is a scientific Python package for estimating pairwise changes in snow
-water equivalent (ΔSWE) from InSAR phase. Built on [xarray](https://xarray.dev/), he package includes all published phase-to-ΔSWE equations, with functionality for
-time-series accumulation, phase referencing, incidence angle data creation with explict meta data handling. The current version supports NASA–ISRO SAR ([NISAR](https://nisar-docs.asf.alaska.edu/nisar-intro/)) Geocoded Unwrapped Interferogram ([GUNW](https://nisar-docs.asf.alaska.edu/gunw/)) data products, with a goal to expand to other InSAR missions and product types in the future.
+**SnowIn** is an open-source Python package for estimating pairwise changes in snow water equivalent (ΔSWE) from interferometric synthetic aperture radar (InSAR) phase. SnowIn provides the scientific core for developing, testing, and comparing InSAR-based SWE retrieval algorithms in a consistent xarray-native framework, allowing researchers to focus on retrieval science rather than rebuilding data handling, geometry, referencing, support, and time-series logic for each study.
+
+Built on [xarray](https://xarray.dev/), SnowIn uses labeled `DataArray` and `Dataset` objects or explict metadata handling, package implements published phase-to-ΔSWE retrieval methods, including the Guneriussen, Leinss, and Oveisgharan formulations, together with tools for phase referencing, support-mask composition, local-incidence-angle calculation, and chronological ΔSWE accumulation.
+
+**SnowIn** currently supports NASA–ISRO SAR ([NISAR](https://nisar-docs.asf.alaska.edu/nisar-intro/)) Geocoded Unwrapped Interferogram ([GUNW](https://nisar-docs.asf.alaska.edu/gunw/)) products by preserving phase convention, wavelength, geometry, grid, and source metadata. The underlying scientific operations remain product-independent, with the goal of supporting additional InSAR missions and product types as the package develops.
+
+**SnowIn** intentionally does not choose or download remote-sensing products, apply phase corrections, select masks or reference contributors, read station data, or define study-specific validation. Those decisions remain in the user's workflow. 
 
 ## Installation
 
