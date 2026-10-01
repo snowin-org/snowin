@@ -4,14 +4,8 @@
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
 `SnowIn` is a scientific Python package for estimating pairwise changes in snow
-water equivalent ($\Delta$SWE) from InSAR phase. It provides named
-phase-to-dSWE methods, explicit xarray reference and support operations,
-chronological accumulation, and an optional NISAR GUNW adapter.
-
-SnowIn does not choose products, download data, apply phase corrections, select
-masks or reference contributors, read station data, or evaluate study results.
-Those choices stay in the user's workflow. Pairwise and cumulative dSWE are
-changes relative to a radar epoch, not absolute SWE.
+water equivalent (ΔSWE) from InSAR phase. Built on [xarray](https://xarray.dev/), he package includes all published phase-to-ΔSWE equations, with functionality for
+time-series accumulation, phase referencing, incidence angle data creation with explict meta data handling. The current version supports NASA–ISRO SAR ([NISAR](https://nisar-docs.asf.alaska.edu/nisar-intro/)) Geocoded Unwrapped Interferogram ([GUNW](https://nisar-docs.asf.alaska.edu/gunw/)) data products, with a goal to expand to other InSAR missions and product types in the future.
 
 ## Installation
 
