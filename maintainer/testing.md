@@ -3,7 +3,7 @@
 This is the standard policy for tests that protect SnowIn's scientific
 behavior. A scientific function is not adequately tested merely because it
 runs and returns an array of the expected shape. Its mathematics, conventions,
-numerics, labeled-array contract, failure behavior, and computational behavior
+numerics, labeled-array requirements, failure behavior, and computational behavior
 must remain independently reviewable.
 
 ## Six core protections for public scientific operations
@@ -51,7 +51,7 @@ for invalid units, unknown phase conventions, missing required metadata,
 invalid angles or wavelengths, incompatible dimensions or coordinates,
 malformed temporal edges, and incompatible grids. Do not silently guess a
 phase sign, convert ambiguous units, or align/resample scientific grids inside
-a kernel when the public contract requires explicit normalization.
+a kernel when callers must convert or resample before calling it.
 
 Warnings that are part of expected behavior should be asserted with
 `pytest.warns(...)`. Unexpected warnings from `snowin` are configured as errors
@@ -61,7 +61,7 @@ for its internal use of `Affine *` instead of `Affine @`; the filter matches
 only that warning category and exact message. SnowIn warnings are not covered
 by this exception.
 
-### 4. xarray and data-model contract
+### 4. Xarray data model
 
 For xarray-native functions, test more than `.values`. Protect applicable
 dimensions and order, sizes, coordinates and orientation, names, attributes,
@@ -70,9 +70,9 @@ reference, wavelength, support masks, and source metadata. A correct raster on t
 wrong grid or with the wrong sign or units is a failed scientific result.
 
 Use `xr.testing.assert_allclose` for numerically tolerant labeled comparisons,
-`xr.testing.assert_equal` for exact values/coordinates without requiring equal
-attributes, and `xr.testing.assert_identical` when attributes and the complete
-xarray structure are part of the contract.
+`xr.testing.assert_equal` for exact values and coordinates without requiring
+equal attributes, and `xr.testing.assert_identical` when attributes and the
+complete xarray structure must match.
 
 ### 5. Eager and lazy equivalence
 
@@ -83,7 +83,7 @@ Dask-backed before `.compute()`. A scientific operation should not trigger
 `.compute()` internally unless that reduction is explicitly documented.
 
 Tests should use tiny arrays and simple chunking. Dask equivalence is a
-behavioral contract, not a performance benchmark.
+required behavior, not a performance benchmark.
 
 ### 6. Regression protection
 
@@ -144,7 +144,7 @@ when they remove substantial repeated setup, but they should not hide grid,
 unit, sign, or support assumptions. Keep fixture factories small and explicit.
 
 At least one synthetic integration test should connect meaningful public
-operations—for example, product phase normalization, reference handling,
+operations—for example, product phase conversion, reference handling,
 support composition, phase-to-dSWE conversion, temporal
 accumulation, and inspection of the final xarray result. Its expected values
 should follow from a small analytical example.

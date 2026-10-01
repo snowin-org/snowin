@@ -36,9 +36,9 @@ and records the correction source in output metadata. Set
 require_vertical_datum_match=True to fail rather than proceed with unmatched
 vertical datums.
 
-The source label is part of the scientific input contract; it does not verify
-external DEM source metadata. The workflow must record where its prepared file came
-from, its coverage, CRS, resolution, no-data handling, and vertical datum.
+The source label records the caller's DEM selection; it does not verify the
+external file's vertical datum. Record where the prepared file came from, its
+coverage, CRS, resolution, no-data handling, and vertical datum.
 
 References:
 

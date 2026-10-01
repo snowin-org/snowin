@@ -1,6 +1,6 @@
 """Optional product adapters for SnowIn-supported inputs."""
 
-from .geometry import DEMSource, compute_cop30_local_incidence
+from .geometry import DEMSource, compute_local_incidence
 from .nisar_product import (
     add_gunw_incidence,
     compute_gunw_incidence,
@@ -18,8 +18,8 @@ __all__ = [
     "NISAR_GUNW_SOURCE_PHASE_DEFINITION",
     "DEMSource",
     "add_gunw_incidence",
-    "compute_cop30_local_incidence",
     "compute_gunw_incidence",
+    "compute_local_incidence",
     "normalize_gunw_pair",
     "open_gunw",
     "read_gunw_wavelength_m",

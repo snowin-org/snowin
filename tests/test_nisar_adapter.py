@@ -1,4 +1,4 @@
-"""Tests for the NISAR GUNW to normalized SnowIn Dataset boundary."""
+"""Tests for reading NISAR GUNW data into SnowIn pair Datasets."""
 
 from __future__ import annotations
 
@@ -71,7 +71,7 @@ def test_normalize_gunw_pair_applies_explicit_source_transform():
     assert result.spatial_ref.attrs["epsg_code"] == 32611
 
 
-def test_normalize_gunw_pair_normalizes_explicit_offsets_to_utc():
+def test_pair_times_with_explicit_offsets_are_stored_as_utc():
     phase, incidence, spatial_ref = _pair_inputs()
     result = normalize_gunw_pair(
         phase,
@@ -85,6 +85,24 @@ def test_normalize_gunw_pair_normalizes_explicit_offsets_to_utc():
 
     assert result.attrs["reference_time"] == "2025-01-01T00:00:00Z"
     assert result.attrs["secondary_time"] == "2025-01-13T00:00:00Z"
+
+
+@pytest.mark.parametrize(
+    ("reference_time", "message"),
+    [(None, "reference_time is missing"), ("not-a-time", "reference_time is invalid")],
+)
+def test_pair_time_errors_distinguish_missing_from_invalid(reference_time, message):
+    phase, incidence, spatial_ref = _pair_inputs()
+    with pytest.raises(ValueError, match=message):
+        normalize_gunw_pair(
+            phase,
+            incidence,
+            wavelength_m=0.24,
+            reference_time=reference_time,
+            secondary_time="2025-01-13T00:00:00Z",
+            source_phase_difference_definition="secondary_minus_reference",
+            spatial_ref=spatial_ref,
+        )
 
 
 def test_normalize_gunw_pair_orders_subsecond_times_as_instants():
@@ -138,7 +156,7 @@ def test_normalize_gunw_pair_rejects_nonchronological_reference_secondary_times(
         )
 
 
-def test_shared_normalizer_rejects_uncontracted_native_grid_variable():
+def test_pair_builder_rejects_undeclared_native_grid_variable():
     phase, _, spatial_ref = _pair_inputs()
     native_layer = xr.DataArray(
         np.ones((2, 3)),
@@ -158,7 +176,7 @@ def test_shared_normalizer_rejects_uncontracted_native_grid_variable():
         )
 
 
-def test_shared_normalizer_checks_native_grid_dimension_contract():
+def test_pair_builder_checks_declared_native_grid_dimensions():
     phase, _, spatial_ref = _pair_inputs()
     malformed_layer = xr.DataArray(
         np.ones((2, 2, 3)),
@@ -181,10 +199,20 @@ def test_shared_normalizer_checks_native_grid_dimension_contract():
         )
 
 
-@pytest.mark.parametrize("source", [None, "unknown", "reference_minus_secondaryx"])
-def test_normalize_gunw_pair_rejects_missing_or_unknown_source_convention(source):
+@pytest.mark.parametrize(
+    ("source", "message"),
+    [
+        (None, "is missing"),
+        ("", "is missing"),
+        ("unknown", "is unsupported"),
+        ("reference_minus_secondaryx", "is unsupported"),
+    ],
+)
+def test_normalize_gunw_pair_reports_missing_and_unsupported_phase_conventions(
+    source, message
+):
     phase, incidence, spatial_ref = _pair_inputs()
-    with pytest.raises(ValueError, match="missing or unknown"):
+    with pytest.raises(ValueError, match=message):
         normalize_gunw_pair(
             phase,
             incidence,
@@ -196,10 +224,25 @@ def test_normalize_gunw_pair_rejects_missing_or_unknown_source_convention(source
         )
 
 
-def test_normalize_gunw_pair_requires_explicit_radian_metadata():
+@pytest.mark.parametrize(
+    ("target", "units", "message"),
+    [
+        ("phase", None, "source phase units are missing"),
+        ("phase", "degrees", "source phase units .* unsupported"),
+        ("incidence", None, "incidence_angle units are missing"),
+        ("incidence", "degrees", "incidence_angle units .* unsupported"),
+    ],
+)
+def test_normalize_gunw_pair_reports_missing_and_unsupported_units(
+    target, units, message
+):
     phase, incidence, spatial_ref = _pair_inputs()
-    phase.attrs = {}
-    with pytest.raises(ValueError, match="radians"):
+    variable = phase if target == "phase" else incidence
+    if units is None:
+        variable.attrs.pop("units")
+    else:
+        variable.attrs["units"] = units
+    with pytest.raises(ValueError, match=message):
         normalize_gunw_pair(
             phase,
             incidence,
@@ -223,7 +266,7 @@ def test_nisar_wavelength_is_derived_from_center_frequency(tmp_path):
     assert read_gunw_wavelength_m(path) == pytest.approx(0.299792458)
 
 
-def test_nisar_adapter_opens_lazy_normalized_gunw(tmp_path):
+def test_nisar_adapter_converts_phase_and_preserves_laziness(tmp_path):
     pytest.importorskip("scipy")
     h5netcdf = pytest.importorskip("h5netcdf")
     path = tmp_path / "test_gunw.h5"
@@ -274,7 +317,7 @@ def test_nisar_adapter_opens_lazy_normalized_gunw(tmp_path):
         result.close()
 
 
-def test_nisar_adapter_normalizes_offsets_and_rejects_reversed_pair_times(tmp_path):
+def test_nisar_adapter_converts_times_and_rejects_reversed_pairs(tmp_path):
     h5netcdf = pytest.importorskip("h5netcdf")
     offset_path = tmp_path / "test_gunw_time_offsets.h5"
     _write_synthetic_gunw(

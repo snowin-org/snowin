@@ -1,13 +1,23 @@
-# SnowIn: InSAR tools for snow
+# SnowIn
 
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](#installation)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/snowin-org/snowin/blob/main/LICENSE)
 
-**SnowIn** is an open-source Python package for estimating pairwise changes in snow water equivalent (ΔSWE) from interferometric synthetic aperture radar (InSAR) phase. SnowIn provides the scientific core for developing, testing, and comparing InSAR-based SWE retrieval algorithms in a consistent xarray-native framework, allowing researchers to focus on retrieval science rather than rebuilding data handling, geometry, referencing, support, and time-series logic for each study.
+SnowIn estimates pairwise changes in snow water equivalent (dSWE) from
+interferometric phase. Its retrieval methods use Xarray `DataArray` and
+`Dataset` objects. The package also provides phase referencing, support-mask
+composition, incidence geometry, and temporal accumulation.
 
-Built on [xarray](https://xarray.dev/), SnowIn uses labeled `DataArray` and `Dataset` objects or explict metadata handling, package implements published phase-to-ΔSWE retrieval methods, including the Guneriussen, Leinss, and Oveisgharan formulations, together with tools for phase referencing, support-mask composition, local-incidence-angle calculation, and chronological ΔSWE accumulation.
+SnowIn uses these signs and edge direction:
 
-**SnowIn** currently supports NASA–ISRO SAR ([NISAR](https://nisar-docs.asf.alaska.edu/nisar-intro/)) Geocoded Unwrapped Interferogram ([GUNW](https://nisar-docs.asf.alaska.edu/gunw/)) products by preserving phase convention, wavelength, geometry, grid, and source metadata. The underlying scientific operations remain product-independent, with the goal of supporting additional InSAR missions and product types as the package develops.
+```text
+phase = phi_secondary - phi_reference
+dSWE = SWE_secondary - SWE_reference
+temporal edge = reference -> secondary
+```
+
+Available retrievals are Leinss, Guneriussen, and Oveisgharan. The optional
+NISAR adapter reads Geocoded Unwrapped Interferogram (GUNW) products.
 
 ## Installation
 
@@ -37,8 +47,7 @@ After publication, the same commands work with `snowin` in place of `.`.
 
 ## Quick start
 
-Phase is `phi_secondary - phi_reference`; phase and incidence are in radians,
-and wavelength is in metres.
+Incidence is in radians and wavelength is in metres.
 
 ```python snowin-quickstart
 import math
@@ -66,8 +75,9 @@ Use `compute_guneriussen_dswe()` for the density-dependent method or
 
 ## NISAR GUNW
 
-`open_gunw()` normalizes phase and product metadata. Local incidence is a
-separate operation using a caller-prepared DEM:
+`open_gunw()` converts the source phase to the SnowIn convention and reads
+product metadata. Local incidence is a separate operation using a
+caller-prepared DEM:
 
 ```python
 from snowin import compute_leinss_dswe
@@ -99,10 +109,10 @@ See notebooks [01](notebooks/01_core_snowin_workflow.ipynb),
 [02](notebooks/02_real_nisar_gunw_workflow.ipynb), and
 [03](notebooks/03_nisar_pytools_search_and_snowin.ipynb) for complete examples.
 
-## Scientific contract and citation
+## Documentation and citation
 
 Read the [scientific conventions](docs/scientific_conventions.md),
-[normalized data model](docs/data_model.md), and
+[data model](docs/data_model.md), and
 [DEM vertical datum assumptions](docs/vertical_datums.md). Method references
 and product source metadata are in [scientific sources](docs/scientific_sources.md).
 

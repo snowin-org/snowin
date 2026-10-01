@@ -30,7 +30,7 @@ Only after both reviews are complete and their findings are resolved should a
 separate release decision and packaging task begin. That later task should:
 
 1. Start from a clean main or release branch and confirm the reviewed commit.
-2. Review and freeze the normalized data contract and public API for the
+2. Review the supported Dataset variables, attributes, and public API for the
    release; record the schema version.
 3. Run tests, coverage, Ruff, strict MkDocs, package build, and wheel smoke
    checks from the release environment.

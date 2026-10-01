@@ -1,4 +1,4 @@
-"""NISAR phase convention and normalized pair Dataset implementation."""
+"""Convert NISAR phase and build an xarray pair Dataset."""
 
 from __future__ import annotations
 
@@ -35,6 +35,8 @@ _KNOWN_PHASE_DEFINITIONS = {
 
 
 def _positive_scalar(name: str, value: object) -> float:
+    if value is None:
+        raise TypeError(f"{name} is missing; provide a finite positive value")
     if not isinstance(value, Real):
         raise TypeError(f"{name} must be a finite positive scalar")
     result = float(value)
@@ -60,9 +62,7 @@ def _serializable_attrs(attrs: Mapping[str, Any]) -> dict[str, Any]:
 
 def _require_2d(name: str, value: xr.DataArray) -> None:
     if value.dims != ("y", "x"):
-        raise ValueError(
-            f"{name} must use normalized dimensions ('y', 'x'); got {value.dims!r}"
-        )
+        raise ValueError(f"{name} must use dimensions ('y', 'x'); got {value.dims!r}")
 
 
 def _require_aligned(phase: xr.DataArray, incidence_angle: xr.DataArray) -> None:
@@ -78,29 +78,34 @@ def _require_aligned(phase: xr.DataArray, incidence_angle: xr.DataArray) -> None
 
 
 def _validate_source_convention(source: object) -> str:
-    if source not in _KNOWN_PHASE_DEFINITIONS:
+    if source is None or (isinstance(source, str) and not source.strip()):
         raise ValueError(
-            "source_phase_difference_definition is missing or unknown; expected "
+            "source_phase_difference_definition is missing; provide a known "
+            "phase difference definition"
+        )
+    if not isinstance(source, str) or source not in _KNOWN_PHASE_DEFINITIONS:
+        raise ValueError(
+            f"source phase definition {source!r} is unsupported; expected "
             "'reference_minus_secondary' or 'secondary_minus_reference'"
         )
     return str(source)
 
 
-def _normalize_source_phase(
+def _convert_source_phase(
     phase: xr.DataArray, source_definition: str
 ) -> tuple[xr.DataArray, str]:
-    """Apply an explicit source convention and attach normalized phase metadata."""
+    """Convert a known source phase direction to the SnowIn convention."""
     source_definition = _validate_source_convention(source_definition)
     if source_definition == "reference_minus_secondary":
-        normalized_phase = -phase
+        snowin_phase = -phase
         transform = NISAR_GUNW_PHASE_TRANSFORM
     else:
-        normalized_phase = phase
+        snowin_phase = phase
         transform = "identity"
 
-    normalized_phase = normalized_phase.rename("phase")
-    normalized_phase.attrs = _serializable_attrs(phase.attrs)
-    normalized_phase.attrs.update(
+    snowin_phase = snowin_phase.rename("phase")
+    snowin_phase.attrs = _serializable_attrs(phase.attrs)
+    snowin_phase.attrs.update(
         {
             "units": "rad",
             "phase_difference_definition": _SNOWIN_PHASE_DEFINITION,
@@ -110,7 +115,7 @@ def _normalize_source_phase(
             "grid_mapping": "spatial_ref",
         }
     )
-    return normalized_phase, transform
+    return snowin_phase, transform
 
 
 def _build_phase_normalized_dataset(
@@ -127,13 +132,13 @@ def _build_phase_normalized_dataset(
     native_grid_dimensions: Mapping[str, tuple[tuple[str, ...], ...]] | None = None,
     source_metadata: Mapping[str, Any] | None = None,
 ) -> xr.Dataset:
-    """Build the shared phase-normalized product and metadata contract.
+    """Build a pair Dataset with phase in the SnowIn convention.
 
-    Additional variables must either match the phase grid or have a named
-    native-grid dimension contract supplied by the product adapter.
+    Additional variables must use the phase grid or a native-grid dimension
+    layout declared by the product adapter.
     """
     source_definition = _validate_source_convention(source_phase_difference_definition)
-    normalized_phase, transform = _normalize_source_phase(phase, source_definition)
+    snowin_phase, transform = _convert_source_phase(phase, source_definition)
     reference_instant = parse_utc_timestamp(reference_time, "reference_time")
     secondary_instant = parse_utc_timestamp(secondary_time, "secondary_time")
     if secondary_instant <= reference_instant:
@@ -160,7 +165,7 @@ def _build_phase_normalized_dataset(
     if source_metadata:
         attrs.update(_serializable_attrs(source_metadata))
 
-    variables: dict[str, xr.DataArray] = {"phase": normalized_phase}
+    variables: dict[str, xr.DataArray] = {"phase": snowin_phase}
     native_grid_dimensions = native_grid_dimensions or {}
     for name, variable in (additional_variables or {}).items():
         if variable.dims == ("y", "x"):
@@ -221,11 +226,11 @@ def normalize_gunw_pair(
     additional_variables: Mapping[str, xr.DataArray] | None = None,
     source_metadata: Mapping[str, Any] | None = None,
 ) -> xr.Dataset:
-    """Normalize phase and geometry into the SnowIn pair Dataset contract.
+    """Convert source phase and build a pair Dataset with required metadata.
 
-    The source convention is deliberately required.  A product adapter may
+    The source convention is deliberately required. A product adapter may
     supply a documented product-specific value, but this function never
-    guesses from phase values or from a numerical sign.
+    infers it from phase values.
     """
     if not isinstance(phase, xr.DataArray) or not isinstance(
         incidence_angle, xr.DataArray
@@ -239,17 +244,32 @@ def normalize_gunw_pair(
     reference_time = _iso_utc(reference_time, "reference_time")
     secondary_time = _iso_utc(secondary_time, "secondary_time")
 
-    if phase.attrs.get("units") not in {"rad", "radian", "radians"}:
-        raise ValueError("source phase must declare radians in its units metadata")
-    if incidence_angle.attrs.get("units") not in {"rad", "radian", "radians"}:
-        raise ValueError("incidence_angle must declare radians in its units metadata")
-    if incidence_angle.attrs.get("incidence_angle_reference") not in {
-        "ellipsoid",
-        "local",
-    }:
+    phase_units = phase.attrs.get("units")
+    if phase_units is None or (
+        isinstance(phase_units, str) and not phase_units.strip()
+    ):
+        raise ValueError("source phase units are missing; expected radians")
+    if phase_units not in {"rad", "radian", "radians"}:
         raise ValueError(
-            "incidence_angle must declare incidence_angle_reference as "
-            "'ellipsoid' or 'local'"
+            f"source phase units {phase_units!r} are unsupported; expected radians"
+        )
+    incidence_units = incidence_angle.attrs.get("units")
+    if incidence_units is None or (
+        isinstance(incidence_units, str) and not incidence_units.strip()
+    ):
+        raise ValueError("incidence_angle units are missing; expected radians")
+    if incidence_units not in {"rad", "radian", "radians"}:
+        raise ValueError(
+            f"incidence_angle units {incidence_units!r} are unsupported; "
+            "expected radians"
+        )
+    incidence_reference = incidence_angle.attrs.get("incidence_angle_reference")
+    if incidence_reference is None:
+        raise ValueError("incidence_angle_reference is missing")
+    if incidence_reference not in {"ellipsoid", "local"}:
+        raise ValueError(
+            f"incidence_angle_reference {incidence_reference!r} is unsupported; "
+            "expected 'ellipsoid' or 'local'"
         )
     _require_aligned(phase, incidence_angle)
 

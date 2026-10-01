@@ -97,7 +97,7 @@ def test_reference_metadata_preserves_exclusion_class():
         "eligible",
         "heldout_input_gate_or_corrected_window_invalid",
     ]
-    assert result.attrs["phase_reference_provenance"]
+    assert result.attrs["phase_reference_estimate_details"]
 
 
 def test_temporal_missing_support_is_propagated_not_zero_filled():

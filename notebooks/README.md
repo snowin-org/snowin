@@ -1,8 +1,15 @@
 # SnowIn notebooks
 
-1. [`01_core_snowin_workflow.ipynb`](01_core_snowin_workflow.ipynb) introduces the synthetic xarray science using the base NumPy/xarray dependencies.
-2. [`02_real_nisar_gunw_workflow.ipynb`](02_real_nisar_gunw_workflow.ipynb) opens the bundled cropped GUNW sample for an out-of-the-box adapter demonstration using product ellipsoid incidence. For NISAR snow science, set `SNOWIN_GUNW` and `SNOWIN_NISAR_DEM` to a real product and matching NISAR-modified Copernicus DEM for terrain-local incidence; install the `nisar`, `geometry`, and `dask` extras.
-3. [`03_nisar_pytools_search_and_snowin.ipynb`](03_nisar_pytools_search_and_snowin.ipynb) optionally searches/acquires a GUNW through `nisar-pytools`; network access and configured Earthdata credentials may be required.
+1. [`01_core_snowin_workflow.ipynb`](01_core_snowin_workflow.ipynb) demonstrates
+   the synthetic Xarray workflow with NumPy and Xarray.
+2. [`02_real_nisar_gunw_workflow.ipynb`](02_real_nisar_gunw_workflow.ipynb)
+   reads the bundled GUNW crop and uses its ellipsoid incidence. For
+   terrain-local incidence, set `SNOWIN_GUNW` and `SNOWIN_NISAR_DEM` to a
+   matching product and NISAR-modified Copernicus DEM, and install the
+   `nisar`, `geometry`, and `dask` extras.
+3. [`03_nisar_pytools_search_and_snowin.ipynb`](03_nisar_pytools_search_and_snowin.ipynb)
+   shows an optional GUNW search and download through `nisar-pytools`; it may
+   need network access and Earthdata credentials.
 
 Install Jupyter and notebook display tools with the `notebooks` dependency group:
 

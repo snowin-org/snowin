@@ -14,7 +14,7 @@ from snowin.io import add_gunw_incidence, open_gunw
 
 @pytest.mark.integration
 def test_real_gunw_phase_lineage_is_explicit():
-    """Verify the raw product is preserved and normalized by the declared transform."""
+    """Verify raw product phase uses the explicitly declared conversion."""
     gunw = os.environ.get("SNOWIN_REAL_GUNW")
     if not gunw:
         pytest.skip("set SNOWIN_REAL_GUNW for the external GUNW lineage check")

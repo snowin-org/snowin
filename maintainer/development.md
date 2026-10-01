@@ -1,8 +1,8 @@
 # Development
 
-SnowIn supports Python 3.12 and newer. The package uses a `src/` layout and
-`pyproject.toml` is the authority for runtime dependencies, optional features,
-development tools, and documentation tools.
+SnowIn supports Python 3.12 and newer. The package uses a `src/` layout.
+`pyproject.toml` lists runtime dependencies, optional features, development
+tools, and documentation tools.
 
 ## Install
 
@@ -17,6 +17,13 @@ For the base scientific package, install `-e .`. Add only the feature extras
 needed in your workflow: `nisar` for GUNW reading, `geometry` for prepared-DEM
 local incidence, and `dask` for chunked arrays. The notebook group contains
 Jupyter and plotting tools; none are runtime dependencies.
+
+## Names and descriptions
+
+Use established Earth-science, Xarray, Dask, Rasterio, and Python terminology.
+Prefer names that identify a scientific quantity, data structure, or
+operation. Keep phase sign, units, CRS, coordinates, missing values, and other
+scientifically important metadata explicit rather than guessed.
 
 ## Quality checks
 

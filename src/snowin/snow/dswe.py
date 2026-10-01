@@ -1,6 +1,6 @@
 """Named xarray-native phase-to-dSWE retrieval methods.
 
-The public functions accept phase normalized to SnowIn's required convention.
+The public functions accept phase in SnowIn's required convention.
 Product-specific phase conventions belong at an adapter boundary. Wavelength
 is supplied explicitly or resolved from authoritative product metadata.
 """
@@ -18,7 +18,7 @@ LEINSS_SNOW_PATH_CONSTANT = 1.59
 """Empirical dry-snow path constant in the Leinss approximation."""
 
 SNOWIN_PHASE_DEFINITION = "secondary_minus_reference"
-"""SnowIn's required normalized phase orientation."""
+"""SnowIn's required phase orientation."""
 
 _VALID_ANGLE_UNITS = {"rad", "radian", "radians"}
 _VALID_INCIDENCE_REFERENCES = {"ellipsoid", "local"}
@@ -33,6 +33,8 @@ OVEISGHARAN_A_THETA_COEFFICIENTS = (-0.6784, 0.2899, -0.8473)
 
 
 def _validate_positive_scalar(name: str, value: object) -> float:
+    if value is None:
+        raise TypeError(f"{name} is missing; provide a finite positive value")
     if not isinstance(value, Real):
         raise TypeError(f"{name} must be a finite positive scalar in SI units")
     value_float = float(value)
@@ -160,16 +162,21 @@ def _validate_common_inputs(
     _require_radians("incidence_angle", incidence_angle)
 
     incidence_reference = incidence_angle.attrs.get("incidence_angle_reference")
+    if incidence_reference is None:
+        raise ValueError("incidence_angle_reference is missing")
     if incidence_reference not in _VALID_INCIDENCE_REFERENCES:
         raise ValueError(
-            "incidence_angle must declare incidence_angle_reference as "
-            "'local' or 'ellipsoid'"
+            f"incidence_angle_reference {incidence_reference!r} is unsupported; "
+            "expected 'local' or 'ellipsoid'"
         )
 
     phase_definition = phase.attrs.get("phase_difference_definition")
+    if phase_definition is None:
+        raise ValueError("phase_difference_definition is missing")
     if phase_definition != SNOWIN_PHASE_DEFINITION:
         raise ValueError(
-            "phase must use the SnowIn phase convention 'secondary_minus_reference'"
+            f"phase_difference_definition is {phase_definition!r}; this function "
+            "expects the SnowIn convention 'secondary_minus_reference'"
         )
 
     _validate_alignment(phase, incidence_angle)
@@ -260,7 +267,7 @@ def compute_leinss_dswe(
 ) -> xr.DataArray:
     r"""Compute pairwise dSWE with the Leinss et al. approximation.
 
-    ``phase`` must be SnowIn's normalized secondary-minus-reference phase in
+    ``phase`` must use SnowIn's secondary-minus-reference phase direction in
     radians. ``incidence_angle`` must be aligned radians and declare whether it
     is local or ellipsoid-referenced. Supply wavelength explicitly in metres.
 

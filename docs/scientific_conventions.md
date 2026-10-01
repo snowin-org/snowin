@@ -1,8 +1,8 @@
 # Scientific conventions
 
-These conventions define SnowIn's phase, retrieval, grid, support, and
-temporal semantics. Ambiguity in a scientifically consequential input must
-fail rather than be guessed.
+This page states SnowIn's phase and dSWE signs, required units, grid behavior,
+and temporal direction. SnowIn raises an error when a required scientific
+convention is missing or unsupported.
 
 ## Quantities and direction
 
@@ -15,11 +15,21 @@ interferometric phase
     -> absolute SWE only with an independent initial SWE condition
 ```
 
-The SnowIn phase convention is `phi_secondary - phi_reference`, in radians. A pair is
-directed from `reference_time` to `secondary_time`; those product roles do not
-imply chronological order. The dSWE sign is `SWE_secondary - SWE_reference`.
-Accumulation validates chronology and contiguity and never sorts, fills, or
-interpolates missing edges.
+```text
+phase = phi_secondary - phi_reference
+dSWE = SWE_secondary - SWE_reference
+temporal edge = reference -> secondary
+```
+
+Phase is in radians and dSWE is in metres. The reference and secondary names
+identify the phase roles; a valid pair also has a later secondary acquisition.
+Accumulation checks that edges are chronological and contiguous. It does not
+sort edges, fill missing values, or interpolate between acquisitions.
+
+When the source uses the known opposite definition,
+`phi_reference - phi_secondary`, the adapter multiplies phase by -1.
+SnowIn raises an error if the source phase definition is missing or
+unsupported; it does not infer the sign from phase values.
 
 ## Phase-to-dSWE methods
 
@@ -30,12 +40,11 @@ dSWE = phase * wavelength_m
        / (2*pi*alpha*(1.59 + incidence_angle_rad**2.5))
 ```
 
-The phase uses the SnowIn convention in radians, wavelength is metres, incidence is radians,
-and `alpha` is dimensionless. The empirical angle term uses radians
-numerically. This is a dry-snow change retrieval, not an absolute-SWE model or
-a universal accuracy guarantee. Its local terrain-surface incidence is the
-physical preference; an ellipsoid-referenced approximation remains explicitly
-identified in metadata.
+The phase and incidence angle are in radians, wavelength is in metres, and
+`alpha` is dimensionless. The empirical angle term uses radians numerically.
+This is a dry-snow change retrieval, not an absolute-SWE model. Local
+terrain-surface incidence is preferred; an ellipsoid-referenced angle is
+identified in the output metadata.
 
 `compute_guneriussen_dswe()` is a distinct density-dependent formulation and
 requires snow density in kg m-3. `compute_oveisgharan_dswe()` is a separate
@@ -55,30 +64,29 @@ Phase and incidence use radians. Every incidence array identifies its
 reference as `local` or `ellipsoid`; one is not silently substituted for the
 other. Valid retrieval incidence is finite and in `[0, pi/2)`. Local NISAR
 incidence is calculated from GUNW target-to-sensor LOS vectors and a
-DEM-derived terrain normal. Unsupported and back-facing terrain remains
-missing and is marked invalid.
+DEM-derived terrain normal. Pixels without valid geometry have missing
+incidence and `geometry_valid=False`.
 
 The geometry operation requires a caller-prepared DEM and records source and
 vertical datum assumptions. GUNW radar-grid heights use the WGS84 ellipsoid;
 orthometric DEMs require a declared vertical correction when strict datum
 matching is requested. See [vertical datums](vertical_datums.md).
 
-## xarray grid and missing-data contracts
+## Xarray grids and missing data
 
-SnowIn preserves dimensions, coordinate values and order, CRS/grid-mapping
-metadata and Dask laziness where promised. Scientific kernels do
-not silently align or resample grids. NaN and unknown support propagate; they
-are never replaced by zero or assumed valid.
+SnowIn preserves dimensions, coordinate values and order, and CRS metadata.
+Retrieval functions, support composition, and temporal accumulation preserve
+Dask-backed arrays where promised. They do not align or resample grids. NaN
+values and unknown support remain missing; SnowIn does not replace them with
+zero or assume that they are valid. Call `.compute()` when you need a lazy
+result in memory.
 
-Product validity, geometry validity, reference support, pairwise support,
-temporal-path support, evaluation support, snow-state support, and coherence
-validity are separate named layers. A conjunction is formed only when the
-caller names its support components. SnowIn does not define a universal
-`quality_mask`. The NISAR incidence adapter is an explicit geometry boundary:
-it records DEM reprojection, LOS interpolation, or selected native-incidence
-resampling and returns values on the phase grid. The scientific kernels
-require exact coordinate alignment and do not perform implicit interpolation
-or xarray alignment.
+Product, geometry, reference, pairwise, temporal-path, evaluation, snow-state,
+and coherence support are separate named variables. A combined mask is made
+only when the caller names the support variables to combine. The NISAR
+incidence operation records DEM reprojection, LOS interpolation, or native
+incidence resampling and returns incidence on the phase grid. Scientific
+functions require matching dimensions and coordinates.
 
 ## Reference phase and correction layers
 
@@ -91,5 +99,5 @@ dates, or expected phase.
 
 The GUNW adapter may expose ionospheric and tropospheric phase layers with
 source metadata, but does not apply them. SnowIn 0.1 has no correction
-operation; callers who apply correction screens must explicitly handle their
-units, signs, and source-grid alignment in their workflow.
+function. Callers who apply correction screens must handle their units, signs,
+and source-grid alignment explicitly.
