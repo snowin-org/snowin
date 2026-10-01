@@ -1,4 +1,4 @@
-"""Tests for the Stage 5 xarray-native reference-phase API."""
+"""Tests for the xarray-native reference-phase API."""
 
 from __future__ import annotations
 

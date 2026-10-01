@@ -1,4 +1,4 @@
-"""Scientific and xarray-contract tests for the Stage 2 dSWE kernel."""
+"""Scientific and xarray-contract tests for the dSWE kernel."""
 
 from __future__ import annotations
 

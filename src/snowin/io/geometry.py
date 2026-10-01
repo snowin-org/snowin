@@ -294,6 +294,7 @@ def compute_cop30_local_incidence(
                 "onto the local terrain normal"
             ),
             "los_vector_direction": "target_to_sensor",
+            "los_interpolation_method": "linear",
             "dem_vertical_datum": dem.attrs.get("vertical_datum", "unknown"),
             "los_height_reference": "WGS84 ellipsoid",
             "vertical_datum_status": vertical_datum_status,

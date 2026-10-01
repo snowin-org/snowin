@@ -4,13 +4,13 @@ SnowIn's stable scientific boundary consists of plain xarray
 `DataArray` and `Dataset` inputs and outputs. Public functions express
 snow/InSAR-specific science; mission details remain in adapters.
 
-## Supported imports
+## Public exports
 
-Generic retrieval, reference, support, and temporal functions are available
-from `snowin`:
+The root package exports the stable generic functions and version:
 
 ```python
 from snowin import (
+    __version__,
     accumulate_dswe,
     build_support_dataset,
     compose_support_mask,
@@ -22,9 +22,27 @@ from snowin import (
 )
 ```
 
-The NISAR product adapter and geometry functions are available from
-`snowin.io`. The xarray contributor-based reference helpers are available from
-`snowin.reference`. Named support operations live in `snowin.quality.support`.
+The complete supported module exports are:
+
+- `snowin.snow`: `compute_leinss_dswe`, `compute_guneriussen_dswe`,
+  `compute_oveisgharan_dswe`.
+- `snowin.io`: `DEMSource`, `NISAR_GUNW_PHASE_TRANSFORM`,
+  `NISAR_GUNW_SOURCE_PHASE_DEFINITION`, `open_gunw`, `normalize_gunw_pair`,
+  `read_gunw_wavelength_m`, `compute_gunw_incidence`, `add_gunw_incidence`,
+  `compute_cop30_local_incidence`.
+- `snowin.reference`: `estimate_reference_offset`, `apply_reference_offset`,
+  `reference_phase`, `REFERENCE_CONTRIBUTOR_DIM`, `REFERENCE_METHODS`,
+  `MANUAL_OFFSET_METHOD`, `SINGLE_STATION_METHOD`, `MEAN_OFFSET_METHOD`,
+  `MEDIAN_OFFSET_METHOD`, `COHERENCE_WEIGHTED_METHOD`.
+- `snowin.quality`: `build_support_dataset`, `compose_support_mask`,
+  `summarize_support`, `SUPPORT_CATEGORIES`.
+- `snowin.temporal`: `accumulate_dswe`.
+
+The constants name source conventions, result dimensions, supported reference
+methods, and support categories used in returned metadata and validation.
+Private helpers are not part of the supported API. Re-exports such as
+`snowin.reference_phase` and `snowin.snow.compute_leinss_dswe` are intentional
+facade and domain-module import paths.
 
 ## Product and data states
 
@@ -58,6 +76,5 @@ accepts an explicitly ordered, contiguous chronological path.
 Product discovery, cloud access, ancillary data, GIS file operations, plots,
 generic evaluation metrics, and study-specific validation remain caller-owned.
 Correction layers can be exposed by the GUNW adapter but are not applied by
-SnowIn; correction application is deferred until a scientifically frozen
-xarray contract is established. No automatic reference, correction, mask, or
+SnowIn 0.1. No automatic reference, correction, mask, or science-grid
 resampling policy is provided.

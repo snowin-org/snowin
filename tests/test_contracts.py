@@ -1,4 +1,4 @@
-"""Synthetic tests for the Stage 1 normalized data contract."""
+"""Synthetic tests for the normalized SnowIn data contract."""
 
 import numpy as np
 import pytest
@@ -12,7 +12,7 @@ _KNOWN_PHASE_DEFINITIONS = {
 
 
 def _validate_phase_provenance(attrs):
-    """Executable form of the Stage 1 source-convention contract."""
+    """Executable form of the source-convention contract."""
     if attrs.get("phase_difference_definition") != "secondary_minus_reference":
         raise ValueError("normalized phase must use secondary_minus_reference")
 
@@ -90,7 +90,7 @@ def _synthetic_pair_dataset(
             )
         },
         attrs={
-            "snowin_schema_version": "0.1-draft",
+            "snowin_schema_version": "0.1",
             "snowin_data_state": "retrieval_ready_pair",
             "product_kind": "pairwise_interferogram",
             "reference_time": "2025-01-01T00:00:00Z",
@@ -128,6 +128,7 @@ def test_pair_direction_and_phase_definition_are_canonical():
     assert ds.attrs["temporal_edge"] == "reference_to_secondary"
     assert ds.attrs["reference_time"] < ds.attrs["secondary_time"]
     assert ds.attrs["phase_difference_definition"] == "secondary_minus_reference"
+    assert ds.attrs["snowin_schema_version"] == "0.1"
     assert ds.attrs["source_phase_difference_definition"] == (
         "reference_minus_secondary"
     )

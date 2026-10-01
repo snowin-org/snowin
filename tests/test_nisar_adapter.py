@@ -64,6 +64,7 @@ def test_normalize_gunw_pair_applies_explicit_source_transform():
         "reference_minus_secondary"
     )
     assert result.attrs["phase_transform"] == "multiply_by_-1"
+    assert result.attrs["snowin_schema_version"] == "0.1"
     assert result.attrs["source_granule_id"] == "test-granule"
     assert result.attrs["snowin_data_state"] == "retrieval_ready_pair"
     assert result.spatial_ref.attrs["epsg_code"] == 32611
@@ -173,6 +174,7 @@ def test_nisar_adapter_opens_lazy_normalized_gunw(tmp_path):
         assert result.phase.attrs["units"] == "rad"
         assert result.incidence_angle.attrs["units"] == "rad"
         assert result.incidence_angle.attrs["incidence_angle_reference"] == "local"
+        assert result.incidence_angle.attrs["los_interpolation_method"] == "linear"
         np.testing.assert_allclose(result.incidence_angle.values, np.deg2rad(30.0))
         assert result.geometry_valid.dtype == bool
         assert bool(result.geometry_valid.all())

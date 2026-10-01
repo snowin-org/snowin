@@ -1,4 +1,4 @@
-"""Stage 4 geometry invariants and real-product regression coverage."""
+"""Geometry invariants and optional real-product regression coverage."""
 
 from __future__ import annotations
 
@@ -283,10 +283,10 @@ def test_missing_xy_cannot_derive_los_z(tmp_path):
 def test_real_product_geometry_regression():
     manifest_path = Path(__file__).parent / "fixtures" / "real_product_geometry.json"
     manifest = json.loads(manifest_path.read_text())
-    gunw = os.environ.get("SNOWIN_STAGE4_GUNW")
-    dem_path = os.environ.get("SNOWIN_STAGE4_COP30_DEM")
+    gunw = os.environ.get("SNOWIN_GEOMETRY_GUNW")
+    dem_path = os.environ.get("SNOWIN_GEOMETRY_COP30_DEM")
     if not gunw or not dem_path:
-        pytest.skip("set SNOWIN_STAGE4_GUNW and SNOWIN_STAGE4_COP30_DEM")
+        pytest.skip("set SNOWIN_GEOMETRY_GUNW and SNOWIN_GEOMETRY_COP30_DEM")
 
     gunw_path = Path(gunw)
     assert gunw_path.name == manifest["gunw_filename"]

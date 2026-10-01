@@ -74,7 +74,11 @@ Product validity, geometry validity, reference support, pairwise support,
 temporal-path support, evaluation support, snow-state support, and coherence
 validity are separate named layers. A conjunction is formed only when the
 caller names its support components. SnowIn does not define a universal
-`quality_mask`.
+`quality_mask`. The NISAR incidence adapter is an explicit geometry boundary:
+it records DEM reprojection, LOS interpolation, or selected native-incidence
+resampling and returns values on the phase grid. The scientific kernels
+require exact coordinate alignment and do not perform implicit interpolation
+or xarray alignment.
 
 ## Reference phase and correction layers
 
@@ -86,6 +90,6 @@ status remain in the returned xarray object. SnowIn does not choose stations,
 dates, or expected phase.
 
 The GUNW adapter may expose ionospheric and tropospheric phase layers with
-source provenance, but does not apply them. A reusable correction operation is
-deferred until units, signs, grid requirements, and provenance are frozen in a
-scientifically reviewed xarray contract.
+source provenance, but does not apply them. SnowIn 0.1 has no correction
+operation; callers who apply correction screens must explicitly handle their
+units, signs, and source-grid alignment in their workflow.

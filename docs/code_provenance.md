@@ -69,9 +69,9 @@ samples. Both are protected by synthetic xarray and Dask tests.
   auditable behavior.
 - **Removed NumPy correction configuration/result API:** it lacked an xarray
   grid, unit, and product-aware correction contract. No scientific correction
-  capability is silently lost or substituted; GUNW fields remain inspectable,
-  and application belongs in a workflow until signs and alignment are
-  scientifically frozen.
+  capability is silently lost or substituted; GUNW fields remain inspectable.
+  Correction application remains caller-owned in 0.1, and a workflow must
+  explicitly resolve correction signs and source-grid alignment.
 - **Removed generic evaluation metrics:** bias, MAE, RMSE, and correlation are
   generic evaluation operations; callers can use their chosen evaluation
   libraries over explicitly composed support.

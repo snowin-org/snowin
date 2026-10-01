@@ -1,8 +1,7 @@
 # SnowIn
 
-[![CI](https://github.com/snowin-org/snowin/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/snowin-org/snowin/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](#installation)
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/snowin-org/snowin/blob/main/LICENSE)
 
 SnowIn is a small scientific Python package for estimating pairwise changes in
 snow water equivalent (dSWE) from interferometric phase. It provides named
@@ -28,14 +27,22 @@ workflow.
 
 ## Installation
 
-SnowIn 0.1 is not yet published to PyPI or conda-forge. Install from a checkout:
+The intended first release is SnowIn 0.1.0. Once it is published, install the
+base package from PyPI:
 
 ```bash
-python -m pip install .
+python -m pip install snowin
 ```
 
-Optional integrations are installed with `.[nisar]`, `.[geometry]`, and
-`.[dask]`. The base package requires NumPy and xarray.
+Until then, install this checkout from the repository root with
+`python -m pip install .`. The base package requires NumPy and xarray. Add the
+nisar extra for GUNW reading, geometry for prepared-DEM incidence, and dask
+for chunked arrays. NISAR local-incidence workflows need both nisar and geometry.
+Once SnowIn is published, install both NISAR and geometry extras with:
+
+```bash
+python -m pip install "snowin[nisar,geometry]"
+```
 
 ## Quick start
 
@@ -79,7 +86,7 @@ Dataset in place and returns it.
 from snowin import compute_leinss_dswe
 from snowin.io import add_gunw_incidence, open_gunw
 
-with open_gunw("product.h5") as pair:
+with open_gunw("product.h5", chunks=None) as pair:
     add_gunw_incidence(
         pair,
         "product.h5",
@@ -93,8 +100,8 @@ with open_gunw("product.h5") as pair:
     )
 ```
 
-The [NISAR product notebook](notebooks/02_real_nisar_gunw_workflow.ipynb) and
-[product discovery handoff notebook](notebooks/03_nisar_pytools_search_and_snowin.ipynb)
+The [NISAR product notebook](https://github.com/snowin-org/snowin/blob/main/notebooks/02_real_nisar_gunw_workflow.ipynb)
+and [product discovery handoff notebook](https://github.com/snowin-org/snowin/blob/main/notebooks/03_nisar_pytools_search_and_snowin.ipynb)
 show fuller caller-owned workflows.
 
 ## Scientific conventions
@@ -106,17 +113,22 @@ show fuller caller-owned workflows.
 - Wavelength: metres, supplied explicitly or resolved from product metadata.
 - Missing values remain missing; SnowIn does not create a universal quality mask.
 
-See the [data model](docs/data_model.md), [scientific conventions](docs/scientific_conventions.md),
-[architecture](docs/architecture.md), and [API policy](docs/api_policy.md).
+See the [data model](https://github.com/snowin-org/snowin/blob/main/docs/data_model.md),
+[scientific conventions](https://github.com/snowin-org/snowin/blob/main/docs/scientific_conventions.md),
+[architecture](https://github.com/snowin-org/snowin/blob/main/docs/architecture.md),
+and [API policy](https://github.com/snowin-org/snowin/blob/main/docs/api_policy.md).
 Contributor setup and scientific validation guidance are in
-[development](docs/development.md) and [testing](docs/testing.md).
+[development](https://github.com/snowin-org/snowin/blob/main/docs/development.md)
+and [testing](https://github.com/snowin-org/snowin/blob/main/docs/testing.md).
 
 ## Citation
 
-SnowIn has no tagged release or DOI yet. Cite the repository and commit used,
-along with the relevant retrieval-method publications listed in
-[code provenance](docs/code_provenance.md). See [CITATION.cff](CITATION.cff).
+SnowIn has no tagged release or DOI yet. Cite the repository commit or release
+used and the retrieval-method publication relevant to your analysis. Method
+references are listed in [code provenance](https://github.com/snowin-org/snowin/blob/main/docs/code_provenance.md);
+see [CITATION.cff](https://github.com/snowin-org/snowin/blob/main/CITATION.cff).
 
 ## License
 
-SnowIn is distributed under the [Apache License 2.0](LICENSE).
+SnowIn is distributed under the
+[Apache License 2.0](https://github.com/snowin-org/snowin/blob/main/LICENSE).

@@ -184,9 +184,8 @@ while exercising a small public API call. Ruff is scoped to source, tests, and
 scripts; Markdown and notebook documents are excluded because their embedded
 examples and generated notebook cells need document-aware checks. The README
 quick-start example is executed as a smoke test from its tagged code block.
-Other product examples need real inputs or network access, so broader executable
-documentation remains a future step; do not add a large documentation build
-system solely for this change.
+Other product examples require real inputs or network access, so they remain
+documented manual workflows and are not part of the normal offline suite.
 
 ## Supported dependencies
 
@@ -197,6 +196,6 @@ minimum job uses NumPy 1.26.4 with xarray 2024.1 on Python 3.12. See the
 [NumPy 1.24 release notes](https://numpy.org/doc/1.24/release/1.24.0-notes.html)
 and [NumPy 1.26 release notes](https://numpy.org/doc/1.26/release/1.26.0-notes.html).
 
-The package currently advertises `mypy` as a future maturity step. Do not add
-strict type checking until it can improve the public API without broad ignores
-or scientific API distortions.
+Static type checking is not a SnowIn 0.1 release gate. Do not add strict rules
+without evidence that they improve the public API without broad ignores or
+scientific API distortions.

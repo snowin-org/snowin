@@ -6,7 +6,7 @@ The first release line provides named xarray-native phase-to-dSWE methods,
 explicit NISAR GUNW product normalization, optional local-incidence geometry
 from caller-prepared DEMs, auditable reference offsets, directed temporal
 accumulation, and named support composition. Normalized Dataset metadata uses
-`0.1-draft` until the 0.1 data contract is frozen at release.
+the frozen schema version `0.1`.
 
 The package exposes correction layers with provenance but does not apply them.
 Product discovery, download, cloud staging, vector masking, station I/O,

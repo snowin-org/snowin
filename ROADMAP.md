@@ -14,13 +14,10 @@ optional NISAR GUNW adapter and local-incidence geometry.
 - Chronological, contiguous dSWE path accumulation with missing-support
   propagation.
 
-## 0.1 release work
+## Release
 
-- Review scientific assumptions, product phase lineage, metadata, and the
-  documented public API.
-- Validate the package metadata, optional features, wheel contents, base
-  installation, and strict documentation build.
-- Publish a tagged source release after scientific and API review.
+Maintainers should use the concise [release checklist](docs/release.md) for
+versioning, validation, packaging, and publication.
 
 ## Outside the package
 

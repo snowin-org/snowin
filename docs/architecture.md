@@ -46,9 +46,7 @@ separate support meaning, and directed dSWE path accumulation.
 Product discovery and downloads belong to `nisar-pytools`; DEM acquisition,
 GIS preparation, station and validation data, generic metrics, plotting,
 export, and study decisions belong to downstream workflows. NISAR correction
-layers are exposed with provenance but are not applied. A correction operation
-will belong in SnowIn only after a scientifically reviewed xarray contract
-defines the quantities, signs, and alignment requirements.
+layers are exposed with provenance but are not applied in SnowIn 0.1.
 
 ## Modules and dependencies
 

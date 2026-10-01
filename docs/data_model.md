@@ -66,7 +66,7 @@ The following attributes are required and must be scalar, serializable values:
 
 | Attribute | Meaning |
 | --- | --- |
-| `snowin_schema_version` | Draft normalized contract version, currently `0.1-draft`; it will be frozen as `0.1` at release. |
+| `snowin_schema_version` | Frozen normalized contract version `"0.1"`. |
 | `snowin_data_state` | `phase_normalized_product` before incidence is available; `retrieval_ready_pair` after incidence is added. |
 | `product_kind` | `"pairwise_interferogram"` for this contract. |
 | `reference_time` | Reference acquisition start time as an ISO 8601 UTC string. |
@@ -102,7 +102,7 @@ scientific variable names.
 Attributes must remain serializable; nested Python objects should be encoded
 as JSON strings when persistence requires it.
 
-The optional NISAR geometry adapter computes a local terrain-surface incidence angle from a caller-prepared DEM and the GUNW radar-grid look vectors. SnowIn does not acquire or cache DEMs. The product's native ellipsoid-normal `incidenceAngle` remains an explicit opt-in compatibility mode, not a silent replacement for local incidence. The adapter records DEM source, datum, reprojection, LOS interpolation, selected radar-grid height, coordinate orientation, and source paths in Dataset provenance. It also records the GUNW ellipsoidal height reference and DEM vertical datum. The NISAR-modified Copernicus DEM is ellipsoidal; orthometric COP30 input requires a same-grid geoid-undulation correction or strict rejection of uncorrected geometry.
+The optional NISAR geometry adapter computes a local terrain-surface incidence angle from a caller-prepared DEM and the GUNW radar-grid look vectors. SnowIn does not acquire or cache DEMs. The product's native ellipsoid-normal `incidenceAngle` remains an explicit opt-in compatibility mode, not a silent replacement for local incidence. Local geometry explicitly reprojects a raster DEM to the phase grid and linearly interpolates the LOS lookup; it records the DEM resampling and `los_interpolation_method`. Product ellipsoid incidence explicitly uses `incidence_resampling` and records the method and selected `radar_cube_index`. Both return incidence on the exact phase grid. These are documented adapter operations; scientific functions do not align or resample their inputs. The adapter records DEM source, datum, coordinate orientation, and source paths in Dataset provenance. It also records the GUNW ellipsoidal height reference and DEM vertical datum. The NISAR-modified Copernicus DEM is ellipsoidal. Orthometric COP30 input requires a same-grid geoid-undulation correction for matched geometry; non-strict provisional use records the mismatch status, and `require_vertical_datum_match=True` rejects an uncorrected mismatch.
 
 ## Required and optional variables
 
@@ -211,7 +211,9 @@ confirm:
 
 Grid incompatibility is an error. A caller must explicitly resample or
 reproject before constructing a normalized Dataset for a multi-layer science
-operation, and that operation must record the choice in provenance.
+operation, and that operation must record the choice in provenance. The
+documented incidence-geometry adapter is the exception: it performs and
+records its named grid conversion before returning an exactly aligned result.
 
 ## Provenance and support boundary
 

@@ -33,7 +33,7 @@
     "gunw_los_height_axis": "heightAboveEllipsoid / WGS84 ellipsoid",
     "cop30_dem": "EGM2008 orthometric height",
     "conversion_applied": false,
-    "status": "explicit Stage 4 assumption requiring future geoid-correction decision"
+    "status": "uncorrected_orthometric_characterization_only; not a corrected geometry result"
   },
   "provenance": "Real GUNW and public Copernicus GLO-30 tile; no ASO tuning. Expected values were independently generated with the verified Colorado implementation and compared in radians."
 }

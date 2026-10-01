@@ -149,7 +149,7 @@ def _build_phase_normalized_dataset(
     source_definition = _validate_source_convention(source_phase_difference_definition)
     canonical_phase, transform = _normalize_source_phase(phase, source_definition)
     attrs: dict[str, Any] = {
-        "snowin_schema_version": "0.1-draft",
+        "snowin_schema_version": "0.1",
         "snowin_data_state": "phase_normalized_product",
         "product_kind": "pairwise_interferogram",
         "reference_time": reference_time,
