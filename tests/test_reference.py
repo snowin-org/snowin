@@ -53,7 +53,7 @@ def _contributors(
     )
 
 
-def test_zero_reference_offset_preserves_phase_and_provenance():
+def test_zero_reference_offset_preserves_phase_and_metadata():
     observed, expected, weights, ids = _contributors([1.0, 2.0], [1.0, 2.0], [0.2, 0.8])
     result = reference_phase(_pair(), observed, expected, weights, contributor_id=ids)
     np.testing.assert_allclose(
@@ -209,6 +209,46 @@ def test_missing_contributors_are_excluded_and_recorded():
         "eligible",
         "observed_phase_nonfinite",
         "weight_nonpositive",
+    ]
+
+
+def test_reference_exclusions_never_mark_invalid_contributors_eligible():
+    coords = {"station": ["a", "b", "c", "d"]}
+    attrs = {"units": "rad"}
+    observed = xr.DataArray(
+        [np.nan, 2.0, 3.0, 4.0], dims=("station",), coords=coords, attrs=attrs
+    )
+    expected = xr.DataArray(
+        [0.0, np.nan, 2.0, 3.0], dims=("station",), coords=coords, attrs=attrs
+    )
+    weights = xr.DataArray([1.0, 1.0, np.nan, 1.0], dims=("station",), coords=coords)
+    ids = xr.DataArray(["a", "b", "c", "d"], dims=("station",), coords=coords)
+    caller_reasons = xr.DataArray(
+        ["caller_excluded", "eligible", "eligible", "eligible"],
+        dims=("station",),
+        coords=observed.coords,
+    )
+    result = reference_phase(
+        _pair(),
+        observed,
+        expected,
+        weights,
+        contributor_id=ids,
+        exclusion_reason=caller_reasons,
+    )
+
+    assert result.reference_eligible.values.tolist() == [False, False, False, True]
+    assert result.reference_exclusion_reason.values.tolist() == [
+        "caller_excluded",
+        "expected_phase_nonfinite",
+        "weight_nonfinite",
+        "eligible",
+    ]
+    assert result.reference_caller_exclusion_reason.values.tolist() == [
+        "caller_excluded",
+        "eligible",
+        "eligible",
+        "eligible",
     ]
 
 

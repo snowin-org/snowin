@@ -31,7 +31,7 @@ mkdocs build --strict
 ```
 
 The standard test suite is synthetic, offline, and fast. Optional real-product
-checks are marked `integration`; fixture provenance is documented in
+checks are marked `integration`; fixture source metadata is documented in
 `tests/fixtures/README.md`.
 Follow the [scientific testing policy](testing.md) when changing scientific
 behavior. Do not loosen numerical tolerances without a scientific rationale.

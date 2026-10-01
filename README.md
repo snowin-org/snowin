@@ -87,6 +87,14 @@ with open_gunw("product.h5", chunks=None) as pair:
     )
 ```
 
+For NISAR terrain-local incidence, SnowIn recommends the official
+[Modified Copernicus DEM for NISAR](https://nisar-docs.asf.alaska.edu/nisar-dem/)
+with `dem_source="nisar_cop30"`. This is Copernicus GLO-30 modified for NISAR,
+including vertical re-referencing from the EGM2008 geoid to the WGS84
+ellipsoid. Ordinary public Copernicus GLO-30 is a different product and
+normally contains orthometric heights; a generic Copernicus DEM file is not
+automatically equivalent.
+
 See notebooks [01](notebooks/01_core_snowin_workflow.ipynb),
 [02](notebooks/02_real_nisar_gunw_workflow.ipynb), and
 [03](notebooks/03_nisar_pytools_search_and_snowin.ipynb) for complete examples.
@@ -96,7 +104,7 @@ See notebooks [01](notebooks/01_core_snowin_workflow.ipynb),
 Read the [scientific conventions](docs/scientific_conventions.md),
 [normalized data model](docs/data_model.md), and
 [DEM vertical datum assumptions](docs/vertical_datums.md). Method references
-and product provenance are in [code and scientific provenance](docs/code_provenance.md).
+and product source metadata are in [scientific sources](docs/scientific_sources.md).
 
 Follow [CITATION.cff](CITATION.cff): cite the repository commit or release used
 and the scientific publication for the retrieval method. SnowIn is licensed

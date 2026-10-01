@@ -1,4 +1,4 @@
-"""Property checks for the canonical xarray ΔSWE kernel."""
+"""Property checks for the xarray ΔSWE kernel."""
 
 from __future__ import annotations
 

@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import xarray as xr
 
 RADAR_GRID_GROUP = "/science/LSAR/GUNW/metadata/radarGrid"
 IDENTIFICATION_GROUP = "/science/LSAR/identification"
@@ -19,15 +18,6 @@ def _require_h5py():
     except ImportError as exc:  # pragma: no cover - depends on optional extra
         raise ImportError(
             "NISAR HDF5 access requires SnowIn's optional 'nisar' extra"
-        ) from exc
-
-
-def _require_h5netcdf():
-    try:
-        return import_module("h5netcdf")
-    except ImportError as exc:  # pragma: no cover - depends on optional extra
-        raise ImportError(
-            "NISAR GUNW reading requires SnowIn's optional 'nisar' extra"
         ) from exc
 
 
@@ -111,28 +101,35 @@ def _read_radar_los(gunw_file: Path) -> tuple[np.ndarray, ...]:
     return heights, x_radar, y_radar, los_x, los_y, los_z
 
 
-def _open_group(
-    gunw_file: Path,
-    group: str,
-    *,
-    chunks: dict[str, int] | str | None,
-) -> xr.Dataset:
-    _require_h5netcdf()
-    kwargs: dict[str, Any] = {
-        "group": group,
-        "engine": "h5netcdf",
-        "phony_dims": "sort",
-        "decode_cf": True,
-        "mask_and_scale": True,
-    }
-    if chunks is not None:
-        kwargs["chunks"] = chunks
-    try:
-        return xr.open_dataset(gunw_file, **kwargs)
-    except (ImportError, ValueError) as exc:
-        if chunks is not None and "dask" in str(exc).lower():
-            raise ImportError(
-                "lazy GUNW opening requires optional Dask; pass chunks=None for "
-                "eager opening or install SnowIn with the 'dask' extra"
-            ) from exc
-        raise
+def _read_radar_grid_incidence(
+    gunw_file: str | Path, *, radar_cube_index: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict[str, Any]]:
+    """Read one native ellipsoid-incidence plane and its projected grid."""
+    h5py = _require_h5py()
+    with h5py.File(gunw_file, "r") as h5:
+        group = h5[RADAR_GRID_GROUP]
+        if "incidenceAngle" not in group:
+            raise ValueError(f"GUNW incidenceAngle is missing at {RADAR_GRID_GROUP}")
+        source = group["incidenceAngle"]
+        if source.ndim != 3:
+            raise ValueError(
+                f"incidenceAngle must be a height cube, got {source.shape}"
+            )
+        if radar_cube_index < 0 or radar_cube_index >= source.shape[0]:
+            raise IndexError(
+                f"radar_cube_index={radar_cube_index} is outside the height cube"
+            )
+        if "xCoordinates" not in group or "yCoordinates" not in group:
+            raise ValueError(
+                "GUNW radar grid is missing xCoordinates/yCoordinates at "
+                f"{RADAR_GRID_GROUP}"
+            )
+        x = np.asarray(group["xCoordinates"][...], dtype=float)
+        y = np.asarray(group["yCoordinates"][...], dtype=float)
+        values = np.asarray(source[radar_cube_index, ...], dtype=float)
+        if values.shape != (y.size, x.size):
+            raise ValueError(
+                "GUNW incidenceAngle plane shape does not match radar-grid coordinates"
+            )
+        attrs = {key: decode_hdf5_scalar(value) for key, value in source.attrs.items()}
+    return values, x, y, attrs

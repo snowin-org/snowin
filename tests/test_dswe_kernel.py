@@ -65,7 +65,7 @@ def test_leinss_method_has_no_phase_sign_switch_or_method_selector():
 def test_phase_definition_metadata_is_required():
     phase, incidence = _inputs()
     phase.attrs.pop("phase_difference_definition")
-    with pytest.raises(ValueError, match="canonical phase definition"):
+    with pytest.raises(ValueError, match="SnowIn phase convention"):
         compute_leinss_dswe(phase, incidence, wavelength_m=WAVELENGTH_M)
 
 
@@ -82,7 +82,7 @@ def test_zero_phase_gives_zero_dswe():
 
 
 @pytest.mark.parametrize("phase_value, expected_sign", [(1.0, 1), (-1.0, -1)])
-def test_canonical_phase_sign_is_preserved(phase_value, expected_sign):
+def test_normalized_phase_sign_is_preserved(phase_value, expected_sign):
     phase, incidence = _inputs(phase_data=phase_value)
 
     result = compute_leinss_dswe(phase, incidence, wavelength_m=WAVELENGTH_M)

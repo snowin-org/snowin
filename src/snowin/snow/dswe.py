@@ -1,6 +1,6 @@
 """Named xarray-native phase-to-dSWE retrieval methods.
 
-The public functions accept SnowIn's canonical, already normalized phase.
+The public functions accept phase normalized to SnowIn's required convention.
 Product-specific phase conventions belong at an adapter boundary. Wavelength
 is supplied explicitly or resolved from authoritative product metadata.
 """
@@ -17,7 +17,7 @@ import xarray as xr
 LEINSS_SNOW_PATH_CONSTANT = 1.59
 """Empirical dry-snow path constant in the Leinss approximation."""
 
-CANONICAL_PHASE_DEFINITION = "secondary_minus_reference"
+SNOWIN_PHASE_DEFINITION = "secondary_minus_reference"
 """SnowIn's required normalized phase orientation."""
 
 _VALID_ANGLE_UNITS = {"rad", "radian", "radians"}
@@ -81,26 +81,72 @@ def _validate_alignment(phase: xr.DataArray, incidence_angle: xr.DataArray) -> N
             )
 
 
-def _validate_eager_incidence_domain(incidence_angle: xr.DataArray) -> None:
-    """Validate eager angle values without computing a lazy array.
-
-    Dask-backed incidence arrays are intentionally left lazy.  Their metadata
-    is validated here and their values are evaluated only when the caller
-    computes the returned DataArray.
-    """
-
-    data = incidence_angle.data
-    if hasattr(data, "chunks"):
-        return
-
-    try:
-        values = np.asarray(data, dtype=float)
-    except (TypeError, ValueError) as exc:
-        raise TypeError("incidence_angle must contain numeric radians") from exc
-
-    invalid = np.isinf(values) | (values < 0.0) | (values >= math.pi / 2.0)
+def _validate_domain_block(
+    data: np.ndarray,
+    *,
+    lower_bound: float | None,
+    lower_inclusive: bool,
+    upper_exclusive: float | None,
+    message: str,
+) -> np.ndarray:
+    values = np.asarray(data, dtype=float)
+    invalid = ~np.isnan(values) & ~np.isfinite(values)
+    if lower_bound is not None:
+        invalid |= values < lower_bound if lower_inclusive else values <= lower_bound
+    if upper_exclusive is not None:
+        invalid |= values >= upper_exclusive
     if np.any(invalid):
-        raise ValueError("incidence_angle values must be in [0, pi/2); NaN is allowed")
+        raise ValueError(message)
+    return values
+
+
+def _validate_domain(
+    value: xr.DataArray,
+    *,
+    name: str,
+    lower_bound: float | None,
+    lower_inclusive: bool = False,
+    upper_exclusive: float | None,
+    message: str,
+) -> xr.DataArray:
+    """Check eager values now and lazy chunks when a caller computes them."""
+    data = value.data
+    if np.dtype(data.dtype).kind not in "biuf":
+        raise TypeError(f"{name} must contain real numeric values")
+    if hasattr(data, "chunks"):
+        checked_data = data.map_blocks(
+            _validate_domain_block,
+            lower_bound=lower_bound,
+            lower_inclusive=lower_inclusive,
+            upper_exclusive=upper_exclusive,
+            message=message,
+            dtype=float,
+        )
+        return value.copy(data=checked_data)
+    try:
+        checked = _validate_domain_block(
+            data,
+            lower_bound=lower_bound,
+            lower_inclusive=lower_inclusive,
+            upper_exclusive=upper_exclusive,
+            message=message,
+        )
+    except (TypeError, ValueError) as exc:
+        if isinstance(exc, ValueError) and str(exc) == message:
+            raise
+        raise TypeError(f"{name} must contain real numeric values") from exc
+    return value.copy(data=checked)
+
+
+def _validate_incidence_domain(incidence_angle: xr.DataArray) -> xr.DataArray:
+    return _validate_domain(
+        incidence_angle,
+        name="incidence_angle",
+        lower_bound=0.0,
+        lower_inclusive=True,
+        upper_exclusive=math.pi / 2.0,
+        message="incidence_angle values must be in [0, pi/2); NaN is allowed",
+    )
 
 
 def _validate_common_inputs(
@@ -121,14 +167,13 @@ def _validate_common_inputs(
         )
 
     phase_definition = phase.attrs.get("phase_difference_definition")
-    if phase_definition != CANONICAL_PHASE_DEFINITION:
+    if phase_definition != SNOWIN_PHASE_DEFINITION:
         raise ValueError(
-            "phase must use SnowIn's canonical phase definition "
-            "'secondary_minus_reference'"
+            "phase must use the SnowIn phase convention 'secondary_minus_reference'"
         )
 
     _validate_alignment(phase, incidence_angle)
-    _validate_eager_incidence_domain(incidence_angle)
+    incidence_angle = _validate_incidence_domain(incidence_angle)
     resolved_wavelength = _validate_positive_scalar("wavelength_m", wavelength_m)
     wavelength_source = "explicit wavelength_m"
     return (
@@ -156,19 +201,17 @@ def _validate_density(
         density_value = _validate_positive_scalar(
             "snow_density_kg_m3", snow_density_kg_m3
         )
+        if density_value >= 917.0:
+            raise ValueError("snow_density_kg_m3 values must be in (0, 917)")
         density = xr.full_like(phase, density_value, dtype=float)
 
-    data = density.data
-    if not hasattr(data, "chunks"):
-        try:
-            values = np.asarray(data, dtype=float)
-        except (TypeError, ValueError) as exc:
-            raise TypeError("snow_density_kg_m3 must contain numeric values") from exc
-        invalid = np.isinf(values) | (values <= 0.0) | (values >= 917.0)
-        if np.any(invalid):
-            raise ValueError(
-                "snow_density_kg_m3 values must be in (0, 917); NaN is allowed"
-            )
+    density = _validate_domain(
+        density,
+        name="snow_density_kg_m3",
+        lower_bound=0.0,
+        upper_exclusive=917.0,
+        message="snow_density_kg_m3 values must be in (0, 917); NaN is allowed",
+    )
     density = density.copy(deep=False).rename("snow_density")
     density.attrs = {"units": "kg m-3"}
     return density
@@ -193,7 +236,7 @@ def _result(
             "units": "m",
             "quantity": "pairwise_dSWE",
             "long_name": "pairwise change in snow water equivalent",
-            "phase_difference_definition": CANONICAL_PHASE_DEFINITION,
+            "phase_difference_definition": SNOWIN_PHASE_DEFINITION,
             "incidence_angle_reference": incidence_reference,
             "wavelength_m": wavelength_m,
             "wavelength_source": wavelength_source,
@@ -289,23 +332,26 @@ def compute_guneriussen_dswe(
     density_g_cm3 = density / 1000.0
     if permittivity_model == "guneriussen2001":
         permittivity = 1.0 + 1.6 * density_g_cm3 + 1.8 * density_g_cm3**3
-        permittivity_reference = "Guneriussen et al. (2001), Eq. 7"
+        permittivity_reference = (
+            "Mätzler (1996) and Wiesmann & Mätzler (1999) density relation"
+        )
     elif permittivity_model == "webb2021":
         permittivity = 1.0 + 0.0014 * density + 2.0e-7 * density**2
-        permittivity_reference = "Webb et al. (2021)"
+        permittivity_reference = "Webb et al. (2021), Eq. 5; corrected in 2022"
     else:
         permittivity = xr.where(
             density_g_cm3 < 0.4,
             1.0 + 1.5995 * density_g_cm3 + 1.861 * density_g_cm3**3,
             ((1.0 - density_g_cm3 / 0.917) + 1.4759 * (density_g_cm3 / 0.917)) ** 3,
         )
-        permittivity_reference = "Mätzler dry-snow permittivity model"
+        permittivity_reference = "Mätzler (1987), piecewise model reproduced in Oveisgharan et al. (2024), Eq. 1"
 
     theta = incidence_angle
     refraction = np.cos(theta) - np.sqrt(permittivity - np.sin(theta) ** 2)
     kappa = 2.0 * math.pi / wavelength_m
     density_ratio = density / GUNERIUSSEN_WATER_DENSITY_KG_M3
-    dswe = phase / (-2.0 * kappa * refraction * density_ratio)
+    snow_depth_change = phase / (-2.0 * kappa * refraction)
+    dswe = snow_depth_change * density_ratio
     density_source = (
         f"DataArray:{snow_density_kg_m3.name or 'snow_density'}"
         if isinstance(snow_density_kg_m3, xr.DataArray)
@@ -327,8 +373,10 @@ def compute_guneriussen_dswe(
         wavelength_source,
         method="guneriussen",
         equation=(
-            "dSWE = phase / (-2*kappa*(cos(theta)-sqrt(epsilon-sin(theta)^2))"
-            "*(snow_density_kg_m3/1000)); kappa=2*pi/wavelength_m"
+            "snow_depth_change = phase / "
+            "(-2*kappa*(cos(theta)-sqrt(epsilon-sin(theta)^2))); "
+            "dSWE = snow_depth_change * (snow_density_kg_m3/1000); "
+            "kappa=2*pi/wavelength_m"
         ),
         scientific_reference=("Guneriussen et al. (2001); " + permittivity_reference),
         method_attrs=method_attrs,

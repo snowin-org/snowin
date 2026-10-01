@@ -10,5 +10,5 @@ retrieval methods and an optional NISAR GUNW adapter.
   requirements.
 - [DEM vertical datums](vertical_datums.md): assumptions for local-incidence
   geometry.
-- [Code and scientific provenance](code_provenance.md): sources behind the
+- [Scientific sources and equations](scientific_sources.md): sources behind the
   retrieval methods and adapters.

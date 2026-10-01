@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 import math
+import warnings
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
@@ -18,7 +20,7 @@ import xarray as xr
 from ._nisar_hdf5 import (
     IDENTIFICATION_GROUP,
     RADAR_GRID_GROUP,
-    _open_group,
+    _read_radar_grid_incidence,
     _read_radar_los,
     read_attrs_hdf5,
     read_scalar_hdf5,
@@ -65,47 +67,6 @@ def read_gunw_wavelength_m(
     return _SPEED_OF_LIGHT_M_S / frequency_hz
 
 
-def _grid_data(
-    data_array: xr.DataArray,
-    source_dataset: xr.Dataset,
-    *,
-    name: str,
-) -> xr.DataArray:
-    if data_array.ndim != 2:
-        raise ValueError(f"{name} must be two-dimensional, got {data_array.dims}")
-    if "yCoordinates" not in source_dataset or "xCoordinates" not in source_dataset:
-        raise ValueError(f"{name} source group is missing xCoordinates/yCoordinates")
-    y = source_dataset["yCoordinates"].load().data
-    x = source_dataset["xCoordinates"].load().data
-    return xr.DataArray(
-        data_array.data,
-        dims=("y", "x"),
-        coords={"y": y, "x": x},
-        attrs=_serializable_attrs(data_array.attrs),
-        name=name,
-    )
-
-
-def _radar_grid_slice(
-    data_array: xr.DataArray,
-    source_dataset: xr.Dataset,
-    *,
-    radar_cube_index: int,
-) -> xr.DataArray:
-    if data_array.ndim != 3:
-        raise ValueError(f"incidenceAngle must be a height cube, got {data_array.dims}")
-    height_dim = data_array.dims[0]
-    if radar_cube_index < 0 or radar_cube_index >= data_array.sizes[height_dim]:
-        raise IndexError(
-            f"radar_cube_index={radar_cube_index} is outside the height cube"
-        )
-    return _grid_data(
-        data_array.isel({height_dim: radar_cube_index}),
-        source_dataset,
-        name="incidence_angle",
-    )
-
-
 def _open_nisar_gunw_layer(
     path: Path,
     *,
@@ -146,14 +107,26 @@ def _open_nisar_gunw_layer(
 
 
 def _nisar_acquisition_time(path: Path, role: Literal["reference", "secondary"]) -> str:
-    """Read the pair-specific acquisition time from GUNW identification metadata."""
+    """Read a NISAR UTC time, whose product format omits the timezone suffix."""
     value = read_scalar_hdf5(
         path,
         f"{IDENTIFICATION_GROUP}/{role}ZeroDopplerStartTime",
     )
     if value is None or str(value) in {"NaT", ""}:
         raise ValueError(f"GUNW is missing required {role} acquisition time metadata")
-    return _iso_utc(value, f"{role}_time")
+    text = str(value).strip()
+    parseable = text[:-1] + "+00:00" if text.endswith("Z") else text
+    try:
+        parsed = datetime.fromisoformat(parseable)
+    except ValueError:
+        return _iso_utc(value, f"{role}_time")
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        # NISAR's product format defines these fields as UTC while omitting
+        # an offset suffix. Make that product-specific rule explicit here;
+        # see the NISAR L2 Product Format Document v1.2.1. Generic SnowIn
+        # timestamp inputs still require Z or an offset.
+        text = f"{text}Z"
+    return _iso_utc(text, f"{role}_time")
 
 
 def open_gunw(
@@ -350,9 +323,12 @@ def open_gunw(
                 if name in additional
             }
         )
-        source_provenance = {
+        source_metadata = {
             "source_dataset_paths": json.dumps(source_paths, sort_keys=True),
             "source_reader": "nisar_pytools.open_nisar + SnowIn normalization",
+            "source_acquisition_time_zone": (
+                "UTC per NISAR L2 Product Format Document v1.2.1"
+            ),
             "wavelength_source": (
                 "explicit wavelength_m override"
                 if wavelength_m is not None
@@ -380,7 +356,7 @@ def open_gunw(
                 )
                 for name in ("hydro_tropo", "wet_tropo")
             },
-            provenance={**source_provenance, "correction_layers_applied": False},
+            source_metadata={**source_metadata, "correction_layers_applied": False},
         )
     except Exception:
         del tree
@@ -450,56 +426,61 @@ def compute_gunw_incidence(
     epsg_code = target.spatial_ref.attrs.get("epsg_code")
     if epsg_code is None:
         raise ValueError("target spatial_ref is missing epsg_code")
-    radar_group = RADAR_GRID_GROUP
-
     if incidence_source == "product_ellipsoid":
         _progress("opening GUNW ellipsoid incidence field", progress)
-        radar_ds = _open_group(path, radar_group, chunks=chunks)
-        try:
-            if "incidenceAngle" not in radar_ds:
-                raise ValueError(f"GUNW incidenceAngle is missing at {radar_group}")
-            raw_incidence = _radar_grid_slice(
-                radar_ds["incidenceAngle"],
-                radar_ds,
-                radar_cube_index=radar_cube_index,
+        values, x_radar, y_radar, source_attrs = _read_radar_grid_incidence(
+            path, radar_cube_index=radar_cube_index
+        )
+        source_incidence_units = source_attrs.get("units")
+        if source_incidence_units not in _KNOWN_SOURCE_ANGLE_UNITS:
+            raise ValueError(
+                "GUNW incidenceAngle has missing or unknown source angle units; "
+                "expected degrees metadata"
             )
-            source_incidence_units = raw_incidence.attrs.get("units")
-            if source_incidence_units not in _KNOWN_SOURCE_ANGLE_UNITS:
-                raise ValueError(
-                    "GUNW incidenceAngle has missing or unknown source angle units; "
-                    "expected degrees metadata"
-                )
-            incidence = raw_incidence * (math.pi / 180.0)
-            incidence.attrs = _serializable_attrs(raw_incidence.attrs)
-            incidence.attrs.update(
-                {
-                    "units": "rad",
-                    "incidence_angle_reference": "ellipsoid",
-                    "source_units": source_incidence_units,
-                    "source_variable": "incidenceAngle",
-                }
+        raw_incidence = xr.DataArray(
+            values,
+            dims=("y", "x"),
+            coords={"y": y_radar, "x": x_radar},
+            attrs=_serializable_attrs(source_attrs),
+            name="incidence_angle",
+        )
+        incidence = raw_incidence * (math.pi / 180.0)
+        incidence.attrs = _serializable_attrs(raw_incidence.attrs)
+        incidence.attrs.update(
+            {
+                "units": "rad",
+                "incidence_angle_reference": "ellipsoid",
+                "incidence_angle_origin": "product_ellipsoid",
+                "source_units": source_incidence_units,
+                "source_variable": "incidenceAngle",
+            }
+        )
+        phase = target["phase"]
+        already_aligned = np.array_equal(
+            incidence.coords["x"].data, phase.coords["x"].data
+        ) and np.array_equal(incidence.coords["y"].data, phase.coords["y"].data)
+        if already_aligned:
+            incidence = incidence.assign_coords(
+                x=phase.coords["x"], y=phase.coords["y"]
             )
-            phase = target["phase"]
-            if np.array_equal(
-                incidence.coords["x"].data, phase.coords["x"].data
-            ) and np.array_equal(incidence.coords["y"].data, phase.coords["y"].data):
-                incidence = incidence.assign_coords(
-                    x=phase.coords["x"], y=phase.coords["y"]
-                )
-            else:
-                incidence = incidence.interp_like(phase, method=incidence_resampling)
-            incidence.attrs.update(
-                {
-                    "incidence_angle_source": "NISAR GUNW radarGrid ellipsoid incidenceAngle",
-                    "incidence_angle_resampling": incidence_resampling,
-                    "incidence_angle_radar_cube_index": radar_cube_index,
-                }
-            )
-            # Geometry is intentionally materialized before the temporary
-            # radar-grid file handle is closed.
-            incidence = incidence.load()
-        finally:
-            radar_ds.close()
+        else:
+            incidence = incidence.interp_like(phase, method=incidence_resampling)
+        incidence.attrs.update(
+            {
+                "incidence_angle_source": "NISAR GUNW radarGrid ellipsoid incidenceAngle",
+                "incidence_angle_source_dataset_path": (
+                    f"{RADAR_GRID_GROUP}/incidenceAngle"
+                ),
+                "incidence_angle_origin": "product_ellipsoid",
+                "incidence_angle_grid_alignment": (
+                    "already_aligned" if already_aligned else "resampled_to_phase_grid"
+                ),
+                "incidence_angle_resampling": (
+                    "none" if already_aligned else incidence_resampling
+                ),
+                "incidence_angle_radar_cube_index": radar_cube_index,
+            }
+        )
         return incidence.rename("incidence_angle")
 
     _progress("preparing DEM for local incidence", progress)
@@ -509,6 +490,15 @@ def compute_gunw_incidence(
         raise ValueError(
             "local incidence requires a caller-supplied prepared DEM path or "
             "xarray.DataArray; SnowIn does not download DEMs"
+        )
+    if dem_source != "nisar_cop30":
+        warnings.warn(
+            "SnowIn recommends the NISAR-modified Copernicus DEM "
+            '(dem_source="nisar_cop30") for NISAR local-incidence geometry. '
+            f"The selected DEM source is {dem_source!r}; verify its vertical "
+            "datum and apply any required geoid/ellipsoid correction.",
+            UserWarning,
+            stacklevel=2,
         )
     dem_input = dem
     dem_grid = _open_dem(
@@ -536,9 +526,31 @@ def compute_gunw_incidence(
         progress=progress,
     )
     source_metadata = _DEM_SOURCE_METADATA[dem_source]
+    local_source_paths = {
+        "height_above_ellipsoid": f"{RADAR_GRID_GROUP}/heightAboveEllipsoid",
+        "los_unit_vector_x": f"{RADAR_GRID_GROUP}/losUnitVectorX",
+        "los_unit_vector_y": f"{RADAR_GRID_GROUP}/losUnitVectorY",
+        "x_coordinates": f"{RADAR_GRID_GROUP}/xCoordinates",
+        "y_coordinates": f"{RADAR_GRID_GROUP}/yCoordinates",
+    }
     incidence.attrs.update(
         {
-            "incidence_angle_source": f"{source_metadata['label']} plus NISAR GUNW radar-grid LOS",
+            "incidence_angle_source": (
+                "DEM elevation, NISAR radar-grid heightAboveEllipsoid, "
+                "LOS unit vectors, and target-grid geometry"
+            ),
+            "incidence_angle_origin": "terrain_local",
+            "incidence_angle_source_datasets": json.dumps(
+                local_source_paths, sort_keys=True
+            ),
+            "incidence_angle_source_units": (
+                "DEM elevation and heightAboveEllipsoid in metres; "
+                "LOS components dimensionless; projected x/y coordinates in metres"
+            ),
+            "incidence_angle_los_z_handling": (
+                "read from losUnitVectorZ when present; otherwise derived from "
+                "losUnitVectorX and losUnitVectorY"
+            ),
             "incidence_angle_algorithm": (
                 "snowin.io.geometry.compute_cop30_local_incidence"
             ),
@@ -562,7 +574,9 @@ def compute_gunw_incidence(
             if not isinstance(dem_input, xr.DataArray)
             else "xarray.DataArray",
             "incidence_angle_resampling": (
-                f"{source_metadata['label']} bilinear reprojection to GUNW phase grid"
+                "DEM already aligned with the GUNW phase grid; no resampling"
+                if incidence.attrs.get("dem_grid_alignment") == "already_aligned"
+                else "DEM bilinearly reprojected to the GUNW phase grid"
             ),
         }
     )
@@ -616,7 +630,20 @@ def add_gunw_incidence(
     if paths is not None:
         try:
             source_paths = json.loads(str(paths))
-            source_paths["incidence_angle"] = f"{RADAR_GRID_GROUP}/incidenceAngle"
+            if incidence.attrs.get("incidence_angle_origin") == "product_ellipsoid":
+                source_paths["incidence_angle"] = incidence.attrs[
+                    "incidence_angle_source_dataset_path"
+                ]
+            elif incidence.attrs.get("incidence_angle_source_datasets"):
+                geometry_paths = json.loads(
+                    incidence.attrs["incidence_angle_source_datasets"]
+                )
+                source_paths.update(
+                    {
+                        f"incidence_geometry_{name}": path
+                        for name, path in geometry_paths.items()
+                    }
+                )
             target.attrs["source_dataset_paths"] = json.dumps(
                 source_paths, sort_keys=True
             )

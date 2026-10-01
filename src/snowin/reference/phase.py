@@ -111,7 +111,7 @@ def estimate_reference_offset(
 
     For contributor-based methods, ``observed_phase`` and ``expected_phase``
     are radians.  Non-finite values, non-positive weights, and caller-marked
-    exclusions are retained in contributor-level provenance.  If support is
+    exclusions are retained in contributor-level metadata. If support is
     insufficient, the result has a NaN offset and an explicit unsupported
     status rather than inventing zero support.
     """
@@ -147,33 +147,50 @@ def estimate_reference_offset(
         observed_phase, expected_phase, weights, contributor_id
     )
     if exclusion_reason is not None:
-        reasons = _reference_vector("exclusion_reason", exclusion_reason)
-        if reasons.sizes != observed.sizes:
+        caller_reasons = _reference_vector("exclusion_reason", exclusion_reason)
+        if caller_reasons.sizes != observed.sizes:
             raise ValueError("exclusion_reason must match reference contributor length")
-        reasons = reasons.astype(str).rename("reference_exclusion_reason")
+        caller_reasons = caller_reasons.astype(str)
     else:
-        reasons = xr.where(
-            ~np.isfinite(observed),
-            "observed_phase_nonfinite",
-            xr.where(
-                ~np.isfinite(expected),
-                "expected_phase_nonfinite",
-                xr.where(~np.isfinite(weight), "weight_nonfinite", "eligible"),
+        caller_reasons = xr.DataArray(
+            np.full(
+                observed.sizes[REFERENCE_CONTRIBUTOR_DIM],
+                "eligible",
+                dtype="U8",
             ),
+            dims=(REFERENCE_CONTRIBUTOR_DIM,),
+            coords={
+                REFERENCE_CONTRIBUTOR_DIM: observed.coords.get(
+                    REFERENCE_CONTRIBUTOR_DIM,
+                    np.arange(observed.sizes[REFERENCE_CONTRIBUTOR_DIM]),
+                )
+            },
         )
-        reasons = xr.where(
-            (reasons == "eligible") & (weight <= 0),
-            "weight_nonpositive",
-            reasons,
-        ).rename("reference_exclusion_reason")
+    caller_reasons = caller_reasons.rename("reference_caller_exclusion_reason")
 
-    caller_excluded = reasons != "eligible"
+    input_reasons = xr.where(
+        ~np.isfinite(observed),
+        "observed_phase_nonfinite",
+        xr.where(
+            ~np.isfinite(expected),
+            "expected_phase_nonfinite",
+            xr.where(
+                ~np.isfinite(weight),
+                "weight_nonfinite",
+                xr.where(weight <= 0, "weight_nonpositive", "eligible"),
+            ),
+        ),
+    )
+    reasons = xr.where(
+        caller_reasons != "eligible", caller_reasons, input_reasons
+    ).rename("reference_exclusion_reason")
+
     eligible = (
         np.isfinite(observed)
         & np.isfinite(expected)
         & np.isfinite(weight)
         & (weight > 0)
-        & ~caller_excluded
+        & (caller_reasons == "eligible")
     ).rename("reference_eligible")
     residual = (observed - expected).rename("reference_residual")
     contribution = (
@@ -235,6 +252,7 @@ def estimate_reference_offset(
             "reference_weighted_contribution": contribution,
             "reference_eligible": eligible,
             "reference_exclusion_reason": reasons,
+            "reference_caller_exclusion_reason": caller_reasons,
             "reference_offset_rad": xr.DataArray(offset),
             "reference_total_weight": xr.DataArray(total_weight_value),
             "reference_eligible_count": xr.DataArray(eligible_count_value),
@@ -273,7 +291,7 @@ def apply_reference_offset(
     if phase.attrs.get("units") not in {"rad", "radian", "radians"}:
         raise ValueError("pair phase must declare radians in its units metadata")
     if pair.attrs.get("phase_difference_definition") != "secondary_minus_reference":
-        raise ValueError("pair phase must use SnowIn canonical phase orientation")
+        raise ValueError("pair phase must use the SnowIn phase convention")
     if not isinstance(estimate, xr.Dataset):
         raise TypeError("estimate must be an xarray.Dataset")
     required = {

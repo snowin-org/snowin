@@ -9,7 +9,7 @@ nav:
   - Scientific conventions: scientific_conventions.md
   - Data model: data_model.md
   - DEM vertical datums: vertical_datums.md
-  - Code provenance: code_provenance.md
+  - Scientific sources: scientific_sources.md
 markdown_extensions:
   - admonition
   - tables

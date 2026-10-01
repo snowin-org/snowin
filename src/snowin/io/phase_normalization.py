@@ -5,13 +5,14 @@ from __future__ import annotations
 import json
 import math
 from collections.abc import Mapping
-from datetime import UTC, datetime
+from datetime import datetime
 from numbers import Real
 from typing import Any
 
 import numpy as np
 import xarray as xr
 
+from .._timestamps import iso_utc_timestamp, parse_utc_timestamp
 from ._nisar_hdf5 import decode_hdf5_scalar
 
 __all__ = [
@@ -24,9 +25,9 @@ NISAR_GUNW_SOURCE_PHASE_DEFINITION = "reference_minus_secondary"
 """The source phase orientation encoded by the NISAR/ISCE3 GUNW product."""
 
 NISAR_GUNW_PHASE_TRANSFORM = "multiply_by_-1"
-"""Transformation from the NISAR source phase to SnowIn canonical phase."""
+"""Transformation from source phase to the SnowIn phase convention."""
 
-_CANONICAL_PHASE_DEFINITION = "secondary_minus_reference"
+_SNOWIN_PHASE_DEFINITION = "secondary_minus_reference"
 _KNOWN_PHASE_DEFINITIONS = {
     "secondary_minus_reference",
     "reference_minus_secondary",
@@ -43,22 +44,7 @@ def _positive_scalar(name: str, value: object) -> float:
 
 
 def _iso_utc(value: object, name: str) -> str:
-    if isinstance(value, datetime):
-        parsed = value
-    elif isinstance(value, str):
-        text = value.strip()
-        if text.endswith("Z"):
-            text = text[:-1] + "+00:00"
-        try:
-            parsed = datetime.fromisoformat(text)
-        except ValueError as exc:
-            raise ValueError(f"{name} must be an ISO 8601 timestamp") from exc
-    else:
-        raise TypeError(f"{name} must be an ISO 8601 timestamp")
-
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=UTC)
-    return parsed.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    return iso_utc_timestamp(value, name)
 
 
 def _serializable_attrs(attrs: Mapping[str, Any]) -> dict[str, Any]:
@@ -103,28 +89,28 @@ def _validate_source_convention(source: object) -> str:
 def _normalize_source_phase(
     phase: xr.DataArray, source_definition: str
 ) -> tuple[xr.DataArray, str]:
-    """Apply an explicit source convention and attach canonical phase metadata."""
+    """Apply an explicit source convention and attach normalized phase metadata."""
     source_definition = _validate_source_convention(source_definition)
     if source_definition == "reference_minus_secondary":
-        canonical_phase = -phase
+        normalized_phase = -phase
         transform = NISAR_GUNW_PHASE_TRANSFORM
     else:
-        canonical_phase = phase
+        normalized_phase = phase
         transform = "identity"
 
-    canonical_phase = canonical_phase.rename("phase")
-    canonical_phase.attrs = _serializable_attrs(phase.attrs)
-    canonical_phase.attrs.update(
+    normalized_phase = normalized_phase.rename("phase")
+    normalized_phase.attrs = _serializable_attrs(phase.attrs)
+    normalized_phase.attrs.update(
         {
             "units": "rad",
-            "phase_difference_definition": _CANONICAL_PHASE_DEFINITION,
+            "phase_difference_definition": _SNOWIN_PHASE_DEFINITION,
             "source_phase_difference_definition": source_definition,
             "phase_transform": transform,
             "source_variable": phase.name or "unwrappedPhase",
             "grid_mapping": "spatial_ref",
         }
     )
-    return canonical_phase, transform
+    return normalized_phase, transform
 
 
 def _build_phase_normalized_dataset(
@@ -139,15 +125,23 @@ def _build_phase_normalized_dataset(
     source_granule_id: str | None = None,
     additional_variables: Mapping[str, xr.DataArray] | None = None,
     native_grid_dimensions: Mapping[str, tuple[tuple[str, ...], ...]] | None = None,
-    provenance: Mapping[str, Any] | None = None,
+    source_metadata: Mapping[str, Any] | None = None,
 ) -> xr.Dataset:
-    """Build the shared phase-normalized product and provenance contract.
+    """Build the shared phase-normalized product and metadata contract.
 
     Additional variables must either match the phase grid or have a named
     native-grid dimension contract supplied by the product adapter.
     """
     source_definition = _validate_source_convention(source_phase_difference_definition)
-    canonical_phase, transform = _normalize_source_phase(phase, source_definition)
+    normalized_phase, transform = _normalize_source_phase(phase, source_definition)
+    reference_instant = parse_utc_timestamp(reference_time, "reference_time")
+    secondary_instant = parse_utc_timestamp(secondary_time, "secondary_time")
+    if secondary_instant <= reference_instant:
+        raise ValueError(
+            "secondary_time must be later than reference_time for a directed pair"
+        )
+    reference_time = iso_utc_timestamp(reference_instant, "reference_time")
+    secondary_time = iso_utc_timestamp(secondary_instant, "secondary_time")
     attrs: dict[str, Any] = {
         "snowin_schema_version": "0.1",
         "snowin_data_state": "phase_normalized_product",
@@ -155,7 +149,7 @@ def _build_phase_normalized_dataset(
         "reference_time": reference_time,
         "secondary_time": secondary_time,
         "temporal_edge": "reference_to_secondary",
-        "phase_difference_definition": _CANONICAL_PHASE_DEFINITION,
+        "phase_difference_definition": _SNOWIN_PHASE_DEFINITION,
         "source_phase_difference_definition": source_definition,
         "phase_transform": transform,
         "wavelength_m": _positive_scalar("wavelength_m", wavelength_m),
@@ -163,10 +157,10 @@ def _build_phase_normalized_dataset(
     }
     if source_granule_id is not None:
         attrs["source_granule_id"] = source_granule_id
-    if provenance:
-        attrs.update(_serializable_attrs(provenance))
+    if source_metadata:
+        attrs.update(_serializable_attrs(source_metadata))
 
-    variables: dict[str, xr.DataArray] = {"phase": canonical_phase}
+    variables: dict[str, xr.DataArray] = {"phase": normalized_phase}
     native_grid_dimensions = native_grid_dimensions or {}
     for name, variable in (additional_variables or {}).items():
         if variable.dims == ("y", "x"):
@@ -225,7 +219,7 @@ def normalize_gunw_pair(
     source_product_type: str = "NISAR_GUNW",
     source_granule_id: str | None = None,
     additional_variables: Mapping[str, xr.DataArray] | None = None,
-    provenance: Mapping[str, Any] | None = None,
+    source_metadata: Mapping[str, Any] | None = None,
 ) -> xr.Dataset:
     """Normalize phase and geometry into the SnowIn pair Dataset contract.
 
@@ -274,7 +268,7 @@ def normalize_gunw_pair(
         source_product_type=source_product_type,
         source_granule_id=source_granule_id,
         additional_variables=additional_variables,
-        provenance=provenance,
+        source_metadata=source_metadata,
     )
     result["incidence_angle"] = incidence
     result.attrs["snowin_data_state"] = "retrieval_ready_pair"

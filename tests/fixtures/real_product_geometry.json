@@ -35,5 +35,5 @@
     "conversion_applied": false,
     "status": "uncorrected_orthometric_characterization_only; not a corrected geometry result"
   },
-  "provenance": "Real GUNW and public Copernicus GLO-30 tile; no ASO tuning. Expected values were independently generated with the verified Colorado implementation and compared in radians."
+  "source_metadata": "Real GUNW and public Copernicus GLO-30 tile; no ASO tuning. Expected values were independently generated with the verified Colorado implementation and compared in radians."
 }

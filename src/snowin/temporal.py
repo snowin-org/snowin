@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import datetime
 
 import numpy as np
 import xarray as xr
+
+from ._timestamps import parse_utc_timestamp
 
 _TEMPORAL_EDGE = "reference_to_secondary"
 _SUPPORTED_DSWE_UNITS = {"m", "meter", "meters"}
@@ -16,16 +18,7 @@ _SUPPORTED_DSWE_UNITS = {"m", "meter", "meters"}
 def _parse_utc(value: object, name: str) -> datetime:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{name} must be a non-empty ISO 8601 UTC string")
-    text = value.strip()
-    if text.endswith("Z"):
-        text = f"{text[:-1]}+00:00"
-    try:
-        parsed = datetime.fromisoformat(text)
-    except ValueError as exc:
-        raise ValueError(f"{name} must be a valid ISO 8601 timestamp") from exc
-    if parsed.tzinfo is None:
-        raise ValueError(f"{name} must include an explicit UTC offset")
-    return parsed.astimezone(UTC)
+    return parse_utc_timestamp(value, name)
 
 
 def _validate_alignment(
@@ -76,7 +69,7 @@ def _edge_data(edge: xr.Dataset, dswe_variable: str) -> xr.DataArray:
         "secondary_minus_reference",
     }:
         raise ValueError(
-            f"{dswe_variable} must derive from SnowIn canonical phase "
+            f"{dswe_variable} must derive from the SnowIn phase convention "
             "'secondary_minus_reference'"
         )
     return dswe

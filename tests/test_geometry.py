@@ -13,6 +13,7 @@ import xarray as xr
 from snowin.io._nisar_hdf5 import _read_radar_los
 from snowin.io.geometry import (
     _open_cop30_dem,
+    _open_dem,
     compute_cop30_local_incidence,
 )
 
@@ -237,6 +238,80 @@ def test_non_overlapping_dem_fails():
     )
     with pytest.raises(ValueError, match="does not overlap"):
         _open_cop30_dem(dem, x=np.arange(3.0), y=np.arange(3.0), epsg_code=32613)
+
+
+def test_aligned_nisar_dem_metadata_records_that_no_resampling_occurred():
+    dem = _dem(
+        np.ones((3, 3)),
+        attrs={
+            "vertical_datum": "WGS84 ellipsoid",
+            "height_reference": "ellipsoidal",
+            "dem_source": "nisar_cop30",
+        },
+    )
+    aligned = _open_dem(
+        dem,
+        x=dem.x.values,
+        y=dem.y.values,
+        epsg_code=32613,
+        dem_source="nisar_cop30",
+    )
+
+    assert aligned.attrs["vertical_datum"] == "WGS84 ellipsoid"
+    assert aligned.attrs["height_reference"] == "ellipsoidal"
+    assert aligned.attrs["dem_grid_alignment"] == "already_aligned"
+    assert aligned.attrs["dem_resampling_method"] == "none"
+
+
+@pytest.mark.parametrize(
+    "attrs",
+    [
+        {"vertical_datum": "EGM2008"},
+        {"height_reference": "orthometric"},
+        {"dem_source": "cop30"},
+        {"dem_product": "Copernicus DEM GLO-30"},
+    ],
+)
+def test_dem_source_metadata_conflicts_fail_explicitly(attrs):
+    dem = _dem(np.ones((3, 3)), attrs=attrs)
+    with pytest.raises(ValueError, match="conflicts with dem_source"):
+        _open_dem(
+            dem,
+            x=dem.x.values,
+            y=dem.y.values,
+            epsg_code=32613,
+            dem_source="nisar_cop30",
+        )
+
+
+def test_direct_local_incidence_rejects_conflicting_dem_metadata_and_crs():
+    dem = _dem(
+        np.ones((3, 3)),
+        attrs={
+            "vertical_datum": "EGM2008",
+            "height_reference": "orthometric",
+        },
+    )
+    with pytest.raises(ValueError, match=r"vertical_datum=.*conflicts with dem_source"):
+        compute_cop30_local_incidence(
+            dem,
+            *_constant_los(0.0, (2, 3, 3)),
+            heights=np.array([0.0, 2.0]),
+            x_radar=np.arange(3.0),
+            y_radar=np.arange(3.0),
+            dem_source="nisar_cop30",
+        )
+
+    dem = _dem(np.ones((3, 3)), attrs={"epsg_code": 32611})
+    with pytest.raises(ValueError, match="conflicts with the target epsg_code"):
+        compute_cop30_local_incidence(
+            dem,
+            *_constant_los(0.0, (2, 3, 3)),
+            heights=np.array([0.0, 2.0]),
+            x_radar=np.arange(3.0),
+            y_radar=np.arange(3.0),
+            epsg_code=32613,
+        )
 
 
 def test_missing_los_z_is_derived_from_xy(tmp_path):

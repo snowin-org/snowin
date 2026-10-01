@@ -1,6 +1,33 @@
-# Release checklist
+# Independent acceptance review and release sequence
 
-Use this checklist for each reviewed SnowIn source release.
+SnowIn remains pre-0.1 until Zach and Ross have independently run and reviewed
+the current commit. The next step is acceptance review, not release packaging.
+
+## Zach and Ross acceptance review
+
+Each reviewer should independently clone or fetch the current SnowIn commit,
+create a fresh environment, install the package with the `nisar`, `geometry`,
+and `dask` extras plus development and notebook tools, and run the automated
+checks documented in [development](development.md). Each reviewer should then:
+
+1. Run Notebook 01 and confirm it remains synthetic and offline.
+2. Run Notebook 02 in bundled-sample mode.
+3. Run Notebook 02 with a real NISAR GUNW and matching NISAR-modified
+   Copernicus DEM, when suitable data are available.
+4. Inspect phase orientation, incidence geometry, DEM vertical-reference
+   metadata, and dSWE sign and magnitude.
+5. Compare results with an independent trusted implementation or calculation,
+   rather than only with output derived from SnowIn.
+6. Report unexpected behavior and observations that need resolving.
+
+Do not add private data paths, credentials, or large research products to the
+repository. A Colorado acceptance case can be used when it is already
+available to the reviewer.
+
+## Deferred release checklist
+
+Only after both reviews are complete and their findings are resolved should a
+separate release decision and packaging task begin. That later task should:
 
 1. Start from a clean main or release branch and confirm the reviewed commit.
 2. Review and freeze the normalized data contract and public API for the

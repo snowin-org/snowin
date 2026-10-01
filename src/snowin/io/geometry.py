@@ -66,6 +66,73 @@ def _validate_dem_source(source: str) -> DEMSource:
     return source
 
 
+def _dem_metadata_key(value: object) -> str:
+    return " ".join(str(value).strip().casefold().replace("_", " ").split())
+
+
+def _integer_epsg_code(value: object) -> int:
+    if isinstance(value, (bool, np.bool_)):
+        raise ValueError("DEM DataArray epsg_code must be an integer EPSG code")
+    try:
+        code = int(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError(
+            "DEM DataArray epsg_code must be an integer EPSG code"
+        ) from exc
+    try:
+        if float(value) != code or code <= 0:
+            raise ValueError("DEM DataArray epsg_code must be an integer EPSG code")
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError(
+            "DEM DataArray epsg_code must be an integer EPSG code"
+        ) from exc
+    return code
+
+
+def _validate_dem_array_metadata(
+    dem: xr.DataArray, dem_source: DEMSource
+) -> dict[str, object]:
+    """Reject source declarations that contradict metadata on a DEM array."""
+    metadata = _DEM_SOURCE_METADATA[dem_source]
+    allowed_values = {
+        "dem_source": {
+            _dem_metadata_key(dem_source),
+            _dem_metadata_key(metadata["label"]),
+            _dem_metadata_key(metadata["product"]),
+        },
+        "dem_product": {_dem_metadata_key(metadata["product"])},
+        "vertical_datum": {_dem_metadata_key(metadata["vertical_datum"])},
+        "height_reference": {_dem_metadata_key(metadata["height_reference"])},
+    }
+    aliases = {
+        ("vertical_datum", "wgs84 ellipsoid"): {"ellipsoid", "ellipsoidal"},
+        ("vertical_datum", "egm2008"): {"egm2008 orthometric", "egm2008 geoid"},
+        ("vertical_datum", "egm96"): {"egm96 orthometric", "egm96 geoid"},
+        ("height_reference", "ellipsoidal"): {"ellipsoid", "wgs84 ellipsoid"},
+        ("height_reference", "orthometric"): {"geoid", "geoid referenced"},
+    }
+    for name, accepted in allowed_values.items():
+        value = dem.attrs.get(name)
+        if value is None:
+            continue
+        normalized = _dem_metadata_key(value)
+        aliases_for_value = set().union(
+            *(
+                values
+                for (field, expected), values in aliases.items()
+                if field == name and expected in accepted
+            )
+        )
+        if normalized not in accepted | aliases_for_value:
+            raise ValueError(
+                f"DEM DataArray metadata {name}={value!r} conflicts with "
+                f"dem_source={dem_source!r} ({metadata['product']})"
+            )
+    if "epsg_code" in dem.attrs:
+        _integer_epsg_code(dem.attrs["epsg_code"])
+    return dict(dem.attrs)
+
+
 def _sorted_axis(
     coordinate: np.ndarray, values: np.ndarray, axis: int
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -117,6 +184,17 @@ def compute_cop30_local_incidence(
     dem_source = _validate_dem_source(dem_source)
     _progress("computing terrain-surface incidence from DEM and GUNW LOS", progress)
     source_label = _DEM_SOURCE_METADATA[dem_source]["label"]
+    dem_metadata = _validate_dem_array_metadata(dem, dem_source)
+    declared_epsg = dem_metadata.get("epsg_code")
+    if (
+        epsg_code is not None
+        and declared_epsg is not None
+        and _integer_epsg_code(declared_epsg) != _integer_epsg_code(epsg_code)
+    ):
+        raise ValueError(
+            "DEM DataArray epsg_code conflicts with the target epsg_code; "
+            "reproject the DEM before local-incidence calculation"
+        )
     if dem.dims != ("y", "x"):
         raise ValueError(f"{source_label} must use dimensions ('y', 'x')")
     dem_height_reference = str(dem.attrs.get("height_reference", "unknown")).lower()
@@ -284,7 +362,6 @@ def compute_cop30_local_incidence(
         attrs={
             "units": "rad",
             "incidence_angle_reference": "local",
-            "source_units": "degrees",
             "long_name": f"{source_label} terrain-surface local incidence angle",
             "valid_min": 0.0,
             "valid_max": float(np.pi / 2.0),
@@ -295,7 +372,17 @@ def compute_cop30_local_incidence(
             ),
             "los_vector_direction": "target_to_sensor",
             "los_interpolation_method": "linear",
-            "dem_vertical_datum": dem.attrs.get("vertical_datum", "unknown"),
+            "dem_source": dem_metadata.get("dem_source", dem_source),
+            "dem_product": dem_metadata.get(
+                "dem_product", _DEM_SOURCE_METADATA[dem_source]["product"]
+            ),
+            "dem_vertical_datum": dem_metadata.get(
+                "vertical_datum", _DEM_SOURCE_METADATA[dem_source]["vertical_datum"]
+            ),
+            "dem_height_reference": dem_metadata.get(
+                "height_reference",
+                _DEM_SOURCE_METADATA[dem_source]["height_reference"],
+            ),
             "los_height_reference": "WGS84 ellipsoid",
             "vertical_datum_status": vertical_datum_status,
             "vertical_correction_definition": (
@@ -308,9 +395,11 @@ def compute_cop30_local_incidence(
                 if correction_applied
                 else "none"
             ),
+            "dem_grid_alignment": dem.attrs.get("dem_grid_alignment", "unknown"),
+            "dem_resampling_method": dem.attrs.get("dem_resampling_method", "none"),
             "definition": (
-                f"angle between target-to-sensor GUNW LOS and {source_label}-derived "
-                "local terrain normal"
+                "angle between a target-to-sensor GUNW LOS vector and the "
+                "DEM-derived local terrain normal"
             ),
             "geometry_execution": geometry_execution,
             "geometry_chunks": geometry_chunk_metadata,
@@ -438,7 +527,7 @@ def _open_vertical_correction(
         attrs={
             "units": "m",
             "epsg_code": int(epsg_code),
-            "vertical_datum": "EGM2008 geoid undulation",
+            "correction_quantity": "geoid_undulation",
             "source": source_label,
         },
     )
@@ -457,15 +546,17 @@ def _open_dem(
     metadata = _DEM_SOURCE_METADATA[dem_source]
     source_label = metadata["label"]
     if isinstance(dem, xr.DataArray):
+        source_attrs = _validate_dem_array_metadata(dem, dem_source)
         if dem.dims != ("y", "x"):
             raise ValueError(f"{source_label} must use dimensions ('y', 'x')")
         dem_epsg = dem.attrs.get("epsg_code")
         if dem_epsg is None:
             raise ValueError(f"{source_label} DataArray must declare epsg_code")
+        dem_epsg = _integer_epsg_code(dem_epsg)
         if (
-            int(dem_epsg) == epsg_code
-            and dem.coords["x"].equals(xr.DataArray(x))
-            and dem.coords["y"].equals(xr.DataArray(y))
+            dem_epsg == epsg_code
+            and np.array_equal(dem.coords["x"].data, x)
+            and np.array_equal(dem.coords["y"].data, y)
         ):
             result = dem.copy()
             result.attrs.setdefault("horizontal_datum", "WGS84")
@@ -473,12 +564,16 @@ def _open_dem(
             result.attrs.setdefault("height_reference", metadata["height_reference"])
             result.attrs.setdefault("dem_source", dem_source)
             result.attrs.setdefault("dem_product", metadata["product"])
+            result.attrs["epsg_code"] = dem_epsg
+            result.attrs["dem_grid_alignment"] = "already_aligned"
+            result.attrs["dem_resampling_method"] = "none"
             return result
         source_values = np.asarray(dem.data, dtype=float)
         source_x = np.asarray(dem.coords["x"].data, dtype=float)
         source_y = np.asarray(dem.coords["y"].data, dtype=float)
-        source_crs = int(dem_epsg)
+        source_crs = dem_epsg
     else:
+        source_attrs = {}
         _require_rasterio()
         import rasterio
 
@@ -531,20 +626,33 @@ def _open_dem(
     destination[weights <= 0] = np.nan
     if not np.isfinite(destination).any():
         raise ValueError(f"{source_label} does not overlap the GUNW phase grid")
+    source_epsg_code = (
+        int(source_crs)
+        if isinstance(source_crs, (int, np.integer))
+        else CRS.from_user_input(source_crs).to_epsg()
+    )
+    result_attrs: dict[str, object] = {
+        "units": "m",
+        "epsg_code": epsg_code,
+        "source_epsg_code": source_epsg_code,
+        "horizontal_datum": source_attrs.get("horizontal_datum", "WGS84"),
+        "vertical_datum": source_attrs.get(
+            "vertical_datum", metadata["vertical_datum"]
+        ),
+        "height_reference": source_attrs.get(
+            "height_reference", metadata["height_reference"]
+        ),
+        "dem_source": source_attrs.get("dem_source", dem_source),
+        "dem_product": source_attrs.get("dem_product", metadata["product"]),
+        "dem_grid_alignment": "reprojected",
+        "dem_resampling_method": "bilinear",
+    }
     return xr.DataArray(
         destination,
         dims=("y", "x"),
         coords={"y": y, "x": x},
         name=f"{dem_source}_elevation",
-        attrs={
-            "units": "m",
-            "epsg_code": epsg_code,
-            "horizontal_datum": "WGS84",
-            "vertical_datum": metadata["vertical_datum"],
-            "height_reference": metadata["height_reference"],
-            "dem_source": dem_source,
-            "dem_product": metadata["product"],
-        },
+        attrs=result_attrs,
     )
 
 

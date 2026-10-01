@@ -1,9 +1,14 @@
 # DEM vertical datums
 
-NISAR GUNW radar-grid heightAboveEllipsoid values use WGS84 ellipsoidal
-heights. The NISAR-modified Copernicus DEM is re-referenced to the WGS84
-ellipsoid. Public Copernicus GLO-30 values are EGM2008 orthometric heights.
-Horizontal reprojection does not change a DEM's vertical reference.
+NISAR GUNW radar-grid `heightAboveEllipsoid` values use WGS84 ellipsoidal
+heights. For NISAR terrain-local incidence, SnowIn recommends the official
+[Modified Copernicus DEM for NISAR](https://nisar-docs.asf.alaska.edu/nisar-dem/)
+and `dem_source="nisar_cop30"`. It is derived from Copernicus DEM GLO-30 and
+modified for NISAR processing, including vertical reference from the EGM2008
+geoid to the WGS84 ellipsoid. Ordinary public Copernicus GLO-30 is a different product and
+normally has EGM2008 orthometric heights. A file labelled “Copernicus DEM” is
+not automatically equivalent to the NISAR-modified product. Horizontal
+reprojection does not change a DEM's vertical reference.
 
 SnowIn computes local incidence from the GUNW LOS vectors and a caller-supplied
 prepared DEM. It does not discover, download, mosaic, or cache DEM tiles. The
@@ -32,7 +37,7 @@ require_vertical_datum_match=True to fail rather than proceed with unmatched
 vertical datums.
 
 The source label is part of the scientific input contract; it does not verify
-external DEM provenance. The workflow must record where its prepared file came
+external DEM source metadata. The workflow must record where its prepared file came
 from, its coverage, CRS, resolution, no-data handling, and vertical datum.
 
 References:

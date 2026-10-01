@@ -3,6 +3,8 @@
 The JSON manifest in this directory records the expected local-incidence
 statistics for a real NISAR GUNW and a public Copernicus GLO-30 tile. The
 large HDF5 and GeoTIFF inputs are intentionally not committed to SnowIn.
+The small, separate GUNW crop under `notebooks/data/` exists only to make the
+notebook adapter example runnable; it is not used by these integration checks.
 
 Set these variables to run the regression test:
 
@@ -24,7 +26,7 @@ generated independently with the verified Colorado implementation at commit
 `f5c17ef`; no ASO data was used for tuning.
 
 `colorado_phase_lineage.json` is a small data-free characterization fixture.
-It records the raw-versus-canonical phase definitions and the frozen
+It records the raw and normalized phase definitions and the frozen
 downstream `phase_sign=+1` branch so the sign-lineage regression does not
 depend on a private Colorado checkout or a large product.
 

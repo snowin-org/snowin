@@ -46,8 +46,8 @@ facade and domain-module import paths.
 
 ## Product and data states
 
-`open_gunw()` returns a phase-normalized product with canonical phase,
-authoritative wavelength, temporal metadata, and provenance. It intentionally
+`open_gunw()` returns a phase-normalized product using the SnowIn phase
+convention, authoritative wavelength, temporal metadata, and source metadata. It intentionally
 does not calculate incidence. `add_gunw_incidence()` computes geometry from an
 explicit GUNW and caller-prepared DEM, then adds incidence and geometry support
 to the same Dataset. The result is a retrieval-ready pair. See the

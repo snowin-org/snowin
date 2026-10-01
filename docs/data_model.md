@@ -9,7 +9,7 @@ describe a stack or absolute SWE product.
 ## Required dimensions and coordinates
 
 A phase-normalized product and retrieval-ready pair share the same x/y science
-grid, CRS, temporal direction, canonical phase, wavelength, and source provenance.
+grid, CRS, temporal direction, normalized phase, wavelength, and source metadata.
 The `snowin_data_state` attribute is `phase_normalized_product` before
 incidence is calculated and `retrieval_ready_pair` afterward. The normalized
 science grid has exactly two dimensions:
@@ -47,24 +47,24 @@ The following attributes are required and must be scalar, serializable values:
 | `snowin_schema_version` | Frozen normalized contract version `"0.1"`. |
 | `snowin_data_state` | `phase_normalized_product` before incidence is available; `retrieval_ready_pair` after incidence is added. |
 | `product_kind` | `"pairwise_interferogram"` for this contract. |
-| `reference_time` | Reference acquisition start time as an ISO 8601 UTC string. |
-| `secondary_time` | Secondary acquisition start time as an ISO 8601 UTC string. |
+| `reference_time` | Reference acquisition start time as an ISO 8601 UTC string with `Z` or a UTC offset. |
+| `secondary_time` | Secondary acquisition start time as an ISO 8601 UTC string with `Z` or a UTC offset. |
 | `temporal_edge` | Fixed value `"reference_to_secondary"`; this is the directed edge orientation. |
-| `phase_difference_definition` | Fixed canonical value `"secondary_minus_reference"`; see [phase conventions](scientific_conventions.md). |
+| `phase_difference_definition` | Required value `"secondary_minus_reference"`; see [phase conventions](scientific_conventions.md). |
 | `wavelength_m` | Resolved radar wavelength in metres, positive and explicit. |
 
 `reference_time` and `secondary_time` identify product roles. The name
-`reference` does not by itself mean “earlier in time”. A downstream temporal
-accumulator must inspect the two timestamps and reject or explicitly handle a
-non-chronological edge.
+`reference` does not by itself mean “earlier in time”. SnowIn requires explicit
+timezone information, normalizes times to UTC, and rejects a pair whose
+secondary acquisition is not later than its reference acquisition.
 
-Recommended provenance attributes include `source_product_type`,
+Recommended source metadata attributes include `source_product_type`,
 `source_granule_id`, `source_phase_difference_definition`,
 `phase_transform`, and serialized source dataset paths or processing history.
 For any Dataset adapted from an external product,
 `source_phase_difference_definition` is required and must be a recognized
 source convention. `phase_transform` is required and must explicitly state
-the conversion to the canonical phase. Missing or unknown source conventions
+the conversion to the SnowIn phase convention. Missing or unknown source conventions
 are errors; an adapter must never guess them from phase values.
 
 For the NISAR/ISCE3 source convention used by this contract:
@@ -75,12 +75,29 @@ SnowIn phase = -source phase
 phase_transform = "multiply_by_-1"
 ```
 
-Product-specific paths and mission metadata remain adapter provenance, not
+Product-specific paths and mission metadata remain adapter source metadata, not
 scientific variable names.
 Attributes must remain serializable; nested Python objects should be encoded
 as JSON strings when persistence requires it.
 
-The optional NISAR geometry adapter computes a local terrain-surface incidence angle from a caller-prepared DEM and the GUNW radar-grid look vectors. SnowIn does not acquire or cache DEMs. The product's native ellipsoid-normal `incidenceAngle` remains an explicit opt-in compatibility mode, not a silent replacement for local incidence. Local geometry explicitly reprojects a raster DEM to the phase grid and linearly interpolates the LOS lookup; it records the DEM resampling and `los_interpolation_method`. Product ellipsoid incidence explicitly uses `incidence_resampling` and records the method and selected `radar_cube_index`. Both return incidence on the exact phase grid. These are documented adapter operations; scientific functions do not align or resample their inputs. The adapter records DEM source, datum, coordinate orientation, and source paths in Dataset provenance. It also records the GUNW ellipsoidal height reference and DEM vertical datum. The NISAR-modified Copernicus DEM is ellipsoidal. Orthometric COP30 input requires a same-grid geoid-undulation correction for matched geometry; non-strict provisional use records the mismatch status, and `require_vertical_datum_match=True` rejects an uncorrected mismatch.
+The optional NISAR geometry adapter computes a local terrain-surface incidence
+angle from a caller-prepared DEM and the GUNW radar-grid look vectors. SnowIn
+recommends the [NISAR-modified Copernicus DEM](vertical_datums.md) for actual
+NISAR local-incidence analysis. SnowIn does not acquire or cache DEMs. The
+product's native ellipsoid-normal `incidenceAngle` is a distinct opt-in
+geometry calculation and is not equivalent to terrain-local incidence. Local
+geometry reprojects raster DEM input to the phase grid when needed and linearly
+interpolates the LOS lookup; it records whether the DEM was already aligned or
+reprojected. Product ellipsoid incidence reads only `incidenceAngle`,
+`xCoordinates`, and `yCoordinates`, then records whether it was aligned or
+resampled to the phase grid and the selected `radar_cube_index`. Both return
+incidence on the exact phase grid. These are documented adapter operations;
+scientific functions do not align or resample their inputs. The adapter records
+DEM source, actual vertical datum, coordinate orientation, and source paths in
+Dataset metadata. It also records the GUNW ellipsoidal height reference. An
+already aligned DataArray is not described as resampled. With
+`require_vertical_datum_match=True`, a DEM with unmatched heights requires an
+explicit geoid-undulation correction.
 
 ## Required and optional variables
 
@@ -130,7 +147,7 @@ Reference-phase outputs are optional and are not implicit quality masks:
 
 | Variable | Dimensions | Meaning |
 | --- | --- | --- |
-| `phase_referenced` | `("y", "x")` | Canonical phase after subtraction of the explicitly estimated reference offset, in radians. It remains missing when reference estimation is unsupported. |
+| `phase_referenced` | `("y", "x")` | Phase using the SnowIn convention after subtraction of the explicitly estimated reference offset, in radians. It remains missing when reference estimation is unsupported. |
 | `reference_estimate_supported` | scalar | Whether the global reference estimate is supported for the pair. Its `scope` attribute identifies it as a reference-estimate status, not a pixelwise validity mask. The separate optional `reference_supported` variable remains available for spatial support. |
 
 An auditable reference estimate may also carry a
@@ -162,7 +179,7 @@ SnowIn distinguishes two cases that must not be conflated:
 
 If a product provides a fill value, the adapter may decode it to the
 in-memory missing representation while preserving the source encoding in
-provenance. `_FillValue` is an I/O encoding detail, not a scientific value.
+metadata. `_FillValue` is an I/O encoding detail, not a scientific value.
 
 No support variable is implicitly created with all `True` values. Absence of
 support evidence means unknown support.
@@ -189,14 +206,14 @@ confirm:
 
 Grid incompatibility is an error. A caller must explicitly resample or
 reproject before constructing a normalized Dataset for a multi-layer science
-operation, and that operation must record the choice in provenance. The
+operation, and that operation must record the choice in metadata. The
 documented incidence-geometry adapter is the exception: it performs and
 records its named grid conversion before returning an exactly aligned result.
 
-## Provenance and support boundary
+## Source metadata and support boundary
 
-Support answers “where is an operation supported?” Provenance answers “how was
-this value or support decision produced?” They are related but not
+Support answers “where is an operation supported?” Source metadata answers
+“how was this value or support decision produced?” They are related but not
 interchangeable.
 
 At minimum, a later reference-phase result must retain the reference method,

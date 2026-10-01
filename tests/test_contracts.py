@@ -11,7 +11,7 @@ _KNOWN_PHASE_DEFINITIONS = {
 }
 
 
-def _validate_phase_provenance(attrs):
+def _validate_phase_metadata(attrs):
     """Executable form of the source-convention contract."""
     if attrs.get("phase_difference_definition") != "secondary_minus_reference":
         raise ValueError("normalized phase must use secondary_minus_reference")
@@ -122,7 +122,7 @@ def test_pair_contract_has_one_aligned_spatial_grid_and_explicit_units():
     assert ds["spatial_ref"].attrs["epsg_code"] == 32611
 
 
-def test_pair_direction_and_phase_definition_are_canonical():
+def test_pair_direction_and_phase_definition_are_explicit():
     ds = _synthetic_pair_dataset()
 
     assert ds.attrs["temporal_edge"] == "reference_to_secondary"
@@ -133,7 +133,7 @@ def test_pair_direction_and_phase_definition_are_canonical():
         "reference_minus_secondary"
     )
     assert ds.attrs["phase_transform"] == "multiply_by_-1"
-    _validate_phase_provenance(ds.attrs)
+    _validate_phase_metadata(ds.attrs)
     assert ds.attrs["wavelength_m"] > 0
 
 
@@ -177,10 +177,10 @@ def test_phase_definition_cannot_be_omitted_from_pair_metadata():
 def test_unknown_source_phase_convention_is_not_a_valid_contract_value():
     ds = _synthetic_pair_dataset()
 
-    _validate_phase_provenance(ds.attrs)
+    _validate_phase_metadata(ds.attrs)
     ds.attrs["source_phase_difference_definition"] = "unknown"
     with pytest.raises(ValueError, match="missing or unknown"):
-        _validate_phase_provenance(ds.attrs)
+        _validate_phase_metadata(ds.attrs)
 
 
 def test_missing_source_phase_convention_fails():
@@ -188,4 +188,4 @@ def test_missing_source_phase_convention_fails():
     del ds.attrs["source_phase_difference_definition"]
 
     with pytest.raises(ValueError, match="missing or unknown"):
-        _validate_phase_provenance(ds.attrs)
+        _validate_phase_metadata(ds.attrs)

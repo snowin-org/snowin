@@ -113,20 +113,27 @@ def test_leinss_matches_published_equation():
 def test_guneriussen_matches_density_and_permittivity_equation(
     model, expected_permittivity
 ):
-    phase, incidence = _inputs()
+    density_kg_m3 = 300.0
+    snow_depth_change_m = 0.08
     refraction = math.cos(THETA) - math.sqrt(
         expected_permittivity - math.sin(THETA) ** 2
     )
-    expected = 0.75 / (
-        -2.0 * (2.0 * math.pi / WAVELENGTH_M) * refraction * (300.0 / 1000.0)
+    phase_value = (
+        -2.0 * (2.0 * math.pi / WAVELENGTH_M) * refraction * snow_depth_change_m
     )
+    phase, incidence = _inputs(phase_values=phase_value)
 
     result = _run_guneriussen(phase, incidence, permittivity_model=model)
+    expected = snow_depth_change_m * (density_kg_m3 / 1000.0)
 
     assert result.item() == pytest.approx(expected)
     assert result.attrs["permittivity_model"] == model
     assert result.attrs["snow_density_kg_m3"] == 300.0
     assert result.attrs["water_density_kg_m3"] == 1000.0
+    assert result.attrs["units"] == "m"
+    assert result.attrs["quantity"] == "pairwise_dSWE"
+    assert "snow_depth_change" in result.attrs["equation"]
+    assert "Guneriussen et al. (2001)" in result.attrs["scientific_reference"]
 
 
 def test_guneriussen_density_dataarray_is_aligned_and_not_mutated():
@@ -209,19 +216,69 @@ def test_named_signatures_keep_method_specific_parameters_separate():
     assert "alpha" not in oveisgharan_parameters
 
 
-def test_guneriussen_maetzler_matches_analytical_equation():
-    phase, incidence = _inputs()
-    density_kg_m3 = 300.0
+def test_guneriussen_maetzler_high_density_branch_matches_forward_equation():
+    density_kg_m3 = 500.0
     density_g_cm3 = density_kg_m3 / 1000.0
-    permittivity = 1.0 + 1.5995 * density_g_cm3 + 1.861 * density_g_cm3**3
+    ice_fraction = density_g_cm3 / 0.917
+    permittivity = ((1.0 - ice_fraction) + 1.4759 * ice_fraction) ** 3
     refraction = math.cos(THETA) - math.sqrt(permittivity - math.sin(THETA) ** 2)
-    expected = 0.75 / (
-        -2.0 * (2.0 * math.pi / WAVELENGTH_M) * refraction * (density_kg_m3 / 1000.0)
+    snow_depth_change_m = 0.04
+    phase_value = (
+        -2.0 * (2.0 * math.pi / WAVELENGTH_M) * refraction * snow_depth_change_m
+    )
+    phase, incidence = _inputs(phase_values=phase_value)
+
+    result = _run_guneriussen(
+        phase,
+        incidence,
+        snow_density_kg_m3=density_kg_m3,
+        permittivity_model="maetzler",
     )
 
-    result = _run_guneriussen(phase, incidence, permittivity_model="maetzler")
+    assert result.item() == pytest.approx(snow_depth_change_m * density_kg_m3 / 1000.0)
 
-    assert result.item() == pytest.approx(expected)
+
+def test_guneriussen_zero_phase_sign_reversal_and_density_dependence():
+    snow_depth_change_m = 0.06
+    phase_values = []
+    expected_values = []
+    for density_kg_m3 in (200.0, 400.0):
+        density_g_cm3 = density_kg_m3 / 1000.0
+        permittivity = 1.0 + 1.6 * density_g_cm3 + 1.8 * density_g_cm3**3
+        refraction = math.cos(THETA) - math.sqrt(permittivity - math.sin(THETA) ** 2)
+        phase_for_depth_increase = (
+            -2.0 * (2.0 * math.pi / WAVELENGTH_M) * refraction * snow_depth_change_m
+        )
+        phase_values.append(phase_for_depth_increase)
+        expected_values.append(snow_depth_change_m * density_kg_m3 / 1000.0)
+
+    phase, incidence = _inputs(
+        phase_values=np.array([0.0, phase_values[0], -phase_values[0]]),
+        incidence_values=np.full(3, THETA),
+        dims=("pixel",),
+        coords={"pixel": np.arange(3)},
+    )
+    results = _run_guneriussen(phase, incidence, snow_density_kg_m3=200.0)
+    assert results[0].item() == 0.0
+    assert results[1].item() == pytest.approx(expected_values[0])
+    assert results[2].item() == pytest.approx(-expected_values[0])
+
+    dense_phase, dense_incidence = _inputs(
+        phase_values=phase_values[1], incidence_values=THETA
+    )
+    dense_result = _run_guneriussen(
+        dense_phase, dense_incidence, snow_density_kg_m3=400.0
+    )
+    assert dense_result.item() != pytest.approx(results[1].item())
+    assert dense_result.item() == pytest.approx(
+        phase_values[1]
+        / (
+            -2.0
+            * (2.0 * math.pi / WAVELENGTH_M)
+            * (math.cos(THETA) - math.sqrt(permittivity - math.sin(THETA) ** 2))
+        )
+        * 0.4
+    )
 
 
 @pytest.mark.parametrize(
@@ -262,8 +319,113 @@ def test_guneriussen_requires_density_and_valid_density_metadata():
         )
     with pytest.raises(ValueError, match="values must be in"):
         _run_guneriussen(phase, incidence, snow_density_kg_m3=917.0)
+    with pytest.raises(ValueError, match="values must be in"):
+        _run_guneriussen(phase, incidence, snow_density_kg_m3=1000.0)
+    invalid_density = xr.DataArray(
+        [0.0, -1.0, 917.0], dims=("pixel",), attrs={"units": "kg m-3"}
+    )
+    with pytest.raises(ValueError, match="values must be in"):
+        compute_guneriussen_dswe(
+            xr.DataArray(
+                np.ones(3),
+                dims=("pixel",),
+                attrs={
+                    "units": "rad",
+                    "phase_difference_definition": "secondary_minus_reference",
+                },
+            ),
+            xr.DataArray(
+                np.full(3, THETA),
+                dims=("pixel",),
+                attrs={"units": "rad", "incidence_angle_reference": "local"},
+            ),
+            snow_density_kg_m3=invalid_density,
+            wavelength_m=WAVELENGTH_M,
+        )
     with pytest.raises(ValueError, match="permittivity_model"):
         _run_guneriussen(phase, incidence, permittivity_model="unknown")
+
+
+@pytest.mark.parametrize(
+    "invalid_kind, invalid_value",
+    [
+        ("incidence", -0.01),
+        ("incidence", math.pi / 2.0),
+        ("incidence", math.inf),
+        ("density", 0.0),
+        ("density", -1.0),
+        ("density", 917.0),
+        ("density", math.inf),
+    ],
+)
+def test_eager_retrieval_rejects_invalid_physical_samples(invalid_kind, invalid_value):
+    coords = {"pixel": np.arange(2)}
+    phase, incidence = _inputs(
+        phase_values=np.ones(2),
+        incidence_values=np.full(2, THETA),
+        dims=("pixel",),
+        coords=coords,
+    )
+    density: float | xr.DataArray = 300.0
+    if invalid_kind == "incidence":
+        incidence = incidence.copy(data=np.array([THETA, invalid_value]))
+    else:
+        density = xr.DataArray(
+            [300.0, invalid_value],
+            dims=("pixel",),
+            coords=coords,
+            attrs={"units": "kg m-3"},
+        )
+
+    with pytest.raises(ValueError, match="values must be in"):
+        compute_guneriussen_dswe(
+            phase,
+            incidence,
+            snow_density_kg_m3=density,
+            wavelength_m=WAVELENGTH_M,
+        )
+
+
+@pytest.mark.parametrize("missing_kind", ["incidence", "density"])
+def test_missing_physical_samples_propagate_equally_eager_and_lazy(missing_kind):
+    da = pytest.importorskip("dask.array")
+    coords = {"pixel": np.arange(2)}
+    phase, incidence = _inputs(
+        phase_values=np.ones(2),
+        incidence_values=np.full(2, THETA),
+        dims=("pixel",),
+        coords=coords,
+    )
+    density: float | xr.DataArray = 300.0
+    if missing_kind == "incidence":
+        incidence = incidence.copy(data=np.array([THETA, np.nan]))
+        lazy_incidence = incidence.copy(data=da.from_array(incidence.data, chunks=1))
+        lazy_density: float | xr.DataArray = density
+    else:
+        density = xr.DataArray(
+            [300.0, np.nan],
+            dims=("pixel",),
+            coords=coords,
+            attrs={"units": "kg m-3"},
+        )
+        lazy_incidence = incidence.copy(data=da.from_array(incidence.data, chunks=1))
+        lazy_density = density.copy(data=da.from_array(density.data, chunks=1))
+
+    eager = compute_guneriussen_dswe(
+        phase,
+        incidence,
+        snow_density_kg_m3=density,
+        wavelength_m=WAVELENGTH_M,
+    )
+    lazy = compute_guneriussen_dswe(
+        phase.copy(data=da.from_array(phase.data, chunks=1)),
+        lazy_incidence,
+        snow_density_kg_m3=lazy_density,
+        wavelength_m=WAVELENGTH_M,
+    )
+
+    assert lazy.chunks is not None
+    np.testing.assert_allclose(lazy.compute().values, eager.values, equal_nan=True)
 
 
 def test_methods_preserve_nan_support_and_sign():
@@ -331,3 +493,57 @@ def test_named_methods_preserve_dask_laziness_when_available(method):
 
     assert result.chunks is not None
     assert np.isfinite(result.compute().values).all()
+
+
+@pytest.mark.parametrize(
+    "invalid_kind, invalid_value",
+    [
+        ("incidence", -0.01),
+        ("incidence", math.pi / 2.0),
+        ("incidence", math.inf),
+        ("density", 0.0),
+        ("density", -1.0),
+        ("density", 917.0),
+        ("density", math.inf),
+    ],
+)
+def test_guneriussen_lazy_invalid_values_fail_when_computed(
+    invalid_kind, invalid_value
+):
+    da = pytest.importorskip("dask.array")
+    coords = {"pixel": np.arange(2)}
+    phase, incidence = _inputs(
+        phase_values=np.ones(2),
+        incidence_values=np.full(2, THETA),
+        dims=("pixel",),
+        coords=coords,
+    )
+    phase = phase.copy(data=da.from_array(phase.data, chunks=1))
+    if invalid_kind == "incidence":
+        incidence = incidence.copy(
+            data=da.from_array(np.array([THETA, invalid_value]), chunks=1)
+        )
+        density = 300.0
+    else:
+        incidence = incidence.copy(data=da.from_array(incidence.data, chunks=1))
+        density = xr.DataArray(
+            da.from_array(np.array([300.0, invalid_value]), chunks=1),
+            dims=("pixel",),
+            coords=coords,
+            attrs={"units": "kg m-3"},
+        )
+
+    result = compute_guneriussen_dswe(
+        phase,
+        incidence,
+        snow_density_kg_m3=density,
+        wavelength_m=WAVELENGTH_M,
+    )
+    assert result.chunks is not None
+    message = (
+        "incidence_angle values must be in"
+        if invalid_kind == "incidence"
+        else "snow_density_kg_m3 values must be in"
+    )
+    with pytest.raises(ValueError, match=message):
+        result.compute()

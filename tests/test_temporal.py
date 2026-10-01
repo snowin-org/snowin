@@ -129,6 +129,26 @@ def test_non_contiguous_path_fails():
         accumulate_dswe([first, second])
 
 
+def test_contiguous_edges_match_across_explicit_timezone_offsets():
+    first = _edge(
+        [[1.0, 1.0], [1.0, 1.0]],
+        "2025-01-01T05:00:00+05:00",
+        "2025-01-13T00:00:00Z",
+    )
+    second = _edge(
+        [[2.0, 2.0], [2.0, 2.0]],
+        "2025-01-12T19:00:00-05:00",
+        "2025-01-25T00:00:00Z",
+    )
+
+    result = accumulate_dswe([first, second])
+
+    np.testing.assert_allclose(
+        result.cumulative_dswe.values,
+        [[[1.0, 1.0], [1.0, 1.0]], [[3.0, 3.0], [3.0, 3.0]]],
+    )
+
+
 def test_reverse_order_does_not_get_silently_sorted():
     first = _edge(
         [[1.0, 1.0], [1.0, 1.0]],
@@ -187,7 +207,7 @@ def test_invalid_dswe_contract_fails():
 
     edge.dswe.attrs["units"] = "m"
     edge.dswe.attrs["phase_difference_definition"] = "reference_minus_secondary"
-    with pytest.raises(ValueError, match="canonical phase"):
+    with pytest.raises(ValueError, match="SnowIn phase convention"):
         accumulate_dswe([edge])
 
 

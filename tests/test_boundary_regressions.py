@@ -72,7 +72,7 @@ def test_incidence_at_or_above_ninety_degrees_is_unsupported(degrees):
         )
 
 
-def test_reference_provenance_preserves_exclusion_class():
+def test_reference_metadata_preserves_exclusion_class():
     observed = xr.DataArray([1.0, 3.0], dims=("station",), attrs={"units": "rad"})
     expected = xr.DataArray([0.0, 0.0], dims=("station",), attrs={"units": "rad"})
     weights = xr.DataArray([1.0, 1.0], dims=("station",), attrs={"units": "1"})

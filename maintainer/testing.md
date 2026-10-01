@@ -1,6 +1,6 @@
 # SnowIn scientific testing policy
 
-This is the canonical policy for tests that protect SnowIn's scientific
+This is the standard policy for tests that protect SnowIn's scientific
 behavior. A scientific function is not adequately tested merely because it
 runs and returns an array of the expected shape. Its mathematics, conventions,
 numerics, labeled-array contract, failure behavior, and computational behavior
@@ -28,7 +28,7 @@ independent scientific validation.
 ### 2. Scientific invariants and limiting behavior
 
 Test properties that must hold across valid inputs, not only selected example
-outputs. The canonical dSWE kernel, for example, is expected to satisfy zero
+outputs. The primary dSWE kernel, for example, is expected to satisfy zero
 phase → zero dSWE, phase sign reversal → dSWE sign reversal, linear scaling in
 phase and wavelength, inverse scaling in `alpha`, and non-increasing dSWE as a
 valid incidence angle increases for positive phase under the implemented
@@ -66,7 +66,7 @@ by this exception.
 For xarray-native functions, test more than `.values`. Protect applicable
 dimensions and order, sizes, coordinates and orientation, names, attributes,
 units, CRS/grid-mapping metadata, time ordering, phase definition, incidence
-reference, wavelength, support masks, and provenance. A correct raster on the
+reference, wavelength, support masks, and source metadata. A correct raster on the
 wrong grid or with the wrong sign or units is a failed scientific result.
 
 Use `xr.testing.assert_allclose` for numerically tolerant labeled comparisons,
@@ -150,9 +150,9 @@ accumulation, and inspection of the final xarray result. Its expected values
 should follow from a small analytical example.
 
 Tests requiring externally supplied real mission products should be marked
-`integration`, document their provenance and environment variables, and remain
+`integration`, document their source metadata and environment variables, and remain
 optional. They must not make the normal test suite depend on those files.
-Optional NISAR input provenance and environment variables are recorded in
+Optional NISAR input metadata and environment variables are recorded in
 `tests/fixtures/README.md` alongside the tests and fixture manifests.
 
 ## Coverage and repository checks

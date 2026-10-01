@@ -15,7 +15,7 @@ interferometric phase
     -> absolute SWE only with an independent initial SWE condition
 ```
 
-The canonical phase is `phi_secondary - phi_reference`, in radians. A pair is
+The SnowIn phase convention is `phi_secondary - phi_reference`, in radians. A pair is
 directed from `reference_time` to `secondary_time`; those product roles do not
 imply chronological order. The dSWE sign is `SWE_secondary - SWE_reference`.
 Accumulation validates chronology and contiguity and never sorts, fills, or
@@ -30,7 +30,7 @@ dSWE = phase * wavelength_m
        / (2*pi*alpha*(1.59 + incidence_angle_rad**2.5))
 ```
 
-The phase is canonical radians, wavelength is metres, incidence is radians,
+The phase uses the SnowIn convention in radians, wavelength is metres, incidence is radians,
 and `alpha` is dimensionless. The empirical angle term uses radians
 numerically. This is a dry-snow change retrieval, not an absolute-SWE model or
 a universal accuracy guarantee. Its local terrain-surface incidence is the
@@ -42,7 +42,7 @@ requires snow density in kg m-3. `compute_oveisgharan_dswe()` is a separate
 fitted model using `A(theta) = -0.6784*theta**2 + 0.2899*theta - 0.8473` and
 `dSWE = phase / (-2*k_i*A(theta))`, where `k_i = 2*pi/wavelength_m`.
 Scientific sources and implementation notes are in
-[code provenance](code_provenance.md).
+[scientific sources](scientific_sources.md).
 
 All named methods require explicit positive `wavelength_m`; the generic
 science layer has no sensor registry. The NISAR adapter uses authoritative
@@ -66,7 +66,7 @@ matching is requested. See [vertical datums](vertical_datums.md).
 ## xarray grid and missing-data contracts
 
 SnowIn preserves dimensions, coordinate values and order, CRS/grid-mapping
-metadata, provenance, and Dask laziness where promised. Scientific kernels do
+metadata and Dask laziness where promised. Scientific kernels do
 not silently align or resample grids. NaN and unknown support propagate; they
 are never replaced by zero or assumed valid.
 
@@ -90,6 +90,6 @@ status remain in the returned xarray object. SnowIn does not choose stations,
 dates, or expected phase.
 
 The GUNW adapter may expose ionospheric and tropospheric phase layers with
-source provenance, but does not apply them. SnowIn 0.1 has no correction
+source metadata, but does not apply them. SnowIn 0.1 has no correction
 operation; callers who apply correction screens must explicitly handle their
 units, signs, and source-grid alignment in their workflow.
