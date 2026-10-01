@@ -44,9 +44,7 @@ and wavelength is in metres.
 
 ```python snowin-quickstart
 import math
-
 import xarray as xr
-
 from snowin import compute_leinss_dswe
 
 phase = xr.DataArray(
