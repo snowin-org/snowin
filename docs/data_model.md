@@ -1,32 +1,10 @@
 # SnowIn normalized data model
 
-This document distinguishes a phase-normalized product from a retrieval-ready
-pair. Both are ordinary xarray Datasets; incidence geometry is a separate
-operation and is not computed by `open_gunw()`.
-
-## Boundary and scope
-
-The normalized object at the SnowIn science boundary is an
-`xarray.Dataset`. It represents one directed interferometric pair on one
-analysis grid:
-
-```text
-source product / adapter
-    -> phase-normalized product Dataset
-    -> retrieval-ready pair Dataset after incidence is added
-    -> scientific function over xarray objects
-```
-
-The pair Dataset is not:
-
-- a raw NISAR HDF5 hierarchy;
-- a stack or temporal graph;
-- an absolute SWE product;
-- a custom `SnowScene`, `SnowStack`, or `SnowProduct` object.
-
-The pair-first boundary keeps the NISAR adapter and pairwise dSWE contract
-testable while temporal accumulation accepts an explicit sequence of directed
-pair Datasets. SnowIn does not define a general stack or edge-table model.
+A normalized product is an xarray Dataset for one directed pair on a science
+grid. `open_gunw()` returns normalized phase; incidence geometry is added in a
+separate operation to produce a retrieval-ready pair. Temporal accumulation
+accepts an explicit sequence of directed pair Datasets; this contract does not
+describe a stack or absolute SWE product.
 
 ## Required dimensions and coordinates
 
@@ -228,47 +206,3 @@ whether support was complete. These details must not be reduced to a scalar
 offset or one universal mask. Temporal accumulation must additionally retain
 the edge order, path interval, support policy, and whether support is complete
 at each endpoint.
-
-## Public and private API boundary
-
-The public scientific boundary accepts and returns xarray DataArray and
-Dataset objects. It preserves promised dimensions, coordinates, CRS/grid
-metadata, scientific attributes, missing-data behavior, and lazy backing where
-supported.
-
-NISAR group paths, source variable names, and HDF5 traversal remain adapter
-details. Source normalization belongs in the adapter; general retrieval
-equations and explicit study inputs belong in the scientific layer.
-
-The current package provides named xarray retrieval methods. The old NumPy
-phase dispatcher, raster wrapper, end-to-end GUNW workflow, and generic GUNW
-quality defaults have been retired from the package API. Callers should
-construct aligned phase, incidence, density, and support inputs explicitly.
-
-No custom scene, stack, product class, or xarray accessor is introduced by
-this contract.
-
-## xarray runtime dependency
-
-xarray is a core SnowIn runtime dependency. The normalized Dataset contract
-and stable scientific APIs are xarray-native, so a normal SnowIn installation
-must be able to construct and process these objects. Dask remains optional;
-when Dask-backed arrays are supplied, SnowIn preserves their lazy backing
-without making Dask a required dependency.
-
-## Canonical phase contract
-
-SnowIn uses one normalized phase orientation:
-
-```text
-phase = phi_secondary - phi_reference
-```
-
-This is aligned with the directed edge
-`reference_time -> secondary_time` and with
-`dSWE = SWE_secondary - SWE_reference`. Positive normalized phase is positive
-forward phase change. Pairwise dSWE follows the same direction and is not an
-absolute SWE value.
-
-The source-to-canonical transformation is an adapter responsibility. The
-NISAR adapter implements and records the GUNW source-to-canonical transform.

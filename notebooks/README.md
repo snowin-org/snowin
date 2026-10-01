@@ -9,5 +9,3 @@ Install Jupyter and notebook display tools with the `notebooks` dependency group
 ```bash
 python -m pip install -e ".[nisar,geometry,dask]" --group notebooks
 ```
-
-The former SNOTEL workflow is preserved outside this sequence in `../research/` as downstream, unmaintained research material.

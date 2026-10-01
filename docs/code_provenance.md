@@ -1,8 +1,7 @@
 # Code and scientific provenance
 
-This record identifies the scientific basis and deliberate package boundary
-for SnowIn 0.1. The implementations are independent SnowIn code; referenced
-equations and product conventions do not imply that external code was copied.
+This page records the scientific sources and product conventions used by
+SnowIn. The implementations are independent SnowIn code.
 
 ## Retrieval equations
 
@@ -16,10 +15,8 @@ equations and product conventions do not imply that external code was copied.
 - **Oveisgharan:** Oveisgharan et al. (2024), The Cryosphere,
   [DOI 10.5194/tc-18-559-2024](https://doi.org/10.5194/tc-18-559-2024).
 
-The canonical phase and pairwise dSWE directions, units, equation forms, and
-limitations are in [scientific conventions](scientific_conventions.md).
-Synthetic analytical and invariant tests cover the equations; the package does
-not tune them against validation data.
+The equations, canonical phase and dSWE directions, units, and limitations
+are described in [scientific conventions](scientific_conventions.md).
 
 ## NISAR product and geometry
 
@@ -38,47 +35,15 @@ n = normalize((-dz/dx, -dz/dy, 1))
 incidence = arccos(clip(dot(target_to_sensor_los, n), -1, 1))
 ```
 
-DEM reprojection and LOS interpolation are validated against analytic
-synthetic cases. The adapter records CRS, vertical datum, interpolation, and
-support decisions. GUNW radar-grid height is ellipsoidal; DEM source
-assumptions and explicit vertical correction behavior are documented in
-[vertical datums](vertical_datums.md). External real-product regression inputs
-are optional and described in `tests/fixtures/README.md`.
+The adapter records CRS, vertical datum, interpolation, and support. GUNW
+radar-grid height is ellipsoidal; DEM assumptions and vertical correction
+behavior are documented in [vertical datums](vertical_datums.md).
 
 ## Reference, support, and temporal behavior
 
-Reference estimation is independently implemented as xarray operations in
-`snowin.reference.phase`. It retains contributors, weights, exclusions,
-support, and status. The generic residual-weighted algebra is documented in
-[scientific conventions](scientific_conventions.md); station selection and
-expected-phase construction remain caller-owned.
-
-Support layers retain distinct meanings in `snowin.quality.support` and are
-combined only when explicitly requested. `snowin.temporal` accumulates only
-caller-ordered chronological contiguous edges and propagates unsupported
-samples. Both are protected by synthetic xarray and Dask tests.
-
-## Deliberate 0.1 scope decisions
-
-- **Removed sensor wavelength registry and retrieval aliases:** no stable
-  release has depended on them; generic equations now require explicit
-  wavelength, while NISAR metadata supplies its authoritative value.
-- **Removed legacy NumPy reference strategies:** they duplicated the
-  contributor-based xarray reference API. `reference_phase`,
-  `estimate_reference_offset`, and `apply_reference_offset` retain the
-  auditable behavior.
-- **Removed NumPy correction configuration/result API:** it lacked an xarray
-  grid, unit, and product-aware correction contract. No scientific correction
-  capability is silently lost or substituted; GUNW fields remain inspectable.
-  Correction application remains caller-owned in 0.1, and a workflow must
-  explicitly resolve correction signs and source-grid alignment.
-- **Removed generic evaluation metrics:** bias, MAE, RMSE, and correlation are
-  generic evaluation operations; callers can use their chosen evaluation
-  libraries over explicitly composed support.
-- **Removed generic array utilities:** shape checks and finite fractions were
-  implementation helpers without a SnowIn scientific meaning.
-- **Removed study scripts, spatial-mask code, and historical planning files:**
-  search/download, unwrapping, basin and station policy, vector rasterization,
-  plots, and research records belong in their source or downstream workflow.
-  Their deletion from this branch does not alter the retained scientific
-  kernels. Git history preserves development artifacts.
+Reference estimation retains its contributors, weights, exclusions, and
+support; callers choose contributors and expected phase. Support layers retain
+distinct meanings and are combined only when explicitly requested. Temporal
+accumulation follows caller-ordered chronological edges and propagates
+unsupported samples. These contracts are detailed in
+[scientific conventions](scientific_conventions.md).

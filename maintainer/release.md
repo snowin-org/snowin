@@ -16,7 +16,8 @@ Use this checklist for each reviewed SnowIn source release.
 7. Create and push an annotated version tag at the reviewed commit.
 8. Create the GitHub Release from that tag with the matching changelog notes.
 9. Publish the checked sdist and wheel to PyPI.
-10. Confirm the published install and documentation links.
+10. Confirm the published install and documentation links. The docs workflow
+    validates the site; GitHub Pages deployment requires Pages to be enabled.
 11. Begin conda-forge packaging as a separate recipe and review.
 
 Keep credentials out of this repository. Describe pairwise and cumulative

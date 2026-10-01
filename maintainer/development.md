@@ -58,5 +58,5 @@ when their dependency is missing.
 GitHub Actions tests Python 3.12–3.14, checks the minimum supported NumPy and
 xarray versions on Python 3.12, runs Ruff, builds the package, and exercises a
 clean wheel install. The documentation workflow builds with strict MkDocs
-warnings. Package CI does not install the notebook research environment or
+warnings. Package CI does not install the notebook environment or
 use private data, credentials, or network access.
