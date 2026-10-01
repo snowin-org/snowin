@@ -271,6 +271,27 @@ def test_open_gunw_defers_geometry_and_incidence_requires_explicit_gunw(tmp_path
         result.close()
 
 
+def test_gunw_incidence_rejects_source_granule_mismatch(tmp_path):
+    h5netcdf = pytest.importorskip("h5netcdf")
+    target_path = tmp_path / "target_gunw.h5"
+    other_path = tmp_path / "other_gunw.h5"
+    _write_synthetic_gunw(h5netcdf, target_path, granule_id="target-granule")
+    _write_synthetic_gunw(h5netcdf, other_path, granule_id="other-granule")
+
+    target = open_gunw(target_path, chunks=None, progress=False)
+    try:
+        with pytest.raises(ValueError, match="does not match target source_granule_id"):
+            compute_gunw_incidence(
+                other_path,
+                target,
+                dem_source="cop30",
+                dem=_synthetic_dem(),
+                progress=False,
+            )
+    finally:
+        target.close()
+
+
 def test_product_ellipsoid_incidence_requires_explicit_opt_in(tmp_path):
     h5netcdf = pytest.importorskip("h5netcdf")
     path = tmp_path / "test_gunw_ellipsoid.h5"
@@ -436,6 +457,7 @@ def _write_synthetic_gunw(
     include_projection=True,
     include_connected_components=False,
     include_correction_layers=True,
+    granule_id=None,
     x_coordinates=(100.0, 110.0),
     y_coordinates=(20.0, 10.0),
     center_frequency_hz=1.0e9,
@@ -513,7 +535,11 @@ def _write_synthetic_gunw(
         ident = root.create_group("science/LSAR/identification")
         for name, value in {
             "productType": "GUNW",
-            "granuleId": f"synthetic-gunw-{polarization}",
+            "granuleId": (
+                granule_id
+                if granule_id is not None
+                else f"synthetic-gunw-{polarization}"
+            ),
             "referenceZeroDopplerStartTime": "2025-01-01T00:00:00.000000000",
             "secondaryZeroDopplerStartTime": "2025-01-13T00:00:00.000000000",
         }.items():

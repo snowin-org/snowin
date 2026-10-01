@@ -415,9 +415,11 @@ def compute_gunw_incidence(
     The explicit ``gunw_file`` requirement prevents geometry from being
     inferred from, or silently substituted for, another product. For local
     incidence, callers must supply a prepared DEM through ``dem``; SnowIn does
-    not acquire or cache ancillary elevation data. The returned two-dimensional
-    DataArray is aligned to ``target.phase``; :func:`add_gunw_incidence`
-    appends it to the target Dataset.
+    not acquire or cache ancillary elevation data. When ``target`` records a
+    ``source_granule_id``, SnowIn verifies it against the explicit GUNW before
+    reading geometry. The returned two-dimensional DataArray is aligned to
+    ``target.phase``; :func:`add_gunw_incidence` appends it to the target
+    Dataset.
     """
     if not isinstance(target, xr.Dataset) or "phase" not in target:
         raise TypeError("target must be an xarray.Dataset containing 'phase'")
@@ -425,6 +427,18 @@ def compute_gunw_incidence(
     path = Path(gunw_file).expanduser().resolve()
     if not path.exists():
         raise FileNotFoundError(f"GUNW file not found: {path}")
+    target_granule_id = target.attrs.get("source_granule_id")
+    if target_granule_id is not None:
+        gunw_granule_id = read_scalar_hdf5(path, f"{IDENTIFICATION_GROUP}/granuleId")
+        if gunw_granule_id is None:
+            raise ValueError(
+                "GUNW is missing granuleId needed to verify it matches the target"
+            )
+        if str(gunw_granule_id) != str(target_granule_id):
+            raise ValueError(
+                "GUNW granuleId does not match target source_granule_id: "
+                f"{gunw_granule_id!r} != {target_granule_id!r}"
+            )
     dem_source = _validate_dem_source(dem_source)
     vertical_correction_m = dem_vertical_correction_m
     if incidence_source not in {"cop30_local", "product_ellipsoid"}:
