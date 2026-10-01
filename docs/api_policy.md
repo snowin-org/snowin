@@ -1,80 +1,63 @@
 # SnowIn API policy
 
-SnowIn is a small scientific package for snow-focused InSAR retrievals. Its
-stable root API operates on normalized xarray objects. Product adapters and
-geometry functions live in domain modules; product search, cloud staging,
-ancillary-data access, file export, and plotting stay in companion workflows.
+SnowIn's stable scientific boundary consists of plain xarray
+`DataArray` and `Dataset` inputs and outputs. Public functions express
+snow/InSAR-specific science; mission details remain in adapters.
 
-## Core API
+## Supported imports
 
-The root facade exports the named xarray retrieval methods, reference-phase
-operations, support composition and metrics, and directed temporal
-accumulation. It does not expose product-specific readers or study policies.
+Generic retrieval, reference, support, and temporal functions are available
+from `snowin`:
 
-    from snowin import (
-        accumulate_dswe,
-        build_support_dataset,
-        compose_support_mask,
-        compute_dswe,
-        compute_guneriussen_dswe,
-        compute_leinss_dswe,
-        compute_metrics,
-        compute_oveisgharan_dswe,
-        reference_phase,
-        summarize_support,
-    )
+```python
+from snowin import (
+    accumulate_dswe,
+    build_support_dataset,
+    compose_support_mask,
+    compute_guneriussen_dswe,
+    compute_leinss_dswe,
+    compute_oveisgharan_dswe,
+    reference_phase,
+    summarize_support,
+)
+```
 
-Use one named retrieval function per scientific model. The compute_dswe name
-continues to mean the Leinss retrieval; it is not a model dispatcher. Inputs
-must already use SnowIn's canonical secondary-minus-reference phase and
-explicit units and coordinates.
+The NISAR product adapter and geometry functions are available from
+`snowin.io`. The xarray contributor-based reference helpers are available from
+`snowin.reference`. Named support operations live in `snowin.quality.support`.
 
-## NISAR adapter
+## Product and data states
 
-The NISAR adapter is optional and product-specific. It reads local GUNW
-products through nisar-pytools and normalizes phase and product metadata:
+`open_gunw()` returns a phase-normalized product with canonical phase,
+authoritative wavelength, temporal metadata, and provenance. It intentionally
+does not calculate incidence. `add_gunw_incidence()` computes geometry from an
+explicit GUNW and caller-prepared DEM, then adds incidence and geometry support
+to the same Dataset. The result is a retrieval-ready pair. See the
+[data model](data_model.md) for state attributes and required variables.
 
-    from snowin.io import open_gunw
+`add_gunw_incidence()` mutates its target and returns that same Dataset. This
+preserves the `close()` callback that owns lazy GUNW file resources.
 
-    pair = open_gunw("product.h5")
+## Scientific methods
 
-Local-incidence geometry is a separate optional capability. It requires a
-caller-prepared DEM and does not download or cache ancillary data:
+Each dSWE equation has one explicit public function:
 
-    from snowin.io import add_gunw_incidence
+- `compute_leinss_dswe`
+- `compute_guneriussen_dswe`
+- `compute_oveisgharan_dswe`
 
-    add_gunw_incidence(
-        pair,
-        "product.h5",
-        dem="/path/to/prepared_dem.tif",
-        dem_source="nisar_cop30",
-    )
+All require `wavelength_m`; product adapters should obtain it from
+authoritative metadata when available. There is no generic model selector,
+sensor wavelength registry, or Leinss alias. Reference estimation requires
+explicit contributors or a manual offset. Support layers remain separately
+named and are combined only when the caller names them. Temporal accumulation
+accepts an explicitly ordered, contiguous chronological path.
 
-The optional package extras are nisar for GUNW reading, geometry for local
-incidence, and dask for Dask-backed arrays. The base installation remains
-NumPy and xarray.
+## Outside the package boundary
 
-## Caller-owned workflow operations
-
-Use nisar-pytools directly for ASF search and validated downloads. Companion
-tools or study workflows prepare SNOTEL, CDEC, ASO, lidar, DEM, vector masks,
-and other ancillary inputs. They pass aligned arrays or local file paths to
-SnowIn. Matplotlib and xarray's plotting methods are available in notebook and
-workflow environments; SnowIn has no custom plotting, report, or CLI layer.
-
-SnowIn no longer exposes the legacy NumPy phase_to_dswe dispatcher,
-phase_raster_to_dswe, gunw_to_dswe, or the default GUNW quality-mask policy.
-Use named xarray retrieval methods and compose explicit support layers.
-Study workflows that previously used those convenience functions should
-migrate their inputs and policy choices in their own repository.
-
-## Dependency groups
-
-Development, docs, and notebook requirements use PEP 735 dependency groups.
-The PyPA specification says group contents are not included in built package
-metadata; runtime capabilities that users install by feature remain optional
-extras. See the
-[PyPA dependency-groups specification](https://packaging.python.org/en/latest/specifications/dependency-groups/).
-
-Only promote a product adapter or convenience API when SnowIn can maintain its
-scientific contract, dependency set, documentation, and downstream use.
+Product discovery, cloud access, ancillary data, GIS file operations, plots,
+generic evaluation metrics, and study-specific validation remain caller-owned.
+Correction layers can be exposed by the GUNW adapter but are not applied by
+SnowIn; correction application is deferred until a scientifically frozen
+xarray contract is established. No automatic reference, correction, mask, or
+resampling policy is provided.

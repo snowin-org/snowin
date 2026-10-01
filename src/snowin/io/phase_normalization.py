@@ -127,6 +127,92 @@ def _normalize_source_phase(
     return canonical_phase, transform
 
 
+def _build_phase_normalized_dataset(
+    phase: xr.DataArray,
+    spatial_ref: xr.DataArray,
+    *,
+    source_phase_difference_definition: str,
+    reference_time: str,
+    secondary_time: str,
+    wavelength_m: float,
+    source_product_type: str = "NISAR_GUNW",
+    source_granule_id: str | None = None,
+    additional_variables: Mapping[str, xr.DataArray] | None = None,
+    native_grid_dimensions: Mapping[str, tuple[tuple[str, ...], ...]] | None = None,
+    provenance: Mapping[str, Any] | None = None,
+) -> xr.Dataset:
+    """Build the shared phase-normalized product and provenance contract.
+
+    Additional variables must either match the phase grid or have a named
+    native-grid dimension contract supplied by the product adapter.
+    """
+    source_definition = _validate_source_convention(source_phase_difference_definition)
+    canonical_phase, transform = _normalize_source_phase(phase, source_definition)
+    attrs: dict[str, Any] = {
+        "snowin_schema_version": "0.1-draft",
+        "snowin_data_state": "phase_normalized_product",
+        "product_kind": "pairwise_interferogram",
+        "reference_time": reference_time,
+        "secondary_time": secondary_time,
+        "temporal_edge": "reference_to_secondary",
+        "phase_difference_definition": _CANONICAL_PHASE_DEFINITION,
+        "source_phase_difference_definition": source_definition,
+        "phase_transform": transform,
+        "wavelength_m": _positive_scalar("wavelength_m", wavelength_m),
+        "source_product_type": source_product_type,
+    }
+    if source_granule_id is not None:
+        attrs["source_granule_id"] = source_granule_id
+    if provenance:
+        attrs.update(_serializable_attrs(provenance))
+
+    variables: dict[str, xr.DataArray] = {"phase": canonical_phase}
+    native_grid_dimensions = native_grid_dimensions or {}
+    for name, variable in (additional_variables or {}).items():
+        if variable.dims == ("y", "x"):
+            if variable.sizes != phase.sizes:
+                raise ValueError(
+                    f"additional variable {name!r} does not match the phase grid"
+                )
+            for dim in ("y", "x"):
+                if not np.array_equal(
+                    phase.coords[dim].data, variable.coords[dim].data
+                ):
+                    raise ValueError(
+                        f"additional variable {name!r} is not grid-aligned"
+                    )
+        elif variable.dims not in native_grid_dimensions.get(name, ()):
+            raise ValueError(
+                f"additional variable {name!r} has unsupported dimensions "
+                f"{variable.dims!r}; expected ('y', 'x') or an explicitly "
+                "declared native-grid layout"
+            )
+        else:
+            for dim in variable.dims:
+                if dim not in variable.coords or variable.coords[dim].dims != (dim,):
+                    raise ValueError(
+                        f"native-grid variable {name!r} must provide a 1-D "
+                        f"coordinate for dimension {dim!r}"
+                    )
+        copied = variable.rename(name)
+        copied.attrs = _serializable_attrs(variable.attrs)
+        copied.attrs.setdefault("grid_mapping", "spatial_ref")
+        variables[name] = copied
+
+    result = xr.Dataset(
+        variables,
+        coords={
+            "y": phase.coords["y"],
+            "x": phase.coords["x"],
+            "spatial_ref": spatial_ref.rename("spatial_ref"),
+        },
+        attrs=attrs,
+    )
+    result["x"].attrs.setdefault("units", "m")
+    result["y"].attrs.setdefault("units", "m")
+    return result
+
+
 def normalize_gunw_pair(
     phase: xr.DataArray,
     incidence_angle: xr.DataArray,
@@ -173,57 +259,23 @@ def normalize_gunw_pair(
         )
     _require_aligned(phase, incidence_angle)
 
-    canonical_phase, transform = _normalize_source_phase(phase, source_definition)
-
     incidence = incidence_angle.rename("incidence_angle")
     incidence_attrs = _serializable_attrs(incidence_angle.attrs)
     incidence_attrs.update({"units": "rad", "grid_mapping": "spatial_ref"})
     incidence.attrs = incidence_attrs
 
-    attrs: dict[str, Any] = {
-        "snowin_schema_version": "0.1-draft",
-        "product_kind": "pairwise_interferogram",
-        "reference_time": reference_time,
-        "secondary_time": secondary_time,
-        "temporal_edge": "reference_to_secondary",
-        "phase_difference_definition": _CANONICAL_PHASE_DEFINITION,
-        "source_phase_difference_definition": source_definition,
-        "phase_transform": transform,
-        "wavelength_m": wavelength_m,
-        "source_product_type": source_product_type,
-    }
-    if source_granule_id is not None:
-        attrs["source_granule_id"] = source_granule_id
-    if provenance:
-        attrs.update(_serializable_attrs(provenance))
-
-    variables: dict[str, xr.DataArray] = {
-        "phase": canonical_phase,
-        "incidence_angle": incidence,
-    }
-    for name, variable in (additional_variables or {}).items():
-        _require_2d(name, variable)
-        if variable.sizes != phase.sizes:
-            raise ValueError(
-                f"additional variable {name!r} does not match the phase grid"
-            )
-        for dim in ("y", "x"):
-            if not phase.coords[dim].equals(variable.coords[dim]):
-                raise ValueError(f"additional variable {name!r} is not grid-aligned")
-        copied = variable.rename(name)
-        copied.attrs = _serializable_attrs(variable.attrs)
-        copied.attrs.setdefault("grid_mapping", "spatial_ref")
-        variables[name] = copied
-
-    result = xr.Dataset(
-        variables,
-        coords={
-            "y": phase.coords["y"],
-            "x": phase.coords["x"],
-            "spatial_ref": spatial_ref.rename("spatial_ref"),
-        },
-        attrs=attrs,
+    result = _build_phase_normalized_dataset(
+        phase,
+        spatial_ref,
+        source_phase_difference_definition=source_definition,
+        reference_time=reference_time,
+        secondary_time=secondary_time,
+        wavelength_m=wavelength_m,
+        source_product_type=source_product_type,
+        source_granule_id=source_granule_id,
+        additional_variables=additional_variables,
+        provenance=provenance,
     )
-    result["x"].attrs.setdefault("units", "m")
-    result["y"].attrs.setdefault("units", "m")
+    result["incidence_angle"] = incidence
+    result.attrs["snowin_data_state"] = "retrieval_ready_pair"
     return result

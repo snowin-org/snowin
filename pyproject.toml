@@ -14,7 +14,7 @@ authors = [
   { name = "SnowIn contributors" }
 ]
 dependencies = [
-  "numpy>=1.24",
+  "numpy>=1.26",
   "xarray>=2024.1",
 ]
 classifiers = [
@@ -56,17 +56,10 @@ docs = [
   "mkdocs-material>=9.6",
 ]
 notebooks = [
-  "earthaccess>=0.17",
-  "fsspec>=2024.0",
-  "geopandas>=0.14",
-  "ipykernel>=6.29",
-  "jupyterlab>=4.2",
-  "matplotlib>=3.8",
-  "pyproj>=3.6",
-  "requests>=2.31",
-  "rioxarray>=0.15",
-  "s3fs>=2024.0",
-  "shapely>=2",
+    "ipykernel>=6.29",
+    "jupyterlab>=4.2",
+    "matplotlib>=3.8",
+    "pyproj>=3.6",
 ]
 
 [tool.setuptools]

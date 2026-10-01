@@ -32,11 +32,10 @@ from .geometry import (
     compute_cop30_local_incidence,
 )
 from .phase_normalization import (
-    _CANONICAL_PHASE_DEFINITION,
     NISAR_GUNW_PHASE_TRANSFORM,
     NISAR_GUNW_SOURCE_PHASE_DEFINITION,
+    _build_phase_normalized_dataset,
     _iso_utc,
-    _normalize_source_phase,
     _positive_scalar,
     _require_2d,
     _require_aligned,
@@ -44,8 +43,7 @@ from .phase_normalization import (
     normalize_gunw_pair,
 )
 
-SPEED_OF_LIGHT_M_S = 299_792_458.0
-"""Defined speed of light used to convert product center frequency to metres."""
+_SPEED_OF_LIGHT_M_S = 299_792_458.0
 
 _KNOWN_SOURCE_ANGLE_UNITS = {"degree", "degrees", "deg"}
 
@@ -64,7 +62,7 @@ def read_gunw_wavelength_m(
             f"GUNW center-frequency metadata is missing or has unknown units at {path}"
         )
     frequency_hz = _positive_scalar("center_frequency_hz", center_frequency)
-    return SPEED_OF_LIGHT_M_S / frequency_hz
+    return _SPEED_OF_LIGHT_M_S / frequency_hz
 
 
 def _grid_data(
@@ -362,47 +360,28 @@ def open_gunw(
             ),
             "incidence_angle_status": "not_computed",
         }
-        canonical_phase, phase_transform = _normalize_source_phase(
-            raw_phase, NISAR_GUNW_SOURCE_PHASE_DEFINITION
-        )
-        attrs: dict[str, Any] = {
-            "snowin_schema_version": "0.1-draft",
-            "product_kind": "pairwise_interferogram",
-            "reference_time": _nisar_acquisition_time(path, "reference"),
-            "secondary_time": _nisar_acquisition_time(path, "secondary"),
-            "temporal_edge": "reference_to_secondary",
-            "phase_difference_definition": _CANONICAL_PHASE_DEFINITION,
-            "source_phase_difference_definition": NISAR_GUNW_SOURCE_PHASE_DEFINITION,
-            "phase_transform": phase_transform,
-            "wavelength_m": (
+        result = _build_phase_normalized_dataset(
+            raw_phase,
+            spatial_ref,
+            source_phase_difference_definition=NISAR_GUNW_SOURCE_PHASE_DEFINITION,
+            reference_time=_nisar_acquisition_time(path, "reference"),
+            secondary_time=_nisar_acquisition_time(path, "secondary"),
+            wavelength_m=(
                 _positive_scalar("wavelength_m", wavelength_m)
                 if wavelength_m is not None
                 else read_gunw_wavelength_m(path, frequency=frequency)
             ),
-            "source_product_type": "NISAR_GUNW",
-            "source_reader": "nisar_pytools.open_nisar + SnowIn normalization",
-            "correction_layers_applied": False,
-        }
-        if granule_id is not None:
-            attrs["source_granule_id"] = str(granule_id)
-        attrs.update(source_provenance)
-        variables: dict[str, xr.DataArray] = {"phase": canonical_phase}
-        for name, variable in additional.items():
-            copied = variable.rename(name)
-            copied.attrs = _serializable_attrs(variable.attrs)
-            copied.attrs.setdefault("grid_mapping", "spatial_ref")
-            variables[name] = copied
-        result = xr.Dataset(
-            variables,
-            coords={
-                "y": raw_phase.coords["y"],
-                "x": raw_phase.coords["x"],
-                "spatial_ref": spatial_ref,
+            source_granule_id=str(granule_id) if granule_id is not None else None,
+            additional_variables=additional,
+            native_grid_dimensions={
+                name: (
+                    ("radar_height", "radar_y", "radar_x"),
+                    ("radar_y", "radar_x"),
+                )
+                for name in ("hydro_tropo", "wet_tropo")
             },
-            attrs=attrs,
+            provenance={**source_provenance, "correction_layers_applied": False},
         )
-        result["x"].attrs.setdefault("units", "m")
-        result["y"].attrs.setdefault("units", "m")
     except Exception:
         del tree
         raise
@@ -581,7 +560,12 @@ def add_gunw_incidence(
     gunw_file: str | Path,
     **kwargs: Any,
 ) -> xr.Dataset:
-    """Compute incidence for ``gunw_file`` and append it to ``target``."""
+    """Compute incidence and append it to ``target`` in place.
+
+    ``open_gunw`` attaches a close callback to its Dataset to retain ownership
+    of the lazy NISAR file handle. Mutating that owner preserves the callback;
+    callers should use the returned Dataset (which is the same object).
+    """
     progress = kwargs.get("progress", True)
     _progress("starting explicit GUNW incidence calculation", progress)
     incidence = compute_gunw_incidence(gunw_file, target, **kwargs)
@@ -600,6 +584,7 @@ def add_gunw_incidence(
         ),
     }
     target["geometry_valid"] = geometry_valid
+    target.attrs["snowin_data_state"] = "retrieval_ready_pair"
     target.attrs.update(
         {
             key: value
@@ -630,7 +615,6 @@ def add_gunw_incidence(
 __all__ = [
     "NISAR_GUNW_PHASE_TRANSFORM",
     "NISAR_GUNW_SOURCE_PHASE_DEFINITION",
-    "SPEED_OF_LIGHT_M_S",
     "add_gunw_incidence",
     "compute_gunw_incidence",
     "normalize_gunw_pair",

@@ -10,7 +10,7 @@ import xarray as xr
 from hypothesis import given, settings
 from hypothesis.extra import numpy as hnp
 
-from snowin import compute_dswe
+from snowin import compute_leinss_dswe
 
 WAVELENGTH_M = 0.238403545
 
@@ -99,7 +99,7 @@ def _with_values(template: xr.DataArray, values: np.ndarray) -> xr.DataArray:
 def test_dswe_matches_independent_leinss_equation_over_small_shapes(inputs):
     dtype, phase, incidence = inputs
 
-    actual = compute_dswe(phase, incidence, wavelength_m=WAVELENGTH_M)
+    actual = compute_leinss_dswe(phase, incidence, wavelength_m=WAVELENGTH_M)
     phase64 = np.asarray(phase.data, dtype=np.float64)
     angle64 = np.asarray(incidence.data, dtype=np.float64)
     expected = phase64 * WAVELENGTH_M / (2.0 * math.pi * (1.59 + angle64**2.5))
@@ -122,7 +122,7 @@ def test_zero_phase_gives_zero_dswe_for_scalar_and_array_inputs(inputs):
     _, phase, incidence = inputs
     zero_phase = _with_values(phase, np.zeros(phase.shape, dtype=phase.dtype))
 
-    actual = compute_dswe(zero_phase, incidence, wavelength_m=WAVELENGTH_M)
+    actual = compute_leinss_dswe(zero_phase, incidence, wavelength_m=WAVELENGTH_M)
 
     np.testing.assert_array_equal(actual.values, np.zeros(phase.shape))
 
@@ -131,9 +131,11 @@ def test_zero_phase_gives_zero_dswe_for_scalar_and_array_inputs(inputs):
 @given(inputs=_physical_inputs())
 def test_phase_sign_reversal_reverses_dswe(inputs):
     dtype, phase, incidence = inputs
-    baseline = compute_dswe(phase, incidence, wavelength_m=WAVELENGTH_M)
+    baseline = compute_leinss_dswe(phase, incidence, wavelength_m=WAVELENGTH_M)
     reversed_phase = _with_values(phase, -np.asarray(phase.data))
-    reversed_result = compute_dswe(reversed_phase, incidence, wavelength_m=WAVELENGTH_M)
+    reversed_result = compute_leinss_dswe(
+        reversed_phase, incidence, wavelength_m=WAVELENGTH_M
+    )
 
     np.testing.assert_allclose(
         reversed_result.values,
@@ -150,9 +152,9 @@ def test_phase_sign_reversal_reverses_dswe(inputs):
 )
 def test_dswe_is_linear_in_phase(inputs, phase_scale):
     dtype, phase, incidence = inputs
-    baseline = compute_dswe(phase, incidence, wavelength_m=WAVELENGTH_M)
+    baseline = compute_leinss_dswe(phase, incidence, wavelength_m=WAVELENGTH_M)
     scaled_phase = _with_values(phase, np.asarray(phase.data) * phase_scale)
-    scaled = compute_dswe(scaled_phase, incidence, wavelength_m=WAVELENGTH_M)
+    scaled = compute_leinss_dswe(scaled_phase, incidence, wavelength_m=WAVELENGTH_M)
 
     np.testing.assert_allclose(
         scaled.values,
@@ -169,8 +171,8 @@ def test_dswe_is_linear_in_phase(inputs, phase_scale):
 )
 def test_dswe_is_linear_in_wavelength(inputs, wavelength_scale):
     dtype, phase, incidence = inputs
-    baseline = compute_dswe(phase, incidence, wavelength_m=WAVELENGTH_M)
-    scaled = compute_dswe(
+    baseline = compute_leinss_dswe(phase, incidence, wavelength_m=WAVELENGTH_M)
+    scaled = compute_leinss_dswe(
         phase,
         incidence,
         wavelength_m=WAVELENGTH_M * wavelength_scale,
@@ -191,8 +193,8 @@ def test_dswe_is_linear_in_wavelength(inputs, wavelength_scale):
 )
 def test_dswe_scales_inversely_with_leinss_alpha(inputs, alpha):
     dtype, phase, incidence = inputs
-    baseline = compute_dswe(phase, incidence, wavelength_m=WAVELENGTH_M)
-    scaled = compute_dswe(
+    baseline = compute_leinss_dswe(phase, incidence, wavelength_m=WAVELENGTH_M)
+    scaled = compute_leinss_dswe(
         phase,
         incidence,
         wavelength_m=WAVELENGTH_M,
@@ -231,10 +233,10 @@ def test_positive_phase_dswe_decreases_with_valid_incidence_angle(
     )
     higher_incidence = _with_values(lower_incidence, higher)
 
-    lower_dswe = compute_dswe(
+    lower_dswe = compute_leinss_dswe(
         positive_phase, lower_incidence, wavelength_m=WAVELENGTH_M
     )
-    higher_dswe = compute_dswe(
+    higher_dswe = compute_leinss_dswe(
         positive_phase, higher_incidence, wavelength_m=WAVELENGTH_M
     )
     rtol, atol = _tolerances(dtype)

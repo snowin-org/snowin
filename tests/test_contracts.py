@@ -91,6 +91,7 @@ def _synthetic_pair_dataset(
         },
         attrs={
             "snowin_schema_version": "0.1-draft",
+            "snowin_data_state": "retrieval_ready_pair",
             "product_kind": "pairwise_interferogram",
             "reference_time": "2025-01-01T00:00:00Z",
             "secondary_time": "2025-01-13T00:00:00Z",

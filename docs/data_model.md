@@ -1,9 +1,8 @@
 # SnowIn normalized data model
 
-Status: Stage 3 contract. This document defines the smallest
-retrieval-ready xarray representation used by the NISAR adapter and the
-canonical scientific kernels. It is deliberately narrower than a mission
-product schema.
+This document distinguishes a phase-normalized product from a retrieval-ready
+pair. Both are ordinary xarray Datasets; incidence geometry is a separate
+operation and is not computed by `open_gunw()`.
 
 ## Boundary and scope
 
@@ -13,7 +12,8 @@ analysis grid:
 
 ```text
 source product / adapter
-    -> one SnowIn pair Dataset
+    -> phase-normalized product Dataset
+    -> retrieval-ready pair Dataset after incidence is added
     -> scientific function over xarray objects
 ```
 
@@ -24,29 +24,37 @@ The pair Dataset is not:
 - an absolute SWE product;
 - a custom `SnowScene`, `SnowStack`, or `SnowProduct` object.
 
-The pair-first boundary is intentional. It lets the NISAR adapter and the
-pairwise dSWE contract remain testable while Stage 6 consumes an explicit
-sequence of directed pair Datasets for accumulation. A general stack/edge-table
-contract remains deferred rather than guessed here.
+The pair-first boundary keeps the NISAR adapter and pairwise dSWE contract
+testable while temporal accumulation accepts an explicit sequence of directed
+pair Datasets. SnowIn does not define a general stack or edge-table model.
 
 ## Required dimensions and coordinates
 
-A retrieval-ready pair Dataset has exactly two spatial dimensions:
+A phase-normalized product and retrieval-ready pair share the same x/y science
+grid, CRS, temporal direction, canonical phase, wavelength, and source provenance.
+The `snowin_data_state` attribute is `phase_normalized_product` before
+incidence is calculated and `retrieval_ready_pair` afterward. The normalized
+science grid has exactly two dimensions:
 
 | Name | Role | Contract |
 | --- | --- | --- |
 | `y` | row/cell-center coordinate | One-dimensional, finite, strictly monotonic, regularly spaced, and in the CRS coordinate units. |
 | `x` | column/cell-center coordinate | One-dimensional, finite, strictly monotonic, regularly spaced, and in the CRS coordinate units. |
 
-Spatial variables use dimension order `("y", "x")`. The coordinate order is
-preserved from the source; consumers must not assume that `y` increases or
-decreases without checking it. SnowIn does not silently flip arrays.
+Science-grid variables use dimension order `("y", "x")`. The coordinate
+order is preserved from the source; consumers must not assume that `y`
+increases or decreases without checking it. SnowIn does not silently flip
+arrays.
 
 The Dataset also contains a scalar `spatial_ref` coordinate or variable. It
 holds a CF-style CRS description, such as `crs_wkt` and/or `epsg_code`.
-Every spatial data variable has `grid_mapping="spatial_ref"` in its
-attributes. A normalized Dataset has one grid only: spatial variables must
-have the same dimensions, coordinate values, shape, and grid mapping.
+Science-grid variables have `grid_mapping="spatial_ref"` in their attributes
+and must share dimensions, coordinate values, shape, and grid mapping. The
+NISAR adapter may also retain the named `hydro_tropo` and `wet_tropo`
+correction fields on their native `radar_y`/`radar_x` grid, optionally with a
+`radar_height` dimension. Those adapter-owned fields have separate coordinates
+and are not phase-grid variables; scientific kernels must not combine them
+with phase until a caller explicitly maps them to a common grid.
 
 The `x` and `y` coordinates are cell centers. Their `units` attribute names
 the linear units of the declared CRS. A projected metre-based grid normally
@@ -58,7 +66,8 @@ The following attributes are required and must be scalar, serializable values:
 
 | Attribute | Meaning |
 | --- | --- |
-| `snowin_schema_version` | Version of this normalized contract, initially a draft `0.1-draft` value. |
+| `snowin_schema_version` | Draft normalized contract version, currently `0.1-draft`; it will be frozen as `0.1` at release. |
+| `snowin_data_state` | `phase_normalized_product` before incidence is available; `retrieval_ready_pair` after incidence is added. |
 | `product_kind` | `"pairwise_interferogram"` for this contract. |
 | `reference_time` | Reference acquisition start time as an ISO 8601 UTC string. |
 | `secondary_time` | Secondary acquisition start time as an ISO 8601 UTC string. |
@@ -97,12 +106,14 @@ The optional NISAR geometry adapter computes a local terrain-surface incidence a
 
 ## Required and optional variables
 
-The minimum pairwise retrieval Dataset contains these two physical variables:
+The phase-normalized product requires `phase`. The retrieval-ready pair also
+requires `incidence_angle` with explicit radians and an
+`incidence_angle_reference` value of `local` or `ellipsoid`:
 
 | Variable | Dimensions | Units | Meaning |
 | --- | --- | --- | --- |
 | `phase` | `("y", "x")` | `rad` | Unwrapped interferometric phase for the directed pair, with its sign defined by `phase_difference_definition`. |
-| `incidence_angle` | `("y", "x")` | `rad` | Incidence angle used by the retrieval. It also has required `incidence_angle_reference`, either `"ellipsoid"` or `"local"`. |
+| `incidence_angle` | `("y", "x")` | `rad` | Required only for retrieval-ready pairs; its `incidence_angle_reference` is `"ellipsoid"` or `"local"`. |
 
 `wavelength_m` is a Dataset attribute because it is a scalar property of this
 pair. An adapter must resolve it from authoritative metadata or an explicit
@@ -113,8 +124,10 @@ The NISAR GUNW adapter retains correction screens on their source grids. The
 ionosphere fields share the unwrapped-phase `y`/`x` grid. Hydrostatic and wet
 tropospheric screens use separate `radar_height`/`radar_y`/`radar_x`
 dimensions because their native radar grid may have a different resolution.
-The adapter exposes these fields for inspection; correction application still
-requires an explicit method and sign.
+The adapter exposes these fields for inspection but does not apply them. A
+general correction function is outside the current package contract because
+correction units, signs, and native-grid alignment require explicit scientific
+decisions.
 
 The following variables are optional and retain distinct scientific roles:
 
@@ -124,8 +137,8 @@ The following variables are optional and retain distinct scientific roles:
 | `connected_component` | integer label | Product connected-component identity; label values must not be collapsed into a dominant-component assumption. |
 | `ionosphere` | `("y", "x")`, radians | GUNW ionospheric phase screen on the unwrapped-interferogram grid; exposed as a correction input and never applied automatically. |
 | `ionosphere_unc` | `("y", "x")`, radians | Uncertainty reported for the ionospheric phase screen. |
-| `hydro_tropo` | `("radar_height", "radar_y", "radar_x")`, radians | Hydrostatic tropospheric phase screen on the native radar grid. |
-| `wet_tropo` | `("radar_height", "radar_y", "radar_x")`, radians | Wet tropospheric phase screen on the native radar grid. |
+| `hydro_tropo` | `("radar_y", "radar_x")` or `("radar_height", "radar_y", "radar_x")`, radians | Hydrostatic tropospheric phase screen on the native radar grid. |
+| `wet_tropo` | `("radar_y", "radar_x")` or `("radar_height", "radar_y", "radar_x")`, radians | Wet tropospheric phase screen on the native radar grid. |
 | `product_valid` | boolean | Whether product support/validity is known for the sample. Absence means unknown, not valid. |
 | `geometry_valid` | boolean | Whether the selected incidence angle is finite and in `[0, pi/2)`; false samples have missing incidence and are excluded from dSWE. |
 | `reference_supported` | boolean | Whether the sample has support for a declared reference operation. |
@@ -176,7 +189,7 @@ provenance. `_FillValue` is an I/O encoding detail, not a scientific value.
 No support variable is implicitly created with all `True` values. Absence of
 support evidence means unknown support.
 
-Stage 7 support helpers preserve these variables as named xarray layers. A
+Support helpers preserve these variables as named xarray layers. A
 derived conjunction is allowed only when the caller explicitly names its
 components; it is recorded as a policy and is not stored as a universal
 `quality_mask`. Support summaries distinguish supported samples from known
@@ -187,8 +200,8 @@ samples so unknown evidence is not silently counted as false or true.
 Before a scientific operation uses multiple spatial variables, validation must
 confirm:
 
-1. `y` and `x` are one-dimensional, finite, monotonic, and regularly spaced;
-2. every spatial variable uses the same `("y", "x")` dimensions;
+1. science-grid `y` and `x` are one-dimensional, finite, monotonic, and regularly spaced;
+2. every variable entering the same science operation uses the same declared grid;
 3. coordinate values and shapes are aligned, rather than merely having equal
    array shapes;
 4. all spatial variables reference the same `spatial_ref` mapping;
@@ -256,5 +269,4 @@ forward phase change. Pairwise dSWE follows the same direction and is not an
 absolute SWE value.
 
 The source-to-canonical transformation is an adapter responsibility. The
-Stage 1 contract defines and tests the required provenance, but does not
-implement the GUNW reader transformation.
+NISAR adapter implements and records the GUNW source-to-canonical transform.

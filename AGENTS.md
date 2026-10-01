@@ -13,9 +13,9 @@ policy before changing exports or choosing a public import path.
 | Public API | src/snowin/__init__.py | Stable, generic root-level functions |
 | Retrieval science | src/snowin/snow/ | Named phase-to-dSWE methods |
 | Product I/O | src/snowin/io/ | Local GUNW reading, phase normalization, prepared-DEM geometry |
-| Corrections and reference | src/snowin/corrections/, src/snowin/reference/ | Phase correction and reference methods |
-| Quality and time | src/snowin/quality/, src/snowin/temporal.py | Support composition, metrics, directed accumulation |
-| Workflow examples | notebooks/, scripts/, examples/ | Product discovery, ancillary preparation, GIS masks, plots, study policy |
+| Reference and support | src/snowin/reference/, src/snowin/quality/support.py | Contributor-based reference and named support composition |
+| Time | src/snowin/temporal.py | Directed chronological accumulation |
+| Examples | notebooks/, examples/ | Synthetic science, local GUNW, and upstream-to-adapter handoff |
 
 Keep product-specific normalization in adapters and general equations in the
 scientific layer. Prefer the root facade for stable generic operations and
@@ -29,7 +29,7 @@ repository root. PEP 735 dependency groups require pip 25.1 or newer:
 
 ```bash
 python -m pip install --upgrade pip
-python -m pip install -e ".[nisar,geometry,dask]" --group dev --group notebooks
+python -m pip install -e ".[nisar,geometry,dask]" --group dev --group docs
 ```
 
 Only maintained runtime integrations are declared in `pyproject.toml`; internal

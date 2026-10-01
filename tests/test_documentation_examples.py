@@ -21,6 +21,6 @@ def test_readme_quickstart_code_block_runs_and_matches_equation():
     import math
 
     theta = math.radians(35.0)
-    expected = 1.2 * 0.238403545 / (2 * math.pi * (1.59 + theta**2.5))
+    expected = 1.2 * 0.2384 / (2 * math.pi * (1.59 + theta**2.5))
     dswe = namespace["dswe"]
     assert dswe.item() == pytest.approx(expected, rel=1e-12, abs=0.0)

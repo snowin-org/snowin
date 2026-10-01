@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from snowin import accumulate_dswe, compute_dswe, reference_phase
+from snowin import accumulate_dswe, compute_leinss_dswe, reference_phase
 
 
 def _pair() -> xr.Dataset:
@@ -54,7 +54,7 @@ def test_phase_sign_and_reference_offset_sign_are_not_silent():
 
 
 def test_explicit_wavelength_is_used_by_the_xarray_kernel():
-    result = compute_dswe(
+    result = compute_leinss_dswe(
         _pair().phase,
         _incidence(35.0),
         wavelength_m=0.238403545,
@@ -67,7 +67,9 @@ def test_explicit_wavelength_is_used_by_the_xarray_kernel():
 @pytest.mark.parametrize("degrees", [90.0, 100.0])
 def test_incidence_at_or_above_ninety_degrees_is_unsupported(degrees):
     with pytest.raises(ValueError, match=r"\[0, pi/2\)"):
-        compute_dswe(_pair().phase, _incidence(degrees), wavelength_m=0.238403545)
+        compute_leinss_dswe(
+            _pair().phase, _incidence(degrees), wavelength_m=0.238403545
+        )
 
 
 def test_reference_provenance_preserves_exclusion_class():

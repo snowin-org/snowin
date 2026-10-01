@@ -16,6 +16,7 @@ from snowin.io import (
     open_gunw,
     read_gunw_wavelength_m,
 )
+from snowin.io.phase_normalization import _build_phase_normalized_dataset
 
 
 def _pair_inputs() -> tuple[xr.DataArray, xr.DataArray, xr.DataArray]:
@@ -64,7 +65,51 @@ def test_normalize_gunw_pair_applies_explicit_source_transform():
     )
     assert result.attrs["phase_transform"] == "multiply_by_-1"
     assert result.attrs["source_granule_id"] == "test-granule"
+    assert result.attrs["snowin_data_state"] == "retrieval_ready_pair"
     assert result.spatial_ref.attrs["epsg_code"] == 32611
+
+
+def test_shared_normalizer_rejects_uncontracted_native_grid_variable():
+    phase, _, spatial_ref = _pair_inputs()
+    native_layer = xr.DataArray(
+        np.ones((2, 3)),
+        dims=("radar_y", "radar_x"),
+        coords={"radar_y": [0, 1], "radar_x": [0, 1, 2]},
+    )
+
+    with pytest.raises(ValueError, match="unsupported dimensions"):
+        _build_phase_normalized_dataset(
+            phase,
+            spatial_ref,
+            source_phase_difference_definition="reference_minus_secondary",
+            reference_time="2025-01-01T00:00:00Z",
+            secondary_time="2025-01-13T00:00:00Z",
+            wavelength_m=0.24,
+            additional_variables={"unexpected_layer": native_layer},
+        )
+
+
+def test_shared_normalizer_checks_native_grid_dimension_contract():
+    phase, _, spatial_ref = _pair_inputs()
+    malformed_layer = xr.DataArray(
+        np.ones((2, 2, 3)),
+        dims=("radar_height", "radar_y", "radar_x"),
+        coords={"radar_y": [0, 1], "radar_x": [0, 1, 2]},
+    )
+
+    with pytest.raises(ValueError, match="coordinate for dimension 'radar_height'"):
+        _build_phase_normalized_dataset(
+            phase,
+            spatial_ref,
+            source_phase_difference_definition="reference_minus_secondary",
+            reference_time="2025-01-01T00:00:00Z",
+            secondary_time="2025-01-13T00:00:00Z",
+            wavelength_m=0.24,
+            additional_variables={"hydro_tropo": malformed_layer},
+            native_grid_dimensions={
+                "hydro_tropo": (("radar_height", "radar_y", "radar_x"),)
+            },
+        )
 
 
 @pytest.mark.parametrize("source", [None, "unknown", "reference_minus_secondaryx"])
@@ -119,7 +164,11 @@ def test_nisar_adapter_opens_lazy_normalized_gunw(tmp_path):
     result = open_gunw(path, chunks=None, progress=False)
     try:
         assert "incidence_angle" not in result
-        add_gunw_incidence(result, path, dem_source="cop30", dem=dem, progress=False)
+        returned = add_gunw_incidence(
+            result, path, dem_source="cop30", dem=dem, progress=False
+        )
+        assert returned is result
+        assert result.attrs["snowin_data_state"] == "retrieval_ready_pair"
         np.testing.assert_allclose(result.phase.values, [[-1.0, -2.0], [-3.0, -4.0]])
         assert result.phase.attrs["units"] == "rad"
         assert result.incidence_angle.attrs["units"] == "rad"
@@ -213,6 +262,7 @@ def test_open_gunw_defers_geometry_and_incidence_requires_explicit_gunw(tmp_path
     try:
         assert "incidence_angle" not in result
         assert result.attrs["incidence_angle_status"] == "not_computed"
+        assert result.attrs["snowin_data_state"] == "phase_normalized_product"
         with pytest.raises(FileNotFoundError, match="GUNW file not found"):
             compute_gunw_incidence(tmp_path / "different_product.h5", result)
     finally:

@@ -5,16 +5,12 @@ from __future__ import annotations
 from snowin.quality import (
     build_support_dataset,
     compose_support_mask,
-    compute_metrics,
     summarize_support,
 )
 from snowin.reference import reference_phase
 from snowin.snow import (
-    compute_dswe,
-    compute_gun_dswe,
     compute_guneriussen_dswe,
     compute_leinss_dswe,
-    compute_ove_dswe,
     compute_oveisgharan_dswe,
 )
 from snowin.temporal import accumulate_dswe
@@ -27,12 +23,8 @@ __all__ = [
     "accumulate_dswe",
     "build_support_dataset",
     "compose_support_mask",
-    "compute_dswe",
-    "compute_gun_dswe",
     "compute_guneriussen_dswe",
     "compute_leinss_dswe",
-    "compute_metrics",
-    "compute_ove_dswe",
     "compute_oveisgharan_dswe",
     "reference_phase",
     "summarize_support",

@@ -10,16 +10,11 @@ nav:
   - Data model: data_model.md
   - Scientific conventions: scientific_conventions.md
   - DEM vertical datums: vertical_datums.md
-  - Spatial analysis regions: spatial_masks.md
   - Development: development.md
-  - Reviewer handoff: reviewer_handoff.md
-  - Reviewer feedback: reviewer_feedback_template.md
   - API policy: api_policy.md
   - Release process: release.md
   - Code provenance: code_provenance.md
-  - Detailed architecture: snowin_architecture_v1.md
   - Scientific testing policy: testing.md
-  - Roadmap: roadmap.md
 markdown_extensions:
   - admonition
   - tables

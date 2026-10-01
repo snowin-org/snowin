@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from importlib import import_module
 from pathlib import Path
 from typing import Literal
 
@@ -40,6 +41,16 @@ _DEM_SOURCE_METADATA: dict[DEMSource, dict[str, str]] = {
         "height_reference": "orthometric",
     },
 }
+
+
+def _require_rasterio():
+    try:
+        return import_module("rasterio")
+    except ImportError as exc:
+        raise ImportError(
+            "Raster-based DEM and CRS operations require SnowIn's optional "
+            "'geometry' extra (rasterio)"
+        ) from exc
 
 
 def _progress(message: str, enabled: bool) -> None:
@@ -211,7 +222,13 @@ def compute_cop30_local_incidence(
         normal_y /= magnitude
         normal_z /= magnitude
     if geometry_chunks is None:
-        from scipy.interpolate import RegularGridInterpolator
+        try:
+            from scipy.interpolate import RegularGridInterpolator
+        except ImportError as exc:
+            raise ImportError(
+                "Local-incidence geometry requires SnowIn's optional "
+                "'geometry' extra (scipy)"
+            ) from exc
 
         yy, xx = np.meshgrid(y, x, indexing="ij")
         points = np.column_stack((elevation.ravel(), yy.ravel(), xx.ravel()))
@@ -304,6 +321,7 @@ def compute_cop30_local_incidence(
 
 
 def _coordinate_transform(x: np.ndarray, y: np.ndarray):
+    _require_rasterio()
     from rasterio.transform import from_origin
 
     for name, coordinate in (("x", x), ("y", y)):
@@ -359,6 +377,7 @@ def _open_vertical_correction(
         source_transform = _coordinate_transform(source_x, source_y)
         source_label = "xarray.DataArray"
     else:
+        _require_rasterio()
         import rasterio
 
         with rasterio.open(Path(correction).expanduser()) as source:
@@ -376,6 +395,7 @@ def _open_vertical_correction(
         raise ValueError(
             "DEM must declare epsg_code when loading a vertical correction"
         )
+    _require_rasterio()
     import rasterio
     from rasterio.crs import CRS
     from rasterio.enums import Resampling
@@ -458,6 +478,7 @@ def _open_dem(
         source_y = np.asarray(dem.coords["y"].data, dtype=float)
         source_crs = int(dem_epsg)
     else:
+        _require_rasterio()
         import rasterio
 
         with rasterio.open(Path(dem).expanduser()) as source:
@@ -472,6 +493,7 @@ def _open_dem(
             if source_nodata is not None and np.isfinite(source_nodata):
                 source_values[source_values == source_nodata] = np.nan
 
+    _require_rasterio()
     from rasterio.crs import CRS
     from rasterio.enums import Resampling
     from rasterio.warp import reproject

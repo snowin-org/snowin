@@ -2,7 +2,7 @@
 
 The public functions accept SnowIn's canonical, already normalized phase.
 Product-specific phase conventions belong at an adapter boundary. Wavelength
-comes from explicit product metadata or a caller-selected stock sensor/band.
+is supplied explicitly or resolved from authoritative product metadata.
 """
 
 from __future__ import annotations
@@ -13,8 +13,6 @@ from typing import Literal
 
 import numpy as np
 import xarray as xr
-
-from snowin.snow.sensors import sensor_wavelength_m
 
 LEINSS_SNOW_PATH_CONSTANT = 1.59
 """Empirical dry-snow path constant in the Leinss approximation."""
@@ -108,10 +106,7 @@ def _validate_eager_incidence_domain(incidence_angle: xr.DataArray) -> None:
 def _validate_common_inputs(
     phase: xr.DataArray,
     incidence_angle: xr.DataArray,
-    wavelength_m: float | None,
-    *,
-    sensor: str | None,
-    band: str | None,
+    wavelength_m: float,
 ) -> tuple[xr.DataArray, xr.DataArray, float, str, str]:
     phase = _require_data_array("phase", phase)
     incidence_angle = _require_data_array("incidence_angle", incidence_angle)
@@ -126,7 +121,7 @@ def _validate_common_inputs(
         )
 
     phase_definition = phase.attrs.get("phase_difference_definition")
-    if phase_definition is not None and phase_definition != CANONICAL_PHASE_DEFINITION:
+    if phase_definition != CANONICAL_PHASE_DEFINITION:
         raise ValueError(
             "phase must use SnowIn's canonical phase definition "
             "'secondary_minus_reference'"
@@ -134,14 +129,8 @@ def _validate_common_inputs(
 
     _validate_alignment(phase, incidence_angle)
     _validate_eager_incidence_domain(incidence_angle)
-    resolved_wavelength = sensor_wavelength_m(
-        sensor=sensor, band=band, wavelength_m=wavelength_m
-    )
-    wavelength_source = (
-        "explicit wavelength_m"
-        if wavelength_m is not None
-        else f"stock sensor/band lookup ({sensor=}, {band=})"
-    )
+    resolved_wavelength = _validate_positive_scalar("wavelength_m", wavelength_m)
+    wavelength_source = "explicit wavelength_m"
     return (
         phase,
         incidence_angle,
@@ -223,30 +212,23 @@ def compute_leinss_dswe(
     phase: xr.DataArray,
     incidence_angle: xr.DataArray,
     *,
-    wavelength_m: float | None = None,
-    sensor: str | None = None,
-    band: str | None = None,
+    wavelength_m: float,
     alpha: float = 1.0,
 ) -> xr.DataArray:
     r"""Compute pairwise dSWE with the Leinss et al. approximation.
 
     ``phase`` must be SnowIn's normalized secondary-minus-reference phase in
     radians. ``incidence_angle`` must be aligned radians and declare whether it
-    is local or ellipsoid-referenced. Supply ``wavelength_m`` directly or use
-    the stock mission registry with ``sensor`` and, when needed, ``band``.
+    is local or ellipsoid-referenced. Supply wavelength explicitly in metres.
 
     The stock values are ``alpha=1`` and the empirical path constant ``1.59``.
-    Wavelength is never guessed: for example, the stock registry provides
-    UAVSAR L-band (0.2384035457 m) and NISAR L/S-band (0.24/0.10 m) values.
-    Product metadata should be preferred when available.
+    Product adapters should resolve wavelength from authoritative metadata.
     """
     phase, incidence_angle, wavelength_m, incidence_reference, wavelength_source = (
         _validate_common_inputs(
             phase,
             incidence_angle,
             wavelength_m,
-            sensor=sensor,
-            band=band,
         )
     )
     alpha = _validate_positive_scalar("alpha", alpha)
@@ -277,9 +259,7 @@ def compute_guneriussen_dswe(
     incidence_angle: xr.DataArray,
     *,
     snow_density_kg_m3: xr.DataArray | Real,
-    wavelength_m: float | None = None,
-    sensor: str | None = None,
-    band: str | None = None,
+    wavelength_m: float,
     permittivity_model: DensityPermittivityModel = "guneriussen2001",
 ) -> xr.DataArray:
     r"""Compute pairwise dSWE with the density-dependent Guneriussen model.
@@ -290,16 +270,14 @@ def compute_guneriussen_dswe(
     ``units='kg m-3'``. The stock density-to-permittivity model is
     ``guneriussen2001``; alternatives are ``webb2021`` and ``maetzler``.
 
-    The published conversion uses water density 1000 kg m-3. Wavelength follows
-    the same explicit-or-stock-registry rule as :func:`compute_leinss_dswe`.
+    The published conversion uses water density 1000 kg m-3. Wavelength is
+    supplied explicitly in metres.
     """
     phase, incidence_angle, wavelength_m, incidence_reference, wavelength_source = (
         _validate_common_inputs(
             phase,
             incidence_angle,
             wavelength_m,
-            sensor=sensor,
-            band=band,
         )
     )
     if permittivity_model not in {"guneriussen2001", "webb2021", "maetzler"}:
@@ -361,23 +339,19 @@ def compute_oveisgharan_dswe(
     phase: xr.DataArray,
     incidence_angle: xr.DataArray,
     *,
-    wavelength_m: float | None = None,
-    sensor: str | None = None,
-    band: str | None = None,
+    wavelength_m: float,
 ) -> xr.DataArray:
     r"""Compute pairwise dSWE with the Oveisgharan et al. fitted model.
 
     This density-independent method uses the published incidence polynomial;
     it has no snow-density or Leinss ``alpha`` parameter. Supply a wavelength
-    directly or select a stock value with ``sensor``/``band``.
+    explicitly in metres.
     """
     phase, incidence_angle, wavelength_m, incidence_reference, wavelength_source = (
         _validate_common_inputs(
             phase,
             incidence_angle,
             wavelength_m,
-            sensor=sensor,
-            band=band,
         )
     )
     c2, c1, c0 = OVEISGHARAN_A_THETA_COEFFICIENTS
@@ -398,66 +372,4 @@ def compute_oveisgharan_dswe(
         ),
         scientific_reference="Oveisgharan et al. (2024)",
         method_attrs={"a_theta_coefficients": list(OVEISGHARAN_A_THETA_COEFFICIENTS)},
-    )
-
-
-# Short spellings requested for common methods. The full author names remain
-# the preferred names in scientific prose and documentation.
-compute_gun_dswe = compute_guneriussen_dswe
-compute_ove_dswe = compute_oveisgharan_dswe
-
-
-def compute_dswe(
-    phase: xr.DataArray,
-    incidence_angle: xr.DataArray,
-    *,
-    wavelength_m: float,
-    alpha: float = 1.0,
-) -> xr.DataArray:
-    r"""Compute pairwise dSWE from SnowIn canonical normalized phase.
-
-    The implemented Leinss approximation is
-
-    .. math::
-
-       \Delta SWE = \frac{\Delta\Phi\,\lambda}
-       {2\pi\,\alpha\,(1.59 + \theta^{5/2})}.
-
-    ``phase`` must already be ``phi_secondary - phi_reference`` for the
-    directed ``reference_time -> secondary_time`` edge.  The angle is the
-    supplied radar incidence angle in radians; its ``incidence_angle_reference``
-    attribute must identify whether it is local or ellipsoid-referenced.
-
-    Parameters
-    ----------
-    phase
-        Canonical unwrapped phase as an xarray.DataArray with ``units='rad'``.
-    incidence_angle
-        Aligned incidence angle DataArray with ``units='rad'`` and an
-        ``incidence_angle_reference`` attribute equal to ``'local'`` or
-        ``'ellipsoid'``.
-    wavelength_m
-        Radar wavelength in metres.  It is required explicitly; no sensor or
-        mission default is used.
-    alpha
-        Dimensionless Leinss empirical path factor.  The usual approximation
-        uses ``alpha=1``; calibrated values may be supplied explicitly.
-
-    Returns
-    -------
-    xarray.DataArray
-        Pairwise dSWE in metres water equivalent, with the phase dimensions,
-        coordinates, missing values, and lazy backing preserved.
-
-    Notes
-    -----
-    This function deliberately has no phase-sign or angle-unit switch.  Raw
-    product phase normalization and unit conversion belong to adapters.
-    """
-
-    return compute_leinss_dswe(
-        phase,
-        incidence_angle,
-        wavelength_m=wavelength_m,
-        alpha=alpha,
     )
