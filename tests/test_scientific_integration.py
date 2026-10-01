@@ -1,4 +1,4 @@
-"""Data-free integration through SnowIn's normalized pairwise science path."""
+"""Data-free integration through SnowIn's pairwise science operations."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ ANGLE_RAD = math.radians(35.0)
 COORDS = {"y": [4200.0, 4190.0], "x": [500000.0, 500010.0]}
 
 
-def _normalized_edge(
+def _pair_edge(
     true_phase_value: float,
     reference_offset_rad: float,
     reference_time: str,
@@ -106,14 +106,14 @@ def _normalized_edge(
 
 
 def test_normalize_correct_reference_support_dswe_and_accumulate_pipeline():
-    first = _normalized_edge(
+    first = _pair_edge(
         0.6,
         0.1,
         "2025-01-01T00:00:00Z",
         "2025-01-13T00:00:00Z",
         product_valid=np.array([[True, True], [False, True]]),
     )
-    second = _normalized_edge(
+    second = _pair_edge(
         0.4,
         0.05,
         "2025-01-13T00:00:00Z",

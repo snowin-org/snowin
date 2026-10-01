@@ -14,7 +14,7 @@ from snowin.io._nisar_hdf5 import _read_radar_los
 from snowin.io.geometry import (
     _open_cop30_dem,
     _open_dem,
-    compute_cop30_local_incidence,
+    compute_local_incidence,
 )
 
 
@@ -39,7 +39,7 @@ def _dem(values: np.ndarray, *, x=None, y=None, attrs=None) -> xr.DataArray:
 
 
 def test_flat_dem_returns_known_incidence_angle():
-    incidence = compute_cop30_local_incidence(
+    incidence = compute_local_incidence(
         _dem(np.full((3, 3), 100.0)),
         *_constant_los(np.deg2rad(30.0), (2, 3, 3)),
         heights=np.array([0.0, 200.0]),
@@ -54,7 +54,7 @@ def test_flat_dem_returns_known_incidence_angle():
 def test_sloped_dem_returns_known_incidence_angle():
     x = np.arange(3, dtype=float)
     dem = _dem(np.broadcast_to(0.1 * x, (3, 3)), x=x)
-    incidence = compute_cop30_local_incidence(
+    incidence = compute_local_incidence(
         dem,
         *_constant_los(0.0, (2, 3, 3)),
         heights=np.array([-1.0, 1.0]),
@@ -67,7 +67,7 @@ def test_sloped_dem_returns_known_incidence_angle():
 def test_back_facing_terrain_has_missing_incidence_support():
     x = np.arange(3, dtype=float)
     dem = _dem(np.broadcast_to(10.0 * x, (3, 3)), x=x)
-    incidence = compute_cop30_local_incidence(
+    incidence = compute_local_incidence(
         dem,
         *_constant_los(np.deg2rad(40.0), (2, 3, 3)),
         heights=np.array([-1.0, 21.0]),
@@ -82,7 +82,7 @@ def test_larger_grid_geometry_is_finite_and_shape_preserving():
     y = np.arange(16, dtype=float)
     x = np.arange(20, dtype=float)
     dem = _dem(np.broadcast_to(0.02 * x[None, :], (y.size, x.size)), x=x, y=y)
-    incidence = compute_cop30_local_incidence(
+    incidence = compute_local_incidence(
         dem,
         *_constant_los(np.deg2rad(35.0), (3, y.size, x.size)),
         heights=np.array([-1.0, 100.0, 201.0]),
@@ -109,7 +109,7 @@ def test_vertical_correction_is_explicit_and_additive():
         coords=dem.coords,
         attrs={"units": "m"},
     )
-    incidence = compute_cop30_local_incidence(
+    incidence = compute_local_incidence(
         dem,
         *_constant_los(np.deg2rad(30.0), (2, 3, 3)),
         heights=np.array([105.0, 115.0]),
@@ -130,7 +130,7 @@ def test_vertical_datum_match_can_be_required():
         attrs={"vertical_datum": "EGM2008", "height_reference": "orthometric"},
     )
     with pytest.raises(ValueError, match="vertical_correction_m"):
-        compute_cop30_local_incidence(
+        compute_local_incidence(
             dem,
             *_constant_los(np.deg2rad(30.0), (2, 3, 3)),
             heights=np.array([0.0, 200.0]),
@@ -152,7 +152,7 @@ def test_vertical_correction_requires_metre_units():
         attrs={"units": "feet"},
     )
     with pytest.raises(ValueError, match="units of metres"):
-        compute_cop30_local_incidence(
+        compute_local_incidence(
             dem,
             *_constant_los(np.deg2rad(30.0), (2, 3, 3)),
             heights=np.array([0.0, 200.0]),
@@ -185,7 +185,7 @@ def test_vertical_correction_raster_is_reprojected(tmp_path):
         np.full((3, 3), 100.0),
         attrs={"vertical_datum": "EGM2008", "height_reference": "orthometric"},
     )
-    incidence = compute_cop30_local_incidence(
+    incidence = compute_local_incidence(
         dem,
         *_constant_los(np.deg2rad(30.0), (2, 3, 3)),
         heights=np.array([105.0, 115.0]),
@@ -203,7 +203,7 @@ def test_vertical_correction_raster_is_reprojected(tmp_path):
 
 def test_non_monotonic_los_coordinates_fail():
     with pytest.raises(ValueError, match="strictly monotonic"):
-        compute_cop30_local_incidence(
+        compute_local_incidence(
             _dem(np.ones((3, 3))),
             *_constant_los(0.0, (2, 3, 3)),
             heights=np.array([0.0, 1.0]),
@@ -214,7 +214,7 @@ def test_non_monotonic_los_coordinates_fail():
 
 def test_out_of_range_los_interpolation_fails():
     with pytest.raises(ValueError, match="outside the GUNW LOS lookup cube"):
-        compute_cop30_local_incidence(
+        compute_local_incidence(
             _dem(np.full((3, 3), 100.0)),
             *_constant_los(0.0, (2, 3, 3)),
             heights=np.array([0.0, 1.0]),
@@ -293,7 +293,7 @@ def test_direct_local_incidence_rejects_conflicting_dem_metadata_and_crs():
         },
     )
     with pytest.raises(ValueError, match=r"vertical_datum=.*conflicts with dem_source"):
-        compute_cop30_local_incidence(
+        compute_local_incidence(
             dem,
             *_constant_los(0.0, (2, 3, 3)),
             heights=np.array([0.0, 2.0]),
@@ -304,7 +304,7 @@ def test_direct_local_incidence_rejects_conflicting_dem_metadata_and_crs():
 
     dem = _dem(np.ones((3, 3)), attrs={"epsg_code": 32611})
     with pytest.raises(ValueError, match="conflicts with the target epsg_code"):
-        compute_cop30_local_incidence(
+        compute_local_incidence(
             dem,
             *_constant_los(0.0, (2, 3, 3)),
             heights=np.array([0.0, 2.0]),
@@ -382,7 +382,7 @@ def test_real_product_geometry_regression():
         epsg_code=manifest["epsg_code"],
     )
     heights, x_radar, y_radar, los_x, los_y, los_z = _read_radar_los(gunw_path)
-    incidence = compute_cop30_local_incidence(
+    incidence = compute_local_incidence(
         dem,
         los_x,
         los_y,

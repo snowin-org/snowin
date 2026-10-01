@@ -115,7 +115,7 @@ def compose_support_mask(
     *,
     name: str = "support_mask",
 ) -> xr.DataArray:
-    """Compose a named support policy from explicitly required layers.
+    """Combine explicitly named support variables into a mask.
 
     Every requested layer must be present. Unknown samples are treated as
     unsupported in the derived mask, while the original layers remain

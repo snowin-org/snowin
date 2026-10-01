@@ -6,6 +6,6 @@
   "source_definition": "reference_minus_secondary",
   "snowin_definition": "secondary_minus_reference",
   "downstream_phase_sign": 1,
-  "expected_relation": "snowin_normalized_phase = -downstream_raw_phase",
+  "expected_relation": "snowin_phase = -downstream_raw_phase",
   "purpose": "Compact sign-lineage characterization; not a Colorado data product."
 }

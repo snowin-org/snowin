@@ -6,7 +6,7 @@ retrieval methods and an optional NISAR GUNW adapter.
 
 - [Scientific conventions](scientific_conventions.md): phase, dSWE, support,
   geometry, and temporal direction.
-- [Normalized data model](data_model.md): Dataset variables, metadata, and grid
+- [Data model](data_model.md): Dataset variables, metadata, and grid
   requirements.
 - [DEM vertical datums](vertical_datums.md): assumptions for local-incidence
   geometry.

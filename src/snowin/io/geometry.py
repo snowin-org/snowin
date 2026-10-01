@@ -149,7 +149,7 @@ def _sorted_axis(
     raise ValueError("interpolation coordinates must be strictly monotonic")
 
 
-def compute_cop30_local_incidence(
+def compute_local_incidence(
     dem: xr.DataArray,
     los_x: np.ndarray,
     los_y: np.ndarray,
@@ -667,4 +667,4 @@ def _open_cop30_dem(
     return _open_dem(dem, x=x, y=y, epsg_code=epsg_code, dem_source="cop30")
 
 
-__all__ = ["DEMSource", "compute_cop30_local_incidence"]
+__all__ = ["DEMSource", "compute_local_incidence"]

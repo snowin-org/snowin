@@ -16,8 +16,10 @@ _SUPPORTED_DSWE_UNITS = {"m", "meter", "meters"}
 
 
 def _parse_utc(value: object, name: str) -> datetime:
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"{name} must be a non-empty ISO 8601 UTC string")
+    if value is None or (isinstance(value, str) and not value.strip()):
+        raise ValueError(f"{name} is missing; provide an ISO 8601 UTC string")
+    if not isinstance(value, str):
+        raise ValueError(f"{name} must be an ISO 8601 UTC string")
     return parse_utc_timestamp(value, name)
 
 
@@ -64,13 +66,11 @@ def _edge_data(edge: xr.Dataset, dswe_variable: str) -> xr.DataArray:
         )
     if dswe.attrs.get("quantity") not in {None, "pairwise_dSWE"}:
         raise ValueError(f"{dswe_variable} does not declare pairwise dSWE")
-    if dswe.attrs.get("phase_difference_definition") not in {
-        None,
-        "secondary_minus_reference",
-    }:
+    phase_definition = dswe.attrs.get("phase_difference_definition")
+    if phase_definition not in {None, "secondary_minus_reference"}:
         raise ValueError(
-            f"{dswe_variable} must derive from the SnowIn phase convention "
-            "'secondary_minus_reference'"
+            f"{dswe_variable} uses phase definition {phase_definition!r}; expected "
+            "the SnowIn convention 'secondary_minus_reference'"
         )
     return dswe
 
@@ -94,7 +94,7 @@ def accumulate_dswe(
 ) -> xr.Dataset:
     """Accumulate pairwise dSWE along one explicit chronological path.
 
-    Each input Dataset is one normalized SnowIn pair with a pairwise dSWE
+    Each input Dataset describes one SnowIn pair and contains a pairwise dSWE
     variable. Edges must be supplied in path order, use the declared
     ``reference_to_secondary`` direction, and be contiguous in time: the next
     edge's reference acquisition must equal the prior edge's secondary

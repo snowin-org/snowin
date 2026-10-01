@@ -284,7 +284,10 @@ def apply_reference_offset(
     pair: xr.Dataset,
     estimate: xr.Dataset,
 ) -> xr.Dataset:
-    """Apply an estimated reference offset to a normalized pair Dataset."""
+    """Apply an estimated reference offset to a pair Dataset.
+
+    The phase already uses the SnowIn phase direction.
+    """
     if not isinstance(pair, xr.Dataset) or "phase" not in pair:
         raise TypeError("pair must be an xarray.Dataset containing 'phase'")
     phase = pair["phase"]
@@ -341,7 +344,7 @@ def apply_reference_offset(
             "phase_reference_contributor_count": estimate.attrs.get(
                 "reference_contributor_count", 0
             ),
-            "phase_reference_provenance": json.dumps(
+            "phase_reference_estimate_details": json.dumps(
                 {
                     "method": estimate.attrs.get("reference_method", "unknown"),
                     "status": estimate.attrs.get("reference_status", "UNKNOWN"),

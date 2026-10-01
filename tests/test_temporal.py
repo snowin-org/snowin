@@ -180,7 +180,7 @@ def test_incompatible_edge_grid_fails():
         accumulate_dswe([first, second])
 
 
-def test_edge_contract_and_initial_time_are_required():
+def test_edges_require_direction_and_initial_time():
     edge = _edge(
         [[1.0, 1.0], [1.0, 1.0]],
         "2025-01-01T00:00:00Z",
@@ -195,7 +195,7 @@ def test_edge_contract_and_initial_time_are_required():
         accumulate_dswe([edge], initial_time="2025-01-02T00:00:00Z")
 
 
-def test_invalid_dswe_contract_fails():
+def test_accumulation_rejects_invalid_units_and_phase_definition():
     edge = _edge(
         [[1.0, 1.0], [1.0, 1.0]],
         "2025-01-01T00:00:00Z",
@@ -207,7 +207,7 @@ def test_invalid_dswe_contract_fails():
 
     edge.dswe.attrs["units"] = "m"
     edge.dswe.attrs["phase_difference_definition"] = "reference_minus_secondary"
-    with pytest.raises(ValueError, match="SnowIn phase convention"):
+    with pytest.raises(ValueError, match="SnowIn convention"):
         accumulate_dswe([edge])
 
 
@@ -248,9 +248,9 @@ def test_accumulation_rejects_empty_or_nonsequence_edges(edges):
 @pytest.mark.parametrize(
     "timestamp, message",
     [
-        (None, "non-empty ISO 8601 UTC string"),
+        (None, "is missing"),
         ("2025-01-01T00:00:00", "explicit UTC offset"),
-        ("not-a-time", "valid ISO 8601 timestamp"),
+        ("not-a-time", "is invalid"),
     ],
 )
 def test_accumulation_requires_explicit_valid_utc_timestamps(timestamp, message):

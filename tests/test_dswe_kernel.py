@@ -1,4 +1,4 @@
-"""Scientific and xarray-contract tests for the dSWE kernel."""
+"""Scientific and labeled-array tests for the dSWE kernel."""
 
 from __future__ import annotations
 
@@ -65,7 +65,7 @@ def test_leinss_method_has_no_phase_sign_switch_or_method_selector():
 def test_phase_definition_metadata_is_required():
     phase, incidence = _inputs()
     phase.attrs.pop("phase_difference_definition")
-    with pytest.raises(ValueError, match="SnowIn phase convention"):
+    with pytest.raises(ValueError, match="phase_difference_definition is missing"):
         compute_leinss_dswe(phase, incidence, wavelength_m=WAVELENGTH_M)
 
 
@@ -82,7 +82,7 @@ def test_zero_phase_gives_zero_dswe():
 
 
 @pytest.mark.parametrize("phase_value, expected_sign", [(1.0, 1), (-1.0, -1)])
-def test_normalized_phase_sign_is_preserved(phase_value, expected_sign):
+def test_snowin_phase_sign_is_preserved(phase_value, expected_sign):
     phase, incidence = _inputs(phase_data=phase_value)
 
     result = compute_leinss_dswe(phase, incidence, wavelength_m=WAVELENGTH_M)
@@ -250,8 +250,8 @@ def test_colorado_phase_lineage_fixture_is_explicit_and_opposite():
         attrs={"units": "rad", "incidence_angle_reference": "local"},
     )
 
-    normalized_phase = (-raw_phase).rename("phase")
-    normalized_phase.attrs = {
+    snowin_phase = (-raw_phase).rename("phase")
+    snowin_phase.attrs = {
         "units": "rad",
         "phase_difference_definition": fixture["snowin_definition"],
         "phase_transform": "multiply_by_-1",
@@ -264,7 +264,7 @@ def test_colorado_phase_lineage_fixture_is_explicit_and_opposite():
     }
 
     snowin_dswe = compute_leinss_dswe(
-        normalized_phase,
+        snowin_phase,
         incidence,
         wavelength_m=fixture["wavelength_m"],
     )
@@ -273,7 +273,7 @@ def test_colorado_phase_lineage_fixture_is_explicit_and_opposite():
         incidence,
         wavelength_m=fixture["wavelength_m"],
     )
-    assert normalized_phase.attrs["phase_transform"] == "multiply_by_-1"
+    assert snowin_phase.attrs["phase_transform"] == "multiply_by_-1"
     assert downstream_phase.attrs["phase_sign"] == 1
     np.testing.assert_allclose(snowin_dswe.values, -downstream_dswe.values)
 

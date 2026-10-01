@@ -1,4 +1,4 @@
-"""Synthetic tests for the normalized SnowIn data contract."""
+"""Synthetic tests for SnowIn pair Dataset requirements."""
 
 import numpy as np
 import pytest
@@ -12,13 +12,21 @@ _KNOWN_PHASE_DEFINITIONS = {
 
 
 def _validate_phase_metadata(attrs):
-    """Executable form of the source-convention contract."""
-    if attrs.get("phase_difference_definition") != "secondary_minus_reference":
-        raise ValueError("normalized phase must use secondary_minus_reference")
+    """Check that pair metadata records the supported phase directions."""
+    phase_definition = attrs.get("phase_difference_definition")
+    if phase_definition is None:
+        raise ValueError("phase_difference_definition is missing")
+    if phase_definition != "secondary_minus_reference":
+        raise ValueError(
+            "phase_difference_definition is unsupported; expected "
+            "secondary_minus_reference"
+        )
 
     source = attrs.get("source_phase_difference_definition")
+    if source is None:
+        raise ValueError("source phase convention is missing")
     if source not in _KNOWN_PHASE_DEFINITIONS:
-        raise ValueError("source phase convention is missing or unknown")
+        raise ValueError("source phase convention is unsupported")
 
     expected_transform = (
         "identity" if source == "secondary_minus_reference" else "multiply_by_-1"
@@ -107,7 +115,7 @@ def _synthetic_pair_dataset(
     return ds
 
 
-def test_pair_contract_has_one_aligned_spatial_grid_and_explicit_units():
+def test_pair_dataset_uses_one_aligned_grid_and_explicit_units():
     ds = _synthetic_pair_dataset()
 
     assert ds.sizes == {"y": 2, "x": 3}
@@ -174,12 +182,12 @@ def test_phase_definition_cannot_be_omitted_from_pair_metadata():
     assert required - ds.attrs.keys() == {"phase_difference_definition"}
 
 
-def test_unknown_source_phase_convention_is_not_a_valid_contract_value():
+def test_unsupported_source_phase_convention_is_rejected():
     ds = _synthetic_pair_dataset()
 
     _validate_phase_metadata(ds.attrs)
     ds.attrs["source_phase_difference_definition"] = "unknown"
-    with pytest.raises(ValueError, match="missing or unknown"):
+    with pytest.raises(ValueError, match="unsupported"):
         _validate_phase_metadata(ds.attrs)
 
 
@@ -187,5 +195,5 @@ def test_missing_source_phase_convention_fails():
     ds = _synthetic_pair_dataset()
     del ds.attrs["source_phase_difference_definition"]
 
-    with pytest.raises(ValueError, match="missing or unknown"):
+    with pytest.raises(ValueError, match="missing"):
         _validate_phase_metadata(ds.attrs)

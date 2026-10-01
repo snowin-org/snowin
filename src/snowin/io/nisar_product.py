@@ -1,8 +1,7 @@
-"""NISAR GUNW to SnowIn normalized-Dataset adapter using nisar_pytools.
+"""Read NISAR GUNW products and return SnowIn xarray variables.
 
-This module is the product boundary for NISAR GUNW semantics. The generic
-scientific kernel in :mod:`snowin.snow.dswe` receives only normalized phase
-and geometry; it does not know NISAR source conventions.
+Retrieval functions receive phase and incidence in SnowIn's required
+units and direction; they do not read NISAR source conventions.
 """
 
 from __future__ import annotations
@@ -31,7 +30,7 @@ from .geometry import (
     _open_dem,
     _progress,
     _validate_dem_source,
-    compute_cop30_local_incidence,
+    compute_local_incidence,
 )
 from .phase_normalization import (
     NISAR_GUNW_PHASE_TRANSFORM,
@@ -59,9 +58,15 @@ def read_gunw_wavelength_m(
     path = f"/science/LSAR/GUNW/grids/{frequency}/centerFrequency"
     center_frequency = read_scalar_hdf5(gunw_file, path)
     attrs = read_attrs_hdf5(gunw_file, path)
-    if center_frequency is None or attrs.get("units") not in {"hertz", "Hz"}:
+    if center_frequency is None:
+        raise ValueError(f"GUNW center-frequency metadata is missing at {path}")
+    frequency_units = attrs.get("units")
+    if frequency_units is None:
+        raise ValueError(f"GUNW center-frequency units are missing at {path}")
+    if frequency_units not in {"hertz", "Hz"}:
         raise ValueError(
-            f"GUNW center-frequency metadata is missing or has unknown units at {path}"
+            f"GUNW center-frequency units {frequency_units!r} are unsupported at "
+            f"{path}; expected hertz"
         )
     frequency_hz = _positive_scalar("center_frequency_hz", center_frequency)
     return _SPEED_OF_LIGHT_M_S / frequency_hz
@@ -138,7 +143,7 @@ def open_gunw(
     chunks: dict[str, int] | str | None = "auto",
     progress: bool = True,
 ) -> xr.Dataset:
-    """Open and normalize a NISAR GUNW without computing incidence geometry.
+    """Open a NISAR GUNW and convert its phase without calculating incidence.
 
     This fast product-inspection step opens the phase, coherence, connected
     components, ionospheric screens, tropospheric screens, coordinates,
@@ -184,12 +189,21 @@ def open_gunw(
                 "GUNW unwrappedPhase must use dimensions ('y', 'x'); "
                 f"got {raw_phase.dims!r}"
             )
-        raw_phase.attrs["units"] = raw_phase.attrs.get("units", "").lower()
-        if raw_phase.attrs["units"] not in {"radians", "radian", "rad"}:
-            raise ValueError("GUNW unwrappedPhase has missing or unknown angle units")
+        phase_units = raw_phase.attrs.get("units")
+        if phase_units is None or (
+            isinstance(phase_units, str) and not phase_units.strip()
+        ):
+            raise ValueError("GUNW unwrappedPhase units are missing; expected radians")
+        phase_units = str(phase_units).lower()
+        if phase_units not in {"radians", "radian", "rad"}:
+            raise ValueError(
+                f"GUNW unwrappedPhase units {phase_units!r} are unsupported; "
+                "expected radians"
+            )
+        raw_phase.attrs["units"] = phase_units
 
         additional: dict[str, xr.DataArray] = {}
-        for source_name, normalized_name in {
+        for source_name, snowin_name in {
             "coherenceMagnitude": "coherence",
             "connectedComponents": "connected_component",
             "ionospherePhaseScreen": "ionosphere",
@@ -208,9 +222,9 @@ def open_gunw(
                         "grid_mapping": "spatial_ref",
                     }
                 )
-                if normalized_name in {"ionosphere", "ionosphere_unc"}:
+                if snowin_name in {"ionosphere", "ionosphere_unc"}:
                     layer_attrs["correction_status"] = "available_not_applied"
-                additional[normalized_name] = xr.DataArray(
+                additional[snowin_name] = xr.DataArray(
                     variable.data,
                     dims=("y", "x"),
                     coords={
@@ -218,7 +232,7 @@ def open_gunw(
                         "x": raw_phase.coords["x"],
                     },
                     attrs=layer_attrs,
-                    name=normalized_name,
+                    name=snowin_name,
                 )
 
         radar_grid_path = "science/LSAR/GUNW/metadata/radarGrid"
@@ -227,7 +241,7 @@ def open_gunw(
         except KeyError:
             radar_grid = None
         if radar_grid is not None:
-            for source_name, normalized_name in {
+            for source_name, snowin_name in {
                 "hydrostaticTroposphericPhaseScreen": "hydro_tropo",
                 "wetTroposphericPhaseScreen": "wet_tropo",
             }.items():
@@ -269,12 +283,12 @@ def open_gunw(
                         "correction_status": "available_not_applied",
                     }
                 )
-                additional[normalized_name] = xr.DataArray(
+                additional[snowin_name] = xr.DataArray(
                     variable.data,
                     dims=dimensions,
                     coords=coords,
                     attrs=layer_attrs,
-                    name=normalized_name,
+                    name=snowin_name,
                 )
 
         spatial_ref_attrs = _serializable_attrs(source_projection.attrs)
@@ -325,7 +339,7 @@ def open_gunw(
         )
         source_metadata = {
             "source_dataset_paths": json.dumps(source_paths, sort_keys=True),
-            "source_reader": "nisar_pytools.open_nisar + SnowIn normalization",
+            "source_reader": "nisar_pytools.open_nisar; SnowIn phase conversion",
             "source_acquisition_time_zone": (
                 "UTC per NISAR L2 Product Format Document v1.2.1"
             ),
@@ -432,10 +446,12 @@ def compute_gunw_incidence(
             path, radar_cube_index=radar_cube_index
         )
         source_incidence_units = source_attrs.get("units")
+        if source_incidence_units is None:
+            raise ValueError("GUNW incidenceAngle units are missing; expected degrees")
         if source_incidence_units not in _KNOWN_SOURCE_ANGLE_UNITS:
             raise ValueError(
-                "GUNW incidenceAngle has missing or unknown source angle units; "
-                "expected degrees metadata"
+                f"GUNW incidenceAngle units {source_incidence_units!r} are "
+                "unsupported; expected degrees"
             )
         raw_incidence = xr.DataArray(
             values,
@@ -510,7 +526,7 @@ def compute_gunw_incidence(
     )
     _progress("reading GUNW radar-grid LOS vectors", progress)
     heights, x_radar, y_radar, los_x, los_y, los_z = _read_radar_los(path)
-    incidence = compute_cop30_local_incidence(
+    incidence = compute_local_incidence(
         dem_grid,
         los_x,
         los_y,
@@ -551,9 +567,7 @@ def compute_gunw_incidence(
                 "read from losUnitVectorZ when present; otherwise derived from "
                 "losUnitVectorX and losUnitVectorY"
             ),
-            "incidence_angle_algorithm": (
-                "snowin.io.geometry.compute_cop30_local_incidence"
-            ),
+            "incidence_angle_algorithm": ("snowin.io.geometry.compute_local_incidence"),
             "incidence_angle_reference": "local",
             "gunw_height_reference": "WGS84 ellipsoid",
             "dem_source": dem_source,

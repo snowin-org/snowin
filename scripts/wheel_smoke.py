@@ -47,7 +47,7 @@ def main() -> None:
 
     np.testing.assert_allclose(result.values, expected, rtol=2e-13, atol=2e-15)
     if result.attrs.get("units") != "m" or result.dims != ("y", "x"):
-        raise AssertionError("installed wheel returned an invalid dSWE contract")
+        raise AssertionError("installed wheel returned an invalid dSWE result")
     print(f"wheel smoke passed: {installed_path}")
 
 

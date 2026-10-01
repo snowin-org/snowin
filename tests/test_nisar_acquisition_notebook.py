@@ -1,4 +1,4 @@
-"""Offline contract tests for the optional Notebook 03 acquisition handoff."""
+"""Offline tests for Notebook 03's acquisition handoff."""
 
 from __future__ import annotations
 

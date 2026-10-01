@@ -1,8 +1,7 @@
-# SnowIn API policy
+# SnowIn public API
 
-SnowIn's stable scientific boundary consists of plain xarray
-`DataArray` and `Dataset` inputs and outputs. Public functions express
-snow/InSAR-specific science; mission details remain in adapters.
+Public science functions take and return xarray `DataArray` and `Dataset`
+objects. NISAR-specific file handling stays in `snowin.io`.
 
 ## Public exports
 
@@ -29,7 +28,7 @@ The complete supported module exports are:
 - `snowin.io`: `DEMSource`, `NISAR_GUNW_PHASE_TRANSFORM`,
   `NISAR_GUNW_SOURCE_PHASE_DEFINITION`, `open_gunw`, `normalize_gunw_pair`,
   `read_gunw_wavelength_m`, `compute_gunw_incidence`, `add_gunw_incidence`,
-  `compute_cop30_local_incidence`.
+  `compute_local_incidence`.
 - `snowin.reference`: `estimate_reference_offset`, `apply_reference_offset`,
   `reference_phase`, `REFERENCE_CONTRIBUTOR_DIM`, `REFERENCE_METHODS`,
   `MANUAL_OFFSET_METHOD`, `SINGLE_STATION_METHOD`, `MEAN_OFFSET_METHOD`,
@@ -40,21 +39,21 @@ The complete supported module exports are:
 
 The constants name source conventions, result dimensions, supported reference
 methods, and support categories used in returned metadata and validation.
-Private helpers are not part of the supported API. Re-exports such as
-`snowin.reference_phase` and `snowin.snow.compute_leinss_dswe` are intentional
-facade and domain-module import paths.
+Private helpers are not part of the supported API. Both root imports such as
+`snowin.reference_phase` and submodule imports such as
+`snowin.snow.compute_leinss_dswe` are supported.
 
-## Product and data states
+## NISAR GUNW functions
 
-`open_gunw()` returns a phase-normalized product using the SnowIn phase
-convention, authoritative wavelength, temporal metadata, and source metadata. It intentionally
-does not calculate incidence. `add_gunw_incidence()` computes geometry from an
-explicit GUNW and caller-prepared DEM, then adds incidence and geometry support
-to the same Dataset. The result is a retrieval-ready pair. See the
-[data model](../docs/data_model.md) for state attributes and required variables.
+`open_gunw()` returns a Dataset with phase in the SnowIn convention, wavelength,
+acquisition times, and source metadata. It does not calculate incidence.
+`add_gunw_incidence()` calculates incidence from the GUNW and, for local
+incidence, a caller-prepared DEM. It adds incidence and geometry support to the
+same Dataset. See the [data model](../docs/data_model.md) for required
+variables and attributes.
 
-`add_gunw_incidence()` mutates its target and returns that same Dataset. This
-preserves the `close()` callback that owns lazy GUNW file resources.
+`add_gunw_incidence()` updates its target and returns that same Dataset. This
+keeps the `close()` callback for lazy GUNW file resources.
 
 ## Scientific methods
 
@@ -71,10 +70,10 @@ explicit contributors or a manual offset. Support layers remain separately
 named and are combined only when the caller names them. Temporal accumulation
 accepts an explicitly ordered, contiguous chronological path.
 
-## Outside the package boundary
+## Caller responsibilities
 
 Product discovery, cloud access, ancillary data, GIS file operations, plots,
 generic evaluation metrics, and study-specific validation remain caller-owned.
-Correction layers can be exposed by the GUNW adapter but are not applied by
-SnowIn 0.1. No automatic reference, correction, mask, or science-grid
-resampling policy is provided.
+The GUNW adapter may expose correction layers but does not apply them. Callers
+choose reference observations and support variables and explicitly reproject or
+resample grids when needed.

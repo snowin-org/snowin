@@ -1,4 +1,4 @@
-"""Scientific and xarray-contract tests for named dSWE retrieval methods."""
+"""Scientific and labeled-array tests for dSWE retrieval methods."""
 
 from __future__ import annotations
 
@@ -66,7 +66,7 @@ def _run_guneriussen(phase, incidence, *, snow_density_kg_m3=300.0, **kwargs):
         (compute_oveisgharan_dswe, {}),
     ],
 )
-def test_named_methods_preserve_xarray_contract(function, extra_kwargs):
+def test_named_methods_preserve_xarray_metadata_and_coordinates(function, extra_kwargs):
     coords = {"y": np.array([4200.0, 4190.0]), "x": np.array([500000.0, 500010.0])}
     phase, incidence = _inputs(
         np.full((2, 2), 0.75), np.full((2, 2), THETA), dims=("y", "x"), coords=coords
