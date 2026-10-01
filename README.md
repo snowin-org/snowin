@@ -28,6 +28,15 @@ support with:
 python -m pip install ".[nisar,geometry]"
 ```
 
+To create a Conda development environment from the repository root, run:
+
+```bash
+conda env create -f environment.yml
+conda activate snowin
+python -m pip install -e ".[nisar,geometry,dask]" --group dev --group docs --group notebooks
+jupyter lab notebooks/01_core_snowin_workflow.ipynb
+```
+
 After publication, the same commands work with `snowin` in place of `.`.
 
 ## Quick start
