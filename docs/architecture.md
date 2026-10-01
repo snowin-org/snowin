@@ -1,122 +1,61 @@
-# SnowIn architecture
+# Architecture
 
-This document describes the current package boundary. The staged decisions in
-[`snowin_architecture_v1.md`](snowin_architecture_v1.md) are the design source
-of truth for the next development cycle. Stage 0 establishes packaging and
-development safeguards; it does not change the scientific architecture.
+SnowIn is a thin, scientifically explicit snow-InSAR layer built on xarray
+and the Scientific Python stack. It accepts and returns ordinary
+`DataArray` and `Dataset` objects. It does not define a custom scene, product,
+stack, or workflow model.
 
-## Current package areas
+## Data flow
 
-- `snow/`: core snow-science transforms, including phase-to-dSWE and snow-depth-change relationships.
-- `temporal.py`: strict chronological accumulation of pairwise dSWE edges.
-- `reference/`: xarray-native phase-reference estimation and provenance.
-- `io/`: mission/product readers and normalized loading interfaces. First implemented target: NISAR GUNW.
-- `plotting/`: user-facing quick-look and publication-adjacent plotting functions. First implemented target: `plot_gunw()`.
-- `diagnostics/`: reusable raster and workflow summary statistics. These are intentionally independent of a specific product where possible.
-- `cli.py`: thin command-line wrappers around public package functions.
-
-Upcoming:
-
-- `subset/`: spatial cropping, masking, and AOI tools that are reusable outside plotting.
-- `corrections/`: atmospheric, ionospheric, ramp, and reference-phase correction utilities.
-- `calval/`: CDEC/SNOTEL/ASO/iSnobal alignment, extraction, and validation summaries.
-- `workflows/`: end-to-end user-facing workflows built from lower-level modules.
-
-## Why this layout
-
-This layout keeps the public API predictable and makes it easier to migrate legacy scripts without preserving their one-off naming, local paths, or mixed R/Python implementation details.
-
-The key rule is:
-
-> exploratory scripts should become short workflow drivers; scientific logic should live in package modules.
-
-## Public API philosophy
-
-Users should see stable names such as:
-
-- `compute_dswe`
-- `reference_phase`
-- `accumulate_dswe`
-- `plot_gunw`
-- `read_gunw_layer`
-- `read_gslc`
-- `load_snotel`
-- `crop_to_basin`
-- `remove_planar_ramp`
-- `apply_quality_mask`
-- `run_gunw_to_dswe_workflow`
-
-`compute_dswe` is the canonical xarray-native phase-to-dSWE function. The
-legacy `phase_to_dswe` method-selector API remains only as compatibility code;
-new product adapters and workflows must use the normalized Dataset contract.
-
-Internal helpers may be specialized, but the user-facing package should feel unified.
-
-## Implemented first-pass GUNW plotting flow
-
-`plot_gunw()` is the first workflow-style function. It currently:
-
-1. Detects or accepts HH/VV polarization.
-2. Reads standard GUNW diagnostic layers from `frequencyA`:
-   - unwrapped phase
-   - unwrapped and wrapped coherence
-   - connected components
-   - wrapped interferogram phase and amplitude in dB
-   - ionospheric phase screen and uncertainty
-   - mask
-   - pixel offsets and correlation peak
-   - radar-grid incidence angle, baselines, slant range, and tropospheric phase screens
-3. Optionally crops and masks all panels/summaries to a GeoJSON AOI.
-4. Writes one standard compact PNG quick-look figure.
-5. Writes one CSV row per layer/derived layer with reproducible summary statistics.
-6. Writes metadata JSON with granule, orbit, track/frame, version, DOI, look direction, and acquisition timing.
-
-## `plot_gunw()` outputs
-
-For a file `NISAR_L2_PR_GUNW_...nc`, the function writes:
-
-- `*_quickview.png`
-- `*_summary_stats.csv`
-- `*_metadata.json`, unless disabled
-
-The summary CSV includes:
-
-- layer name
-- source layer
-- transform, such as native, magnitude, magnitude dB, angle, integer labels, or QA mask
-- presence flag
-- total and valid pixel counts
-- valid and NaN fraction
-- mean, standard deviation, min, max
-- p01, p05, p50, p95, p99
-- product-provided summary attributes when present
-- connected-component dominant label/fraction when applicable
-- mask unique values and fill-255 fraction when applicable
-
-## CLI entry point
-
-Install in development mode with GUNW dependencies:
-
-```bash
-python -m pip install -e ".[dev]"
+```text
+mission product or caller-prepared arrays
+                 |
+                 v
+        thin product adapter
+                 |
+                 v
+       phase-normalized xarray
+                 |
+       explicit SnowIn science
+                 |
+                 v
+      pairwise or cumulative dSWE
+                 |
+                 v
+       caller-owned workflow
 ```
 
-Then run:
+`snowin.io.open_gunw()` normalizes NISAR GUNW phase, records its source
+convention and provenance, and resolves wavelength from center frequency. It
+does not compute incidence. `add_gunw_incidence()` separately uses the
+explicit GUNW path and a prepared DEM to derive local incidence. The resulting
+Dataset is retrieval-ready.
 
-```bash
-snowin-plot-gunw /path/to/NISAR_L2_PR_GUNW_....nc \
-  --out-dir plots/gunw_quicklooks \
-  --crop-geojson /path/to/basin.geojson \
-```
+The scientific layer provides three named phase-to-dSWE equations, explicit
+xarray reference estimation and application, named support composition, and
+chronological accumulation over a caller-ordered contiguous path. Missing
+support propagates as missing. No correction or mask policy is implicit.
 
-If the grid CRS cannot be auto-detected, pass `--grid-epsg 32611` or the relevant projected EPSG.
+## Package boundary
 
-## Development documentation
+The package owns reusable snow/InSAR scientific semantics that general
+libraries do not supply: canonical phase direction, named snow retrieval
+equations, local-incidence interpretation, explicit reference offsets,
+separate support meaning, and directed dSWE path accumulation.
 
-- [`development.md`](development.md): supported Python, installation, checks,
-  and repository workflow.
-- [`data_model.md`](data_model.md): provisional xarray-centered data model.
-- [`scientific_conventions.md`](scientific_conventions.md): conventions and
-  unresolved contract work.
-- [`code_provenance.md`](code_provenance.md): provenance record framework for
-  migrated or independently reimplemented science.
+Product discovery and downloads belong to `nisar-pytools`; DEM acquisition,
+GIS preparation, station and validation data, generic metrics, plotting,
+export, and study decisions belong to downstream workflows. NISAR correction
+layers are exposed with provenance but are not applied in SnowIn 0.1.
+
+## Modules and dependencies
+
+- `snowin.snow`: named phase-to-dSWE models.
+- `snowin.io`: NISAR GUNW normalization and local-incidence geometry.
+- `snowin.reference`: contributor-based xarray phase referencing.
+- `snowin.quality.support`: separately named support layers and composition.
+- `snowin.temporal`: chronological accumulation over explicit edges.
+
+Base runtime dependencies are NumPy and xarray. NISAR file access, geometry,
+and Dask support are optional extras. Development, documentation, and notebook
+tools are dependency groups and do not enter wheel runtime metadata.

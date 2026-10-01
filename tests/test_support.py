@@ -1,4 +1,4 @@
-"""Stage 7 support semantics and evaluation metric tests."""
+"""Named support semantics tests."""
 
 from __future__ import annotations
 
@@ -9,7 +9,6 @@ import xarray as xr
 from snowin import (
     build_support_dataset,
     compose_support_mask,
-    compute_metrics,
     summarize_support,
 )
 
@@ -79,52 +78,8 @@ def test_support_rejects_nonbinary_values_and_universal_quality_mask_name():
         )
 
 
-def test_metrics_use_estimated_minus_observed_and_explicit_support():
-    observed = _layer([[1.0, 2.0], [np.nan, 4.0]], name="observed")
-    observed.attrs["units"] = "m"
-    estimated = _layer([[2.0, 1.0], [4.0, 8.0]], name="estimated")
-    estimated.attrs["units"] = "m"
-    support = _layer([[1, 1], [1, 0]], name="evaluation_supported")
-
-    result = compute_metrics(observed, estimated, support=support)
-    np.testing.assert_allclose(result.value.sel(metric="bias"), 0.0)
-    np.testing.assert_allclose(result.value.sel(metric="mae"), 1.0)
-    np.testing.assert_allclose(result.value.sel(metric="rmse"), 1.0)
-    np.testing.assert_allclose(result.value.sel(metric="correlation"), -1.0)
-    assert result.supported_count.item() == 2
-    assert result.total_count.item() == 4
-    assert result.support_fraction.item() == pytest.approx(0.5)
-    assert result.metric_units.sel(metric="correlation").item() == "1"
-    assert result.attrs["support_policy"].startswith("finite_observed")
-
-
-def test_metrics_without_external_support_record_finite_pair_policy():
-    observed = _layer([[1.0, np.nan], [2.0, 3.0]], name="observed")
-    estimated = _layer([[1.0, 4.0], [np.nan, 5.0]], name="estimated")
-    result = compute_metrics(observed, estimated, metrics=["bias", "rmse"])
-    assert result.supported_count.item() == 2
-    assert result.attrs["support_policy"] == "finite_observed_and_estimated_only"
-    np.testing.assert_allclose(result.value.sel(metric="bias"), 1.0)
-    np.testing.assert_allclose(result.value.sel(metric="rmse"), np.sqrt(2.0))
-
-
-def test_metrics_report_unsupported_cases():
-    observed = _layer([[np.nan, np.nan], [np.nan, np.nan]], name="observed")
-    estimated = _layer([[1.0, 2.0], [3.0, 4.0]], name="estimated")
-    result = compute_metrics(observed, estimated)
-    assert result.supported_count.item() == 0
-    assert result.metric_status.sel(metric="bias").item() == (
-        "UNSUPPORTED_NO_FINITE_SUPPORTED_PAIRS"
-    )
-    assert np.isnan(result.value.sel(metric="rmse"))
-
-
-def test_dask_support_composition_and_metrics_equivalence():
+def test_dask_support_composition_remains_lazy():
     pytest.importorskip("dask.array")
-    observed = _layer([[1.0, 2.0], [3.0, 4.0]], name="observed").chunk({"y": 1, "x": 1})
-    estimated = _layer([[2.0, 4.0], [6.0, 8.0]], name="estimated").chunk(
-        {"y": 1, "x": 1}
-    )
     support = _layer([[1, 1], [1, 0]], name="evaluation_supported").chunk(
         {"y": 1, "x": 1}
     )
@@ -133,6 +88,3 @@ def test_dask_support_composition_and_metrics_equivalence():
         ["evaluation_supported"],
     )
     assert hasattr(composed.data, "chunks")
-    result = compute_metrics(observed, estimated, support=composed)
-    assert result.supported_count.item() == 3
-    np.testing.assert_allclose(result.value.sel(metric="rmse"), np.sqrt(14 / 3))

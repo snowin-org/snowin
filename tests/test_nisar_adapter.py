@@ -16,7 +16,7 @@ from snowin.io import (
     open_gunw,
     read_gunw_wavelength_m,
 )
-from snowin.io.nisar import _nisar_dem_tile_url
+from snowin.io.phase_normalization import _build_phase_normalized_dataset
 
 
 def _pair_inputs() -> tuple[xr.DataArray, xr.DataArray, xr.DataArray]:
@@ -64,8 +64,53 @@ def test_normalize_gunw_pair_applies_explicit_source_transform():
         "reference_minus_secondary"
     )
     assert result.attrs["phase_transform"] == "multiply_by_-1"
+    assert result.attrs["snowin_schema_version"] == "0.1"
     assert result.attrs["source_granule_id"] == "test-granule"
+    assert result.attrs["snowin_data_state"] == "retrieval_ready_pair"
     assert result.spatial_ref.attrs["epsg_code"] == 32611
+
+
+def test_shared_normalizer_rejects_uncontracted_native_grid_variable():
+    phase, _, spatial_ref = _pair_inputs()
+    native_layer = xr.DataArray(
+        np.ones((2, 3)),
+        dims=("radar_y", "radar_x"),
+        coords={"radar_y": [0, 1], "radar_x": [0, 1, 2]},
+    )
+
+    with pytest.raises(ValueError, match="unsupported dimensions"):
+        _build_phase_normalized_dataset(
+            phase,
+            spatial_ref,
+            source_phase_difference_definition="reference_minus_secondary",
+            reference_time="2025-01-01T00:00:00Z",
+            secondary_time="2025-01-13T00:00:00Z",
+            wavelength_m=0.24,
+            additional_variables={"unexpected_layer": native_layer},
+        )
+
+
+def test_shared_normalizer_checks_native_grid_dimension_contract():
+    phase, _, spatial_ref = _pair_inputs()
+    malformed_layer = xr.DataArray(
+        np.ones((2, 2, 3)),
+        dims=("radar_height", "radar_y", "radar_x"),
+        coords={"radar_y": [0, 1], "radar_x": [0, 1, 2]},
+    )
+
+    with pytest.raises(ValueError, match="coordinate for dimension 'radar_height'"):
+        _build_phase_normalized_dataset(
+            phase,
+            spatial_ref,
+            source_phase_difference_definition="reference_minus_secondary",
+            reference_time="2025-01-01T00:00:00Z",
+            secondary_time="2025-01-13T00:00:00Z",
+            wavelength_m=0.24,
+            additional_variables={"hydro_tropo": malformed_layer},
+            native_grid_dimensions={
+                "hydro_tropo": (("radar_height", "radar_y", "radar_x"),)
+            },
+        )
 
 
 @pytest.mark.parametrize("source", [None, "unknown", "reference_minus_secondaryx"])
@@ -110,12 +155,6 @@ def test_nisar_wavelength_is_derived_from_center_frequency(tmp_path):
     assert read_gunw_wavelength_m(path) == pytest.approx(0.299792458)
 
 
-def test_nisar_dem_tile_url_uses_documented_band_directories():
-    assert _nisar_dem_tile_url(36, -109).endswith(
-        "/EPSG4326/N30/N30_W120/DEM_N36_00_W109_00_C01.tif"
-    )
-
-
 def test_nisar_adapter_opens_lazy_normalized_gunw(tmp_path):
     pytest.importorskip("scipy")
     h5netcdf = pytest.importorskip("h5netcdf")
@@ -126,13 +165,16 @@ def test_nisar_adapter_opens_lazy_normalized_gunw(tmp_path):
     result = open_gunw(path, chunks=None, progress=False)
     try:
         assert "incidence_angle" not in result
-        add_gunw_incidence(
-            result, path, dem_source="cop30", cop30_dem=dem, progress=False
+        returned = add_gunw_incidence(
+            result, path, dem_source="cop30", dem=dem, progress=False
         )
+        assert returned is result
+        assert result.attrs["snowin_data_state"] == "retrieval_ready_pair"
         np.testing.assert_allclose(result.phase.values, [[-1.0, -2.0], [-3.0, -4.0]])
         assert result.phase.attrs["units"] == "rad"
         assert result.incidence_angle.attrs["units"] == "rad"
         assert result.incidence_angle.attrs["incidence_angle_reference"] == "local"
+        assert result.incidence_angle.attrs["los_interpolation_method"] == "linear"
         np.testing.assert_allclose(result.incidence_angle.values, np.deg2rad(30.0))
         assert result.geometry_valid.dtype == bool
         assert bool(result.geometry_valid.all())
@@ -141,6 +183,8 @@ def test_nisar_adapter_opens_lazy_normalized_gunw(tmp_path):
             "reference_minus_secondary"
         )
         assert result.attrs["phase_transform"] == "multiply_by_-1"
+        assert result.attrs["reference_time"] == "2025-01-01T00:00:00Z"
+        assert result.attrs["secondary_time"] == "2025-01-13T00:00:00Z"
         assert result.attrs["temporal_edge"] == "reference_to_secondary"
         assert result.spatial_ref.attrs["epsg_code"] == 32611
         np.testing.assert_allclose(result.ionosphere, [[0.1, 0.2], [0.3, 0.4]])
@@ -211,28 +255,41 @@ def test_nisar_adapter_rejects_missing_required_projection(tmp_path):
         open_gunw(path, chunks=None, progress=False)
 
 
-def test_open_gunw_defers_geometry_and_incidence_requires_explicit_gunw(
-    tmp_path, monkeypatch
-):
+def test_open_gunw_defers_geometry_and_incidence_requires_explicit_gunw(tmp_path):
     h5netcdf = pytest.importorskip("h5netcdf")
     path = tmp_path / "test_gunw_deferred_geometry.h5"
     _write_synthetic_gunw(h5netcdf, path)
 
-    def fail_if_downloaded(*args, **kwargs):
-        raise AssertionError("open_gunw must not download or compute incidence")
-
-    monkeypatch.setattr(
-        "snowin.io.nisar_product.download_nisar_cop30_dem_for_gunw",
-        fail_if_downloaded,
-    )
     result = open_gunw(path, chunks=None, progress=False)
     try:
         assert "incidence_angle" not in result
         assert result.attrs["incidence_angle_status"] == "not_computed"
+        assert result.attrs["snowin_data_state"] == "phase_normalized_product"
         with pytest.raises(FileNotFoundError, match="GUNW file not found"):
             compute_gunw_incidence(tmp_path / "different_product.h5", result)
     finally:
         result.close()
+
+
+def test_gunw_incidence_rejects_source_granule_mismatch(tmp_path):
+    h5netcdf = pytest.importorskip("h5netcdf")
+    target_path = tmp_path / "target_gunw.h5"
+    other_path = tmp_path / "other_gunw.h5"
+    _write_synthetic_gunw(h5netcdf, target_path, granule_id="target-granule")
+    _write_synthetic_gunw(h5netcdf, other_path, granule_id="other-granule")
+
+    target = open_gunw(target_path, chunks=None, progress=False)
+    try:
+        with pytest.raises(ValueError, match="does not match target source_granule_id"):
+            compute_gunw_incidence(
+                other_path,
+                target,
+                dem_source="cop30",
+                dem=_synthetic_dem(),
+                progress=False,
+            )
+    finally:
+        target.close()
 
 
 def test_product_ellipsoid_incidence_requires_explicit_opt_in(tmp_path):
@@ -251,27 +308,15 @@ def test_product_ellipsoid_incidence_requires_explicit_opt_in(tmp_path):
         result.close()
 
 
-def test_nisar_cop30_local_incidence_downloads_dem_by_default(tmp_path, monkeypatch):
+def test_local_incidence_requires_a_prepared_dem(tmp_path):
     h5netcdf = pytest.importorskip("h5netcdf")
     path = tmp_path / "test_gunw_default.h5"
     _write_synthetic_gunw(h5netcdf, path)
 
-    calls = []
-
-    def fake_download(*args, **kwargs):
-        calls.append((args, kwargs))
-        return _synthetic_dem()
-
-    monkeypatch.setattr(
-        "snowin.io.nisar_product.download_nisar_cop30_dem_for_gunw", fake_download
-    )
     result = open_gunw(path, chunks=None, progress=False)
     try:
-        add_gunw_incidence(result, path, progress=False)
-        assert len(calls) == 1
-        assert result.attrs["incidence_angle_reference"] == "local terrain surface"
-        assert result.attrs["dem_source"] == "nisar_cop30"
-        assert result.attrs["wavelength_m"] == pytest.approx(0.299792458)
+        with pytest.raises(ValueError, match="caller-supplied prepared DEM"):
+            add_gunw_incidence(result, path, progress=False)
     finally:
         result.close()
 
@@ -287,7 +332,7 @@ def test_gunw_wavelength_can_be_explicitly_overridden(tmp_path):
             result,
             path,
             dem_source="cop30",
-            cop30_dem=_synthetic_dem(),
+            dem=_synthetic_dem(),
             progress=False,
         )
         assert result.attrs["wavelength_m"] == pytest.approx(0.123)
@@ -308,7 +353,7 @@ def test_tandem30_dem_source_uses_local_ellipsoidal_input(tmp_path):
             result,
             path,
             dem_source="tandem30",
-            tandem30_dem=_synthetic_dem(),
+            dem=_synthetic_dem(),
             require_vertical_datum_match=True,
             progress=False,
         )
@@ -332,7 +377,7 @@ def test_srtm30_requires_vertical_correction_for_strict_matching(tmp_path):
             result,
             path,
             dem_source="srtm30",
-            srtm30_dem=_synthetic_dem(),
+            dem=_synthetic_dem(),
             require_vertical_datum_match=True,
             progress=False,
         )
@@ -351,7 +396,7 @@ def test_nisar_adapter_preserves_dask_backing_when_available(tmp_path):
             result,
             path,
             dem_source="cop30",
-            cop30_dem=_synthetic_dem(),
+            dem=_synthetic_dem(),
             progress=False,
         )
         assert hasattr(result.phase.data, "chunks")
@@ -377,14 +422,14 @@ def test_nisar_adapter_chunked_geometry_is_lazy_and_matches_eager(tmp_path):
             eager,
             path,
             dem_source="cop30",
-            cop30_dem=_synthetic_dem(),
+            dem=_synthetic_dem(),
             progress=False,
         )
         add_gunw_incidence(
             chunked,
             path,
             dem_source="cop30",
-            cop30_dem=_synthetic_dem(),
+            dem=_synthetic_dem(),
             geometry_chunks=(1, 1),
             progress=False,
         )
@@ -412,6 +457,7 @@ def _write_synthetic_gunw(
     include_projection=True,
     include_connected_components=False,
     include_correction_layers=True,
+    granule_id=None,
     x_coordinates=(100.0, 110.0),
     y_coordinates=(20.0, 10.0),
     center_frequency_hz=1.0e9,
@@ -489,7 +535,11 @@ def _write_synthetic_gunw(
         ident = root.create_group("science/LSAR/identification")
         for name, value in {
             "productType": "GUNW",
-            "granuleId": f"synthetic-gunw-{polarization}",
+            "granuleId": (
+                granule_id
+                if granule_id is not None
+                else f"synthetic-gunw-{polarization}"
+            ),
             "referenceZeroDopplerStartTime": "2025-01-01T00:00:00.000000000",
             "secondaryZeroDopplerStartTime": "2025-01-13T00:00:00.000000000",
         }.items():

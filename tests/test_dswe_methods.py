@@ -11,14 +11,9 @@ import xarray as xr
 
 import snowin
 from snowin.snow import (
-    compute_dswe,
-    compute_gun_dswe,
     compute_guneriussen_dswe,
     compute_leinss_dswe,
-    compute_ove_dswe,
     compute_oveisgharan_dswe,
-    phase_to_dswe,
-    sensor_wavelength_m,
 )
 
 WAVELENGTH_M = 0.23840354572564613
@@ -92,17 +87,12 @@ def test_named_methods_preserve_xarray_contract(function, extra_kwargs):
     assert result.attrs["retrieval_method"] in {"leinss", "guneriussen", "oveisgharan"}
 
 
-def test_leinss_matches_published_equation_and_legacy_name():
+def test_leinss_matches_published_equation():
     phase, incidence = _inputs()
     expected = 0.75 * WAVELENGTH_M / (2.0 * math.pi * (1.59 + THETA**2.5))
 
     named = compute_leinss_dswe(phase, incidence, wavelength_m=WAVELENGTH_M)
-    generic = compute_dswe(phase, incidence, wavelength_m=WAVELENGTH_M)
-    stock_wavelength = compute_leinss_dswe(phase, incidence, sensor="uavsar")
-
     assert named.item() == pytest.approx(expected)
-    assert generic.item() == pytest.approx(named.item())
-    assert stock_wavelength.item() == pytest.approx(expected)
     assert named.attrs["alpha"] == 1.0
     assert named.attrs["snow_path_constant"] == 1.59
     assert named.attrs["retrieval_method"] == "leinss"
@@ -193,18 +183,12 @@ def test_oveisgharan_matches_published_polynomial():
     assert result.item() == pytest.approx(expected)
     assert result.attrs["retrieval_method"] == "oveisgharan"
     assert result.attrs["a_theta_coefficients"] == [-0.6784, 0.2899, -0.8473]
-    assert compute_ove_dswe is compute_oveisgharan_dswe
-    assert compute_gun_dswe is compute_guneriussen_dswe
 
 
-def test_oveisgharan_matches_legacy_implementation():
+def test_oveisgharan_matches_analytical_equation():
     phase, incidence = _inputs()
-    expected = phase_to_dswe(
-        0.75,
-        "oveisgharan",
-        THETA,
-        wavelength_m=WAVELENGTH_M,
-    )
+    a_theta = -0.6784 * THETA**2 + 0.2899 * THETA - 0.8473
+    expected = 0.75 / (-2.0 * (2.0 * math.pi / WAVELENGTH_M) * a_theta)
 
     result = compute_oveisgharan_dswe(phase, incidence, wavelength_m=WAVELENGTH_M)
 
@@ -225,34 +209,19 @@ def test_named_signatures_keep_method_specific_parameters_separate():
     assert "alpha" not in oveisgharan_parameters
 
 
-def test_guneriussen_maetzler_matches_legacy_implementation():
+def test_guneriussen_maetzler_matches_analytical_equation():
     phase, incidence = _inputs()
-    expected = phase_to_dswe(
-        0.75,
-        "guneriussen",
-        THETA,
-        wavelength_m=WAVELENGTH_M,
-        snow_density_g_cm3=0.3,
+    density_kg_m3 = 300.0
+    density_g_cm3 = density_kg_m3 / 1000.0
+    permittivity = 1.0 + 1.5995 * density_g_cm3 + 1.861 * density_g_cm3**3
+    refraction = math.cos(THETA) - math.sqrt(permittivity - math.sin(THETA) ** 2)
+    expected = 0.75 / (
+        -2.0 * (2.0 * math.pi / WAVELENGTH_M) * refraction * (density_kg_m3 / 1000.0)
     )
 
     result = _run_guneriussen(phase, incidence, permittivity_model="maetzler")
 
     assert result.item() == pytest.approx(expected)
-
-
-def test_methods_use_stock_wavelength_registry_without_guessing():
-    phase, incidence = _inputs()
-
-    with pytest.raises(ValueError, match="Provide wavelength_m explicitly"):
-        compute_oveisgharan_dswe(phase, incidence)
-    with pytest.raises(ValueError, match="band is required"):
-        compute_leinss_dswe(phase, incidence, sensor="nisar")
-
-    result = compute_oveisgharan_dswe(phase, incidence, sensor="nisar", band="L")
-    assert result.attrs["wavelength_m"] == pytest.approx(
-        sensor_wavelength_m(sensor="nisar", band="L")
-    )
-    assert result.attrs["wavelength_source"].startswith("stock sensor/band lookup")
 
 
 @pytest.mark.parametrize(

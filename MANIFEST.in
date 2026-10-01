@@ -1,0 +1,5 @@
+include CITATION.cff
+graft tests
+prune tests/__pycache__
+prune tests/.pytest_cache
+global-exclude *.py[cod]

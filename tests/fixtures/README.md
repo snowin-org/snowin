@@ -1,4 +1,4 @@
-# Stage 4 real-product geometry fixture
+# Real-product geometry fixture
 
 The JSON manifest in this directory records the expected local-incidence
 statistics for a real NISAR GUNW and a public Copernicus GLO-30 tile. The
@@ -7,8 +7,8 @@ large HDF5 and GeoTIFF inputs are intentionally not committed to SnowIn.
 Set these variables to run the regression test:
 
 ```bash
-export SNOWIN_STAGE4_GUNW=/path/to/NISAR_L2_PR_GUNW_006_019_A_020_008_4000_SH_20251123T121042_20251123T121117_20251217T121043_20251217T121118_X05010_N_F_J_001.h5
-export SNOWIN_STAGE4_COP30_DEM=/path/to/Copernicus_DSM_COG_10_N36_00_W106_00_DEM.tif
+export SNOWIN_GEOMETRY_GUNW=/path/to/NISAR_L2_PR_GUNW_006_019_A_020_008_4000_SH_20251123T121042_20251123T121117_20251217T121043_20251217T121118_X05010_N_F_J_001.h5
+export SNOWIN_GEOMETRY_COP30_DEM=/path/to/Copernicus_DSM_COG_10_N36_00_W106_00_DEM.tif
 pytest -q tests/test_geometry.py::test_real_product_geometry_regression
 ```
 
@@ -47,9 +47,9 @@ export SNOWIN_REAL_COP30_DEM=/path/to/copernicus_dem_covering_scene.tif
 pytest -m integration -q tests/test_real_product_validation.py
 ```
 
-The separate `SNOWIN_STAGE4_GUNW` and `SNOWIN_STAGE4_COP30_DEM` variables run
-the exact scene geometry regression described above. Its expected statistics
-and input granule name are frozen in `real_product_geometry.json`; the public
-DEM tile URL and independent Colorado implementation commit used to establish
-those values are recorded in this guide. These Stage 4 values are a
+The separate `SNOWIN_GEOMETRY_GUNW` and `SNOWIN_GEOMETRY_COP30_DEM` variables
+run the exact scene geometry regression described above. Its expected
+statistics and input granule name are frozen in `real_product_geometry.json`;
+the public DEM tile URL and independent Colorado implementation commit used to
+establish those values are recorded in this guide. These values are a
 characterization/regression reference, not an independent SWE validation.

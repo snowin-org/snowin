@@ -1,4 +1,4 @@
-"""Stage 6 temporal-edge and accumulation invariants."""
+"""Temporal-edge and accumulation invariants."""
 
 from __future__ import annotations
 

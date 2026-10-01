@@ -11,10 +11,9 @@ from snowin import (
     accumulate_dswe,
     build_support_dataset,
     compose_support_mask,
-    compute_dswe,
+    compute_leinss_dswe,
     reference_phase,
 )
-from snowin.corrections import PhaseCorrectionConfig, apply_phase_corrections
 from snowin.io import normalize_gunw_pair
 
 WAVELENGTH_M = 0.24
@@ -24,7 +23,6 @@ COORDS = {"y": [4200.0, 4190.0], "x": [500000.0, 500010.0]}
 
 def _normalized_edge(
     true_phase_value: float,
-    ionosphere_value: float,
     reference_offset_rad: float,
     reference_time: str,
     secondary_time: str,
@@ -32,8 +30,7 @@ def _normalized_edge(
     product_valid: np.ndarray,
 ) -> xr.Dataset:
     true_phase = np.full((2, 2), true_phase_value, dtype=np.float64)
-    ionosphere = np.full((2, 2), ionosphere_value, dtype=np.float64)
-    measured_phase = true_phase + ionosphere
+    measured_phase = true_phase
     source_phase = xr.DataArray(
         -measured_phase,
         dims=("y", "x"),
@@ -65,17 +62,6 @@ def _normalized_edge(
     )
     np.testing.assert_allclose(pair.phase.values, measured_phase)
 
-    correction = apply_phase_corrections(
-        pair.phase.values,
-        ionosphere=ionosphere,
-        config=PhaseCorrectionConfig(
-            apply_ionosphere=True,
-            ionosphere_sign="subtract",
-        ),
-    )
-    corrected_phase = pair.phase.copy(data=correction.phase_corrected)
-    corrected_phase.attrs = dict(pair.phase.attrs)
-    pair["phase"] = corrected_phase
     referenced = reference_phase(
         pair,
         method="manual_offset",
@@ -89,7 +75,7 @@ def _normalized_edge(
         rtol=0.0,
         atol=1e-14,
     )
-    pairwise_dswe = compute_dswe(
+    pairwise_dswe = compute_leinss_dswe(
         referenced.phase_referenced,
         referenced.incidence_angle,
         wavelength_m=WAVELENGTH_M,
@@ -123,14 +109,12 @@ def test_normalize_correct_reference_support_dswe_and_accumulate_pipeline():
     first = _normalized_edge(
         0.6,
         0.1,
-        0.1,
         "2025-01-01T00:00:00Z",
         "2025-01-13T00:00:00Z",
         product_valid=np.array([[True, True], [False, True]]),
     )
     second = _normalized_edge(
         0.4,
-        0.2,
         0.05,
         "2025-01-13T00:00:00Z",
         "2025-01-25T00:00:00Z",

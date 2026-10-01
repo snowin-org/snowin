@@ -40,10 +40,9 @@ cumulative values while adding its endpoint. Missing or explicitly unsupported
 edge support must never become zero; an unsupported pixel remains unsupported
 at later path endpoints. Reversed, out-of-order, or broken paths must fail.
 
-Reference and correction properties must follow their documented equations
-and signs. Do not infer new scientific behavior from an attractive test
-property; document a discrepancy first if code and the stated convention do
-not agree.
+Reference properties must follow their documented equation and sign. Do not
+infer new scientific behavior from an attractive test property; document a
+discrepancy first if code and the stated convention do not agree.
 
 ### 3. Input validation and failure behavior
 
@@ -145,8 +144,8 @@ when they remove substantial repeated setup, but they should not hide grid,
 unit, sign, or support assumptions. Keep fixture factories small and explicit.
 
 At least one synthetic integration test should connect meaningful public
-operations—for example, product phase normalization, explicit correction and
-reference handling, support composition, phase-to-dSWE conversion, temporal
+operations—for example, product phase normalization, reference handling,
+support composition, phase-to-dSWE conversion, temporal
 accumulation, and inspection of the final xarray result. Its expected values
 should follow from a small analytical example.
 
@@ -161,7 +160,7 @@ Optional NISAR input provenance and environment variables are recorded in
 Coverage is a diagnostic for unexecuted code, not a measure of scientific
 validity. Do not inflate it with meaningless assertions, broad `no cover`
 annotations, or exclusions of difficult scientific modules. Kernel and
-temporal science should have stronger direct protection than peripheral CLI
+temporal science should have stronger direct protection than peripheral I/O
 plumbing. Review uncovered lines for meaningful scientific gaps before
 changing the coverage floor. The CI floor is currently 85% overall line
 coverage, measured after adding direct tests for scientific kernels,
@@ -185,21 +184,18 @@ while exercising a small public API call. Ruff is scoped to source, tests, and
 scripts; Markdown and notebook documents are excluded because their embedded
 examples and generated notebook cells need document-aware checks. The README
 quick-start example is executed as a smoke test from its tagged code block.
-Other product examples need real inputs or network access, so broader executable
-documentation remains a future step; do not add a large documentation build
-system solely for this change.
+Other product examples require real inputs or network access, so they remain
+documented manual workflows and are not part of the normal offline suite.
 
 ## Supported dependencies
 
 CI tests the latest resolvable development stack on each supported Python
 version and a minimum scientific-dependency stack on Python 3.12. The declared
-`numpy>=1.24` floor predates Python 3.12 support: NumPy's 1.24 release supports
-Python 3.8–3.11, and its 1.26 release adds Python 3.12. Therefore the minimum
-job uses NumPy 1.26.4 with the declared xarray 2024.1 minimum on Python 3.12;
-it does not claim to test the incompatible NumPy 1.24/Python 3.12 pair. See the
+`numpy>=1.26` floor is the first NumPy release supporting Python 3.12. The
+minimum job uses NumPy 1.26.4 with xarray 2024.1 on Python 3.12. See the
 [NumPy 1.24 release notes](https://numpy.org/doc/1.24/release/1.24.0-notes.html)
 and [NumPy 1.26 release notes](https://numpy.org/doc/1.26/release/1.26.0-notes.html).
 
-The package currently advertises `mypy` as a future maturity step. Do not add
-strict type checking until it can improve the public API without broad ignores
-or scientific API distortions.
+Static type checking is not a SnowIn 0.1 release gate. Do not add strict rules
+without evidence that they improve the public API without broad ignores or
+scientific API distortions.

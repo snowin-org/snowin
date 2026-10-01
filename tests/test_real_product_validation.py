@@ -9,7 +9,7 @@ import h5py
 import numpy as np
 import pytest
 
-from snowin.io.nisar import add_gunw_incidence, open_gunw
+from snowin.io import add_gunw_incidence, open_gunw
 
 
 @pytest.mark.integration
@@ -41,7 +41,7 @@ def test_real_gunw_phase_lineage_is_explicit():
     # incidence computation.
     import xarray as xr
 
-    from snowin.io.nisar import normalize_gunw_pair
+    from snowin.io import normalize_gunw_pair
 
     phase = xr.DataArray(raw, dims=("y", "x"), attrs={"units": "radians"})
     incidence = xr.DataArray(
@@ -75,7 +75,7 @@ def test_real_gunw_geometry_requires_declared_datum_inputs():
             add_gunw_incidence(
                 result,
                 gunw,
-                cop30_dem=dem,
+                dem=dem,
                 require_vertical_datum_match=True,
                 progress=False,
             )

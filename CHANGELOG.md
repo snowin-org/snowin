@@ -2,19 +2,19 @@
 
 ## 0.1.0 - unreleased
 
-The first 0.1 release line provides xarray-native scientific contracts and
-named phase-to-dSWE methods; NISAR GUNW phase normalization and product
-metadata; `nisar_pytools`-based ASF search and validated downloads; DEM/LOS
-local-incidence geometry with explicit geometry support; GUNW correction
-layers for inspection; reference-phase operations, directed temporal
-accumulation, quality/support layers, metrics, and diagnostic plots.
+The first release line provides named xarray-native phase-to-dSWE methods,
+explicit NISAR GUNW product normalization, optional local-incidence geometry
+from caller-prepared DEMs, auditable reference offsets, directed temporal
+accumulation, and named support composition. Normalized Dataset metadata uses
+the frozen schema version `0.1`.
 
-The release line also includes synthetic and regression tests, CI coverage,
-wheel-install checks, separate runtime and authoring environments, and
-examples for synthetic analysis, real GUNW processing, product search, and
-downstream study workflows. dSWE products represent change between radar
-epochs, not absolute SWE. Correction layers are exposed and recorded but are
-not automatically applied.
+The package exposes correction layers with provenance but does not apply them.
+Product discovery, download, cloud staging, vector masking, station I/O,
+plotting, and generic evaluation metrics remain caller-owned or downstream
+workflow responsibilities. Pairwise dSWE is `SWE_secondary - SWE_reference`,
+not absolute SWE.
 
-SnowIn is not yet published to PyPI or conda-forge. Real-product validation
-requires caller-supplied data and remains optional to the fast test suite.
+The release line includes synthetic and regression tests, optional integration
+checks for caller-supplied real products, CI coverage, wheel-install checks, and
+minimal reusable examples. It does not require product data or network access
+for its normal test suite.

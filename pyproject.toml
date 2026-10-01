@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -14,7 +14,7 @@ authors = [
   { name = "SnowIn contributors" }
 ]
 dependencies = [
-  "numpy>=1.24",
+  "numpy>=1.26",
   "xarray>=2024.1",
 ]
 classifiers = [
@@ -32,59 +32,35 @@ Repository = "https://github.com/snowin-org/snowin"
 Issues = "https://github.com/snowin-org/snowin/issues"
 
 [project.optional-dependencies]
-gunw = [
+nisar = [
   "nisar-pytools>=0.5.0",
   "h5py>=3.10",
   "h5netcdf>=1.3",
-  "matplotlib>=3.8",
-  "shapely>=2",
-  "pyproj>=3.6",
+]
+geometry = [
   "rasterio>=1.3",
-  "rioxarray>=0.15",
   "scipy>=1.10",
-  "earthaccess>=0.17",
 ]
-cloud = [
-  "fsspec>=2024.0",
-  "s3fs>=2024.0",
-]
-dask = [
-  "dask[array]>=2024.1",
-]
-vectors = [
-  "geopandas>=0.14",
-  "pyproj>=3.6",
-  "rasterio>=1.3",
-  "shapely>=2",
+dask = ["dask[array]>=2024.1"]
+
+[dependency-groups]
+dev = [
+  "build>=1.2",
+  "hypothesis>=6.100",
+  "pytest-cov>=5",
+  "pytest>=8",
+  "ruff>=0.4",
 ]
 docs = [
   "mkdocs>=1.6",
   "mkdocs-material>=9.6",
 ]
 notebooks = [
-  "ipykernel>=6.29",
-  "jupyterlab>=4.2",
+    "ipykernel>=6.29",
+    "jupyterlab>=4.2",
+    "matplotlib>=3.8",
+    "pyproj>=3.6",
 ]
-dev = [
-  "build>=1.2",
-  "nisar-pytools>=0.5.0",
-  "hypothesis>=6.100",
-  "pytest-cov>=5",
-  "pytest>=8",
-  "ruff>=0.4",
-  "dask[array]>=2024.1",
-  "h5py>=3.10",
-  "h5netcdf>=1.3",
-  "geopandas>=0.14",
-  "matplotlib>=3.8",
-  "shapely>=2",
-  "pyproj>=3.6",
-  "rasterio>=1.3",
-  "scipy>=1.10",
-]
-
-[project.scripts]
-snowin-plot-gunw = "snowin.cli:plot_gunw_cli"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -94,6 +70,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = ["--strict-config", "--strict-markers"]
 filterwarnings = [
   "error::Warning:snowin(\\.|$)",

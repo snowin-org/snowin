@@ -1,51 +1,27 @@
 # SnowIn roadmap
 
-SnowIn is a pre-release, NISAR-first snow InSAR analysis package. The roadmap
-focuses on reusable package behavior; study-specific inputs, station policies,
-analysis masks, and result figures belong in downstream applications.
+SnowIn 0.1 is a small xarray-native snow-InSAR science package with an
+optional NISAR GUNW adapter and local-incidence geometry.
 
-## Implemented foundation
+## Implemented
 
-- xarray-native scientific contracts for phase, dSWE, support, provenance, and
-  directed temporal edges.
-- Named phase-to-dSWE methods with explicit units, wavelength handling, and
-  model-specific inputs.
-- `nisar_pytools`-based ASF search and validated downloads, plus NISAR GUNW
-  reading, source-phase normalization, and product wavelength resolution.
-- Local-incidence geometry from DEM and GUNW LOS data, with explicit invalid
-  support for missing or back-facing terrain. GUNW correction layers are
-  available for inspection and retain their source metadata; they are not
-  applied automatically.
-- Reference-phase operations, support composition, metrics, and temporal
-  accumulation with explicit missing-data behavior.
-- GUNW layer, incidence-angle, and pairwise dSWE plots.
-- Synthetic and regression tests, property-based invariants, CI coverage,
-  formatting, build, and wheel-install checks.
+- Named Leinss, Guneriussen, and Oveisgharan pairwise dSWE equations.
+- NISAR GUNW phase normalization and authoritative wavelength extraction.
+- Prepared-DEM local incidence with explicit CRS, vertical-datum, LOS, and
+  invalid-support handling.
+- Contributor-based xarray reference estimation and application.
+- Separate named support layers and explicit support composition.
+- Chronological, contiguous dSWE path accumulation with missing-support
+  propagation.
 
-## Current focus
+## Release
 
-- Have domain collaborators review the public scientific API, phase
-  conventions, product metadata, xarray data model, and NISAR search-to-dSWE
-  workflow.
-- Keep the synthetic core notebook and NISAR search/GUNW notebooks aligned
-  with the package API; identify external-data study notebooks separately.
-- Keep NISAR DEM/LOS geometry eager by default while evaluating chunked
-  execution with documented memory and runtime measurements.
+Maintainers should use the concise [release checklist](docs/release.md) for
+versioning, validation, packaging, and publication.
 
-## Next
+## Outside the package
 
-- Add optional real-product fixtures with public input provenance and no
-  downloads or credentials in the required test suite.
-- Finish the 0.1 review by checking installation, public imports, package
-  contents, and documented scientific limitations.
-- Publish a versioned source release and prepare a conda-forge recipe after
-  external review and release metadata checks.
-- Add scientific benchmarks and stricter static typing when their maintenance
-  value is clear.
-
-## Later
-
-Broaden sensor adapters only when their product metadata, phase conventions,
-geometry, and scientific contracts can be tested. SnowIn is the snow-analysis
-layer around mission-specific InSAR processors; it is not a replacement for
-general processors such as ISCE or Dolphin.
+Search, downloads, DEM acquisition, GIS preparation, plotting, generic
+evaluation metrics, correction application, station data, and study-specific
+validation remain caller-owned. Additional sensor adapters will be considered
+only with authoritative metadata and a testable scientific contract.

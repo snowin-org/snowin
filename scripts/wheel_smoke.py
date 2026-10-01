@@ -10,6 +10,7 @@ import numpy as np
 import xarray as xr
 
 import snowin
+from snowin.io import open_gunw
 
 
 def main() -> None:
@@ -19,6 +20,8 @@ def main() -> None:
         raise RuntimeError(
             f"snowin imported outside the wheel environment: {installed_path}"
         )
+    if not callable(open_gunw):
+        raise AssertionError("optional NISAR adapter import is not callable")
 
     phase = xr.DataArray(
         [[0.5, -0.5]],
@@ -37,7 +40,7 @@ def main() -> None:
         name="incidence_angle",
         attrs={"units": "rad", "incidence_angle_reference": "local"},
     )
-    result = snowin.compute_dswe(phase, incidence, wavelength_m=0.24)
+    result = snowin.compute_leinss_dswe(phase, incidence, wavelength_m=0.24)
     expected = (
         np.asarray(phase) * 0.24 / (2.0 * math.pi * (1.59 + math.radians(35.0) ** 2.5))
     )

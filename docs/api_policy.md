@@ -1,96 +1,80 @@
 # SnowIn API policy
 
-SnowIn exposes a small stable facade at the package root and keeps
-domain-specific functionality in named submodules. This gives users a simple
-starting point without making every reader, compatibility helper, diagnostic,
-or implementation detail part of the long-term API.
+SnowIn's stable scientific boundary consists of plain xarray
+`DataArray` and `Dataset` inputs and outputs. Public functions express
+snow/InSAR-specific science; mission details remain in adapters.
 
-## Import levels
+## Public exports
 
-Root-level imports are the stable, recommended facade. The functions exported
-from `snowin` are the preferred entry points for generic scientific operations:
+The root package exports the stable generic functions and version:
 
 ```python
 from snowin import (
+    __version__,
     accumulate_dswe,
     build_support_dataset,
     compose_support_mask,
-    compute_dswe,
-    compute_metrics,
+    compute_guneriussen_dswe,
+    compute_leinss_dswe,
+    compute_oveisgharan_dswe,
     reference_phase,
     summarize_support,
 )
 ```
 
-Submodule imports are public for domain-specific functionality. Use them when
-the operation is tied to a product, file format, correction family, or lower-
-level diagnostic:
+The complete supported module exports are:
 
-```python
-from snowin.io import add_gunw_incidence, find_nisar, open_gunw
-from snowin.corrections import PhaseCorrectionConfig, apply_phase_corrections
-from snowin.reference import estimate_reference_offset
+- `snowin.snow`: `compute_leinss_dswe`, `compute_guneriussen_dswe`,
+  `compute_oveisgharan_dswe`.
+- `snowin.io`: `DEMSource`, `NISAR_GUNW_PHASE_TRANSFORM`,
+  `NISAR_GUNW_SOURCE_PHASE_DEFINITION`, `open_gunw`, `normalize_gunw_pair`,
+  `read_gunw_wavelength_m`, `compute_gunw_incidence`, `add_gunw_incidence`,
+  `compute_cop30_local_incidence`.
+- `snowin.reference`: `estimate_reference_offset`, `apply_reference_offset`,
+  `reference_phase`, `REFERENCE_CONTRIBUTOR_DIM`, `REFERENCE_METHODS`,
+  `MANUAL_OFFSET_METHOD`, `SINGLE_STATION_METHOD`, `MEAN_OFFSET_METHOD`,
+  `MEDIAN_OFFSET_METHOD`, `COHERENCE_WEIGHTED_METHOD`.
+- `snowin.quality`: `build_support_dataset`, `compose_support_mask`,
+  `summarize_support`, `SUPPORT_CATEGORIES`.
+- `snowin.temporal`: `accumulate_dswe`.
 
-# NISAR-specific detail is also grouped by domain:
-from snowin.io.dem import DEMSource
-from snowin.io import download_urls
-from snowin.io.geometry import compute_cop30_local_incidence
-from snowin.io.phase_normalization import normalize_gunw_pair
-from snowin.spatial import rasterize_vector_mask
-```
+The constants name source conventions, result dimensions, supported reference
+methods, and support categories used in returned metadata and validation.
+Private helpers are not part of the supported API. Re-exports such as
+`snowin.reference_phase` and `snowin.snow.compute_leinss_dswe` are intentional
+facade and domain-module import paths.
 
-Underscore-prefixed names are internal implementation details and are not part
-of the public API. They may change without compatibility guarantees.
+## Product and data states
 
-Legacy submodule APIs remain available where practical for compatibility, but
-are not recommended for new workflows. In particular, use
-`snowin.reference.reference_phase` instead of the older
-`snowin.reference.apply_reference_phase`, and use `snowin.compute_dswe` instead
-of the older NumPy method-selector functions in `snowin.snow`.
+`open_gunw()` returns a phase-normalized product with canonical phase,
+authoritative wavelength, temporal metadata, and provenance. It intentionally
+does not calculate incidence. `add_gunw_incidence()` computes geometry from an
+explicit GUNW and caller-prepared DEM, then adds incidence and geometry support
+to the same Dataset. The result is a retrieval-ready pair. See the
+[data model](data_model.md) for state attributes and required variables.
 
-Only the root-level facade receives long-term stability guarantees. A
-domain-specific function becomes a candidate for root-level promotion only
-after its scientific contract, provenance, dependencies, and downstream use
-are reviewed.
+`add_gunw_incidence()` mutates its target and returns that same Dataset. This
+preserves the `close()` callback that owns lazy GUNW file resources.
 
-## GUNW workflow status
+## Scientific methods
 
-NISAR product discovery and downloads use the optional ``nisar_pytools``
-integration through ``snowin.io.find_nisar`` and
-``snowin.io.download_urls``. The GUNW adapter uses its DataTree reader, then
-SnowIn applies its documented phase normalization and scientific metadata.
-These product-specific calls remain in ``snowin.io`` rather than the stable
-root facade.
+Each dSWE equation has one explicit public function:
 
-The canonical NISAR workflow is explicitly composed:
+- `compute_leinss_dswe`
+- `compute_guneriussen_dswe`
+- `compute_oveisgharan_dswe`
 
-```python
-from snowin import compute_dswe
-from snowin.io import add_gunw_incidence, open_gunw
+All require `wavelength_m`; product adapters should obtain it from
+authoritative metadata when available. There is no generic model selector,
+sensor wavelength registry, or Leinss alias. Reference estimation requires
+explicit contributors or a manual offset. Support layers remain separately
+named and are combined only when the caller names them. Temporal accumulation
+accepts an explicitly ordered, contiguous chronological path.
 
-pair = open_gunw("product.h5")
-add_gunw_incidence(pair, "product.h5")
-dswe = compute_dswe(
-    pair["phase"],
-    pair["incidence_angle"],
-    wavelength_m=pair.attrs["wavelength_m"],
-)
-```
+## Outside the package boundary
 
-`gunw_to_dswe` is a legacy compatibility workflow. It retains the older
-NumPy-oriented reader and configuration path and must not be treated as
-scientifically interchangeable with the canonical two-step workflow. Current
-Colorado evidence shows that its frozen `T0_DELIVERED` workflow consumes raw
-GUNW phase with a historical sign convention, so it must not be silently
-rewired to the canonical path. Retirement or an explicitly configured
-migration can happen after Colorado approves the boundary and post-migration
-output comparisons.
-
-## Wavelength policy
-
-The generic `compute_dswe` kernel always requires an explicit positive
-`wavelength_m`. The NISAR adapter's default is to derive that value from the
-product `centerFrequency` metadata using `c / f` and record the source in
-`wavelength_source`. A study-specific value may be supplied explicitly to
-`open_gunw`, for example Colorado's frozen `0.238403545 m` value. SnowIn does
-not silently convert, substitute, or reconcile those two policies.
+Product discovery, cloud access, ancillary data, GIS file operations, plots,
+generic evaluation metrics, and study-specific validation remain caller-owned.
+Correction layers can be exposed by the GUNW adapter but are not applied by
+SnowIn 0.1. No automatic reference, correction, mask, or science-grid
+resampling policy is provided.
