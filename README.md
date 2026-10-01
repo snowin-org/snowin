@@ -6,18 +6,7 @@
 SnowIn estimates pairwise changes in snow water equivalent (dSWE) from
 interferometric phase. Its retrieval methods use Xarray `DataArray` and
 `Dataset` objects. The package also provides phase referencing, support-mask
-composition, incidence geometry, and temporal accumulation.
-
-SnowIn uses these signs and edge direction:
-
-```text
-phase = phi_secondary - phi_reference
-dSWE = SWE_secondary - SWE_reference
-temporal edge = reference -> secondary
-```
-
-Available retrievals are Leinss, Guneriussen, and Oveisgharan. The optional
-NISAR adapter reads Geocoded Unwrapped Interferogram (GUNW) products.
+composition, incidence geometry, and temporal accumulation. Available retrievals are Leinss, Guneriussen, and Oveisgharan. The optional NISAR adapter reads Geocoded Unwrapped Interferogram (GUNW) products.
 
 ## Installation
 
