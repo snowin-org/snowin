@@ -51,7 +51,7 @@ authoritative wavelength, temporal metadata, and provenance. It intentionally
 does not calculate incidence. `add_gunw_incidence()` computes geometry from an
 explicit GUNW and caller-prepared DEM, then adds incidence and geometry support
 to the same Dataset. The result is a retrieval-ready pair. See the
-[data model](data_model.md) for state attributes and required variables.
+[data model](../docs/data_model.md) for state attributes and required variables.
 
 `add_gunw_incidence()` mutates its target and returns that same Dataset. This
 preserves the `close()` callback that owns lazy GUNW file resources.

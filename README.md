@@ -1,53 +1,39 @@
 # SnowIn
 
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](#installation)
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/snowin-org/snowin/blob/main/LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-SnowIn is a small scientific Python package for estimating pairwise changes in
-snow water equivalent (dSWE) from interferometric phase. It provides named
-phase-to-dSWE methods, explicit phase referencing, named support composition,
-chronological accumulation, and an optional NISAR GUNW adapter with local
-incidence geometry. Its scientific interface uses ordinary xarray objects.
+SnowIn is a scientific Python package for estimating pairwise changes in snow
+water equivalent (dSWE) from interferometric phase. It provides named
+phase-to-dSWE methods, explicit xarray reference and support operations,
+chronological accumulation, and an optional NISAR GUNW adapter.
 
-## What SnowIn does
-
-- Computes pairwise dSWE with the Leinss, Guneriussen, and Oveisgharan models.
-- Normalizes local NISAR GUNW phase and resolves wavelength from product
-  center-frequency metadata.
-- Computes local incidence from GUNW line-of-sight geometry and a prepared DEM.
-- Provides auditable xarray reference operations, named support layers, and
-  explicit directed-path accumulation.
-
-## What SnowIn does not do
-
-SnowIn does not discover or download products or ancillary data, apply phase
-corrections, choose masks or reference contributors, read station data, plot,
-or implement study validation policy. Those choices belong to the caller's
-workflow.
+SnowIn does not choose products, download data, apply phase corrections, select
+masks or reference contributors, read station data, or evaluate study results.
+Those choices stay in the user's workflow. Pairwise and cumulative dSWE are
+changes relative to a radar epoch, not absolute SWE.
 
 ## Installation
 
-The intended first release is SnowIn 0.1.0. Once it is published, install the
-base package from PyPI:
+SnowIn 0.1.0 is not published yet. For now, install this checkout:
 
 ```bash
-python -m pip install snowin
+python -m pip install .
 ```
 
-Until then, install this checkout from the repository root with
-`python -m pip install .`. The base package requires NumPy and xarray. Add the
-nisar extra for GUNW reading, geometry for prepared-DEM incidence, and dask
-for chunked arrays. NISAR local-incidence workflows need both nisar and geometry.
-Once SnowIn is published, install both NISAR and geometry extras with:
+The base install requires NumPy and xarray. Install optional GUNW and geometry
+support with:
 
 ```bash
-python -m pip install "snowin[nisar,geometry]"
+python -m pip install ".[nisar,geometry]"
 ```
+
+After publication, the same commands work with `snowin` in place of `.`.
 
 ## Quick start
 
-The phase is `phi_secondary - phi_reference`; both phase and incidence use
-radians. The wavelength is explicit in metres.
+Phase is `phi_secondary - phi_reference`; phase and incidence are in radians,
+and wavelength is in metres.
 
 ```python snowin-quickstart
 import math
@@ -72,15 +58,13 @@ dswe = compute_leinss_dswe(phase, incidence, wavelength_m=0.2384)
 print(f"Pairwise dSWE: {dswe.item():.3f} m")
 ```
 
-Use `compute_guneriussen_dswe` when snow density is supplied, or
-`compute_oveisgharan_dswe` for its fitted incidence-angle relation. Each model
-has its own named function and requires an explicit wavelength.
+Use `compute_guneriussen_dswe()` for the density-dependent method or
+`compute_oveisgharan_dswe()` for the fitted incidence-angle method.
 
-## NISAR GUNW workflow
+## NISAR GUNW
 
-`open_gunw()` returns a phase-normalized product. Incidence is calculated in a
-separate step using a caller-prepared DEM; `add_gunw_incidence()` updates the
-Dataset in place and returns it.
+`open_gunw()` normalizes phase and product metadata. Local incidence is a
+separate operation using a caller-prepared DEM:
 
 ```python
 from snowin import compute_leinss_dswe
@@ -100,35 +84,17 @@ with open_gunw("product.h5", chunks=None) as pair:
     )
 ```
 
-The [NISAR product notebook](https://github.com/snowin-org/snowin/blob/main/notebooks/02_real_nisar_gunw_workflow.ipynb)
-and [product discovery handoff notebook](https://github.com/snowin-org/snowin/blob/main/notebooks/03_nisar_pytools_search_and_snowin.ipynb)
-show fuller caller-owned workflows.
+See notebooks [01](notebooks/01_core_snowin_workflow.ipynb),
+[02](notebooks/02_real_nisar_gunw_workflow.ipynb), and
+[03](notebooks/03_nisar_pytools_search_and_snowin.ipynb) for complete examples.
 
-## Scientific conventions
+## Scientific contract and citation
 
-- Phase: `phi_secondary - phi_reference`, in radians.
-- Temporal edge: `reference_time -> secondary_time`.
-- Pairwise dSWE: `SWE_secondary - SWE_reference`, in metres water equivalent.
-- Incidence: radians, explicitly identified as local or ellipsoid-referenced.
-- Wavelength: metres, supplied explicitly or resolved from product metadata.
-- Missing values remain missing; SnowIn does not create a universal quality mask.
+Read the [scientific conventions](docs/scientific_conventions.md),
+[normalized data model](docs/data_model.md), and
+[DEM vertical datum assumptions](docs/vertical_datums.md). Method references
+and product provenance are in [code and scientific provenance](docs/code_provenance.md).
 
-See the [data model](https://github.com/snowin-org/snowin/blob/main/docs/data_model.md),
-[scientific conventions](https://github.com/snowin-org/snowin/blob/main/docs/scientific_conventions.md),
-[architecture](https://github.com/snowin-org/snowin/blob/main/docs/architecture.md),
-and [API policy](https://github.com/snowin-org/snowin/blob/main/docs/api_policy.md).
-Contributor setup and scientific validation guidance are in
-[development](https://github.com/snowin-org/snowin/blob/main/docs/development.md)
-and [testing](https://github.com/snowin-org/snowin/blob/main/docs/testing.md).
-
-## Citation
-
-SnowIn has no tagged release or DOI yet. Cite the repository commit or release
-used and the retrieval-method publication relevant to your analysis. Method
-references are listed in [code provenance](https://github.com/snowin-org/snowin/blob/main/docs/code_provenance.md);
-see [CITATION.cff](https://github.com/snowin-org/snowin/blob/main/CITATION.cff).
-
-## License
-
-SnowIn is distributed under the
-[Apache License 2.0](https://github.com/snowin-org/snowin/blob/main/LICENSE).
+Follow [CITATION.cff](CITATION.cff): cite the repository commit or release used
+and the scientific publication for the retrieval method. SnowIn is licensed
+under [Apache-2.0](LICENSE).

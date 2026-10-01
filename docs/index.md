@@ -1,11 +1,14 @@
 # SnowIn
 
-SnowIn computes pairwise and cumulative changes in snow water equivalent from
-interferometric phase using xarray. It also provides a narrow NISAR GUNW
-adapter and local-incidence geometry operation.
+SnowIn provides xarray-based tools for estimating pairwise changes in snow
+water equivalent (dSWE) from interferometric phase. The package includes named
+retrieval methods and an optional NISAR GUNW adapter.
 
-Start with the [scientific conventions](scientific_conventions.md),
-[data model](data_model.md), and [API policy](api_policy.md). The
-[architecture](architecture.md) describes package boundaries;
-[development](development.md) and [testing](testing.md) describe contributor
-setup and scientific validation.
+- [Scientific conventions](scientific_conventions.md): phase, dSWE, support,
+  geometry, and temporal direction.
+- [Normalized data model](data_model.md): Dataset variables, metadata, and grid
+  requirements.
+- [DEM vertical datums](vertical_datums.md): assumptions for local-incidence
+  geometry.
+- [Code and scientific provenance](code_provenance.md): sources behind the
+  retrieval methods and adapters.
