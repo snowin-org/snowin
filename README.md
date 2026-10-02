@@ -98,6 +98,50 @@ See notebooks [01](notebooks/01_core_snowin_workflow.ipynb),
 [02](notebooks/02_real_nisar_gunw_workflow.ipynb), and
 [03](notebooks/03_nisar_pytools_search_and_snowin.ipynb) for complete examples.
 
+## Getting real NISAR data
+
+Notebook 02 runs by default with the bundled ASF sample crop; it does not
+download data. For a production pair, use the optional search and download
+script below or the guarded acquisition notebook 03. The script searches ASF
+when explicitly run, but its default is a search-only dry run. It writes no
+files unless you pass `--download-index N`. ASF search or download may require
+locally configured Earthdata credentials.
+
+Install the `nisar` extra if needed, then replace the example AOI and dates
+with the area and acquisition interval for your study:
+
+```bash
+python scripts/download_nisar_gunw.py \
+  --aoi -125.0 24.0 -66.0 50.0 \
+  --start-date 2026-01-01 \
+  --end-date 2026-10-01 \
+  --dry-run
+```
+
+Review the indexed products, then rerun the same search with an explicit
+product index to download one validated GUNW:
+
+```bash
+python scripts/download_nisar_gunw.py \
+  --aoi -125.0 24.0 -66.0 50.0 \
+  --start-date 2026-01-01 \
+  --end-date 2026-10-01 \
+  --download-index 0
+```
+
+The default destination is `data/external/nisar/gunw/`, which is ignored by
+Git. Put the matching NISAR-modified Copernicus DEM in
+`data/external/nisar/dem/`; DEM acquisition is separate from the GUNW script.
+See [the DEM guidance](docs/vertical_datums.md) for the required product and
+vertical reference. Notebook 02 finds a single GUNW and a single GeoTIFF in
+those folders automatically. If either folder contains multiple candidates,
+set `SNOWIN_GUNW` and/or `SNOWIN_NISAR_DEM` to the exact matching files before
+running it. Then rerun the processing workflow from the repository root:
+
+```bash
+jupyter lab notebooks/02_real_nisar_gunw_workflow.ipynb
+```
+
 ## Documentation and citation
 
 Read the [scientific conventions](docs/scientific_conventions.md),

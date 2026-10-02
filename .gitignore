@@ -196,6 +196,7 @@ cython_debug/
 # extensions globally.
 outputs/
 plots/
+/data/external/nisar/
 
 # macOS metadata
 .DS_Store
