@@ -20,6 +20,12 @@ datum:
 - tandem30: TanDEM-X 30 m, WGS84-G1150 ellipsoidal;
 - srtm30: SRTM 30 m, normally EGM96 orthometric.
 
+DEM elevations must be in metres. An xarray `DataArray` must declare metre
+units; a raster's declared band units must also be metres. If a raster omits
+band units, SnowIn relies on the explicitly selected `dem_source` product
+declaration. DEM x/y coordinates must be finite, monotonic, and regularly
+spaced so terrain gradients and raster transforms use the stated grid.
+
 Pass the prepared file or same-grid DataArray through dem. For example:
 
     add_gunw_incidence(

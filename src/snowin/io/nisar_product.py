@@ -500,8 +500,8 @@ def compute_gunw_incidence(
         return incidence.rename("incidence_angle")
 
     _progress("preparing DEM for local incidence", progress)
-    target_x = np.asarray(target.coords["x"].data, dtype=float)
-    target_y = np.asarray(target.coords["y"].data, dtype=float)
+    target_x = np.asarray(target.coords["x"].data)
+    target_y = np.asarray(target.coords["y"].data)
     if dem is None or (isinstance(dem, str) and dem == "auto"):
         raise ValueError(
             "local incidence requires a caller-supplied prepared DEM path or "

@@ -27,7 +27,19 @@ def _scalar(value: xr.DataArray) -> float:
     return float(np.asarray(data).item())
 
 
-def _validate_layer(name: str, layer: xr.DataArray) -> None:
+def _validate_binary_support_block(
+    values: np.ndarray, *, support_name: str
+) -> np.ndarray:
+    """Validate one eager or Dask block without materializing other blocks."""
+    valid = np.isnan(values) | (values == 0) | (values == 1)
+    if not valid.all():
+        raise ValueError(
+            f"support layer {support_name!r} must contain only 0, 1, or NaN"
+        )
+    return values
+
+
+def _validate_layer(name: str, layer: xr.DataArray) -> xr.DataArray:
     if not isinstance(layer, xr.DataArray):
         raise TypeError(f"support layer {name!r} must be an xarray.DataArray")
     if layer.ndim == 0:
@@ -37,12 +49,19 @@ def _validate_layer(name: str, layer: xr.DataArray) -> None:
             f"support layer {name!r} must contain boolean or numeric 0/1 values"
         )
     data = layer.data
+    if hasattr(data, "map_blocks"):
+        checked_data = data.map_blocks(
+            _validate_binary_support_block,
+            support_name=name,
+            dtype=data.dtype,
+        )
+        return layer.copy(data=checked_data)
     if hasattr(data, "compute"):
-        return
-    values = np.asarray(data)
-    finite = values[np.isfinite(values)]
-    if finite.size and not np.isin(finite, [0, 1]).all():
-        raise ValueError(f"support layer {name!r} must contain only 0, 1, or NaN")
+        values = np.asarray(data.compute())
+    else:
+        values = np.asarray(data)
+    _validate_binary_support_block(values, support_name=name)
+    return layer
 
 
 def _support_boolean(layer: xr.DataArray) -> xr.DataArray:
@@ -78,7 +97,8 @@ def build_support_dataset(
 
     Missing support evidence is not replaced with an all-true layer. Numeric
     layers may use NaN to represent unknown support; boolean layers represent
-    known true/false support.
+    known true/false support. For Dask-backed layers, binary-value validation
+    stays lazy and raises when an invalid block is computed.
     """
     combined: dict[str, xr.DataArray] = {}
     if layers is not None:
@@ -94,12 +114,15 @@ def build_support_dataset(
             raise ValueError(
                 "support layers require non-empty names other than 'quality_mask'"
             )
-        _validate_layer(name, layer)
         if reference is None:
-            reference = layer
+            checked_layer = _validate_layer(name, layer)
+            reference = checked_layer
         else:
-            _validate_alignment(reference, layer, label=f"support layer {name!r}")
-        variables[name] = layer.rename(name)
+            checked_layer = _validate_layer(name, layer)
+            _validate_alignment(
+                reference, checked_layer, label=f"support layer {name!r}"
+            )
+        variables[name] = checked_layer.rename(name)
     return xr.Dataset(
         variables,
         attrs={
@@ -132,7 +155,7 @@ def compose_support_mask(
     mask: xr.DataArray | None = None
     for category in required_names:
         layer = support[category]
-        _validate_layer(category, layer)
+        layer = _validate_layer(category, layer)
         supported = _support_boolean(layer)
         mask = supported if mask is None else mask & supported
     assert mask is not None
@@ -173,7 +196,7 @@ def summarize_support(
     supported_counts: list[int] = []
     for category in selected:
         layer = support[category]
-        _validate_layer(category, layer)
+        layer = _validate_layer(category, layer)
         if reference is None:
             reference = layer
         else:

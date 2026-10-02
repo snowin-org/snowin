@@ -98,6 +98,80 @@ def test_larger_grid_geometry_is_finite_and_shape_preserving():
     np.testing.assert_allclose(incidence.values, expected, atol=1e-6)
 
 
+def test_irregular_dem_coordinates_fail_before_deriving_terrain_normals():
+    x = np.array([0.0, 1.0, 3.0])
+    dem = _dem(
+        np.broadcast_to((100.0 + 0.1 * x)[None, :], (3, 3)),
+        x=x,
+    )
+
+    with pytest.raises(ValueError, match="x coordinates must be regularly spaced"):
+        compute_local_incidence(
+            dem,
+            *_constant_los(0.0, (2, 3, 3)),
+            heights=np.array([0.0, 200.0]),
+            x_radar=x,
+            y_radar=np.arange(3, dtype=float),
+        )
+
+
+def test_reprojected_dem_rejects_irregular_source_coordinates():
+    dem = _dem(
+        np.ones((3, 3)),
+        x=np.array([0.0, 1.0, 3.0]),
+    )
+
+    with pytest.raises(ValueError, match="x coordinates must be regularly spaced"):
+        _open_dem(
+            dem,
+            x=np.arange(3, dtype=float),
+            y=np.arange(3, dtype=float),
+            epsg_code=32613,
+        )
+
+
+def test_dem_dataarray_rejects_non_metre_elevation_units():
+    dem = _dem(np.ones((3, 3)), attrs={"units": "ft"})
+
+    with pytest.raises(ValueError, match="elevation units of metres"):
+        compute_local_incidence(
+            dem,
+            *_constant_los(0.0, (2, 3, 3)),
+            heights=np.array([0.0, 2.0]),
+            x_radar=np.arange(3, dtype=float),
+            y_radar=np.arange(3, dtype=float),
+        )
+
+
+def test_dem_raster_rejects_declared_non_metre_elevation_units(tmp_path):
+    rasterio = pytest.importorskip("rasterio")
+    from rasterio.transform import from_origin
+
+    dem_path = tmp_path / "dem_feet.tif"
+    with rasterio.open(
+        dem_path,
+        "w",
+        driver="GTiff",
+        height=3,
+        width=3,
+        count=1,
+        dtype="float32",
+        crs="EPSG:32613",
+        transform=from_origin(-0.5, 2.5, 1.0, 1.0),
+    ) as destination:
+        destination.write(np.ones((3, 3), dtype="float32"), 1)
+        destination.set_band_unit(1, "ft")
+
+    with pytest.raises(ValueError, match="raster must use elevation units of metres"):
+        _open_dem(
+            dem_path,
+            x=np.arange(3, dtype=float),
+            y=np.arange(3, dtype=float),
+            epsg_code=32613,
+            dem_source="nisar_cop30",
+        )
+
+
 def test_vertical_correction_is_explicit_and_additive():
     dem = _dem(
         np.full((3, 3), 100.0),

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import warnings
 
@@ -69,6 +70,38 @@ def test_normalize_gunw_pair_applies_explicit_source_transform():
     assert result.attrs["source_granule_id"] == "test-granule"
     assert result.attrs["snowin_data_state"] == "retrieval_ready_pair"
     assert result.spatial_ref.attrs["epsg_code"] == 32611
+
+
+def test_source_metadata_cannot_override_canonical_pair_attributes():
+    phase, incidence, spatial_ref = _pair_inputs()
+    result = normalize_gunw_pair(
+        phase,
+        incidence,
+        wavelength_m=0.24,
+        reference_time="2025-01-01T00:00:00Z",
+        secondary_time="2025-01-13T00:00:00Z",
+        source_phase_difference_definition="reference_minus_secondary",
+        spatial_ref=spatial_ref,
+        source_metadata={
+            "phase_difference_definition": "reference_minus_secondary",
+            "wavelength_m": 999,
+            "temporal_edge": "secondary_to_reference",
+            "source_note": "source metadata is retained",
+        },
+    )
+
+    assert result.attrs["phase_difference_definition"] == "secondary_minus_reference"
+    assert result.phase.attrs["phase_difference_definition"] == (
+        "secondary_minus_reference"
+    )
+    assert result.attrs["wavelength_m"] == pytest.approx(0.24)
+    assert result.attrs["temporal_edge"] == "reference_to_secondary"
+    assert result.attrs["source_note"] == "source metadata is retained"
+    assert json.loads(result.attrs["source_metadata_conflicts"]) == {
+        "phase_difference_definition": "reference_minus_secondary",
+        "temporal_edge": "secondary_to_reference",
+        "wavelength_m": 999,
+    }
 
 
 def test_pair_times_with_explicit_offsets_are_stored_as_utc():

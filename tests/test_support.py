@@ -72,6 +72,10 @@ def test_support_rejects_nonbinary_values_and_universal_quality_mask_name():
         build_support_dataset(
             product_valid=_layer([[1, 2], [1, 1]], name="product_valid")
         )
+    with pytest.raises(ValueError, match="only 0, 1, or NaN"):
+        build_support_dataset(
+            product_valid=_layer([[1, np.inf], [1, 1]], name="product_valid")
+        )
     with pytest.raises(ValueError, match="quality_mask"):
         build_support_dataset(
             quality_mask=_layer([[1, 1], [1, 1]], name="quality_mask")
@@ -88,3 +92,19 @@ def test_dask_support_composition_remains_lazy():
         ["evaluation_supported"],
     )
     assert hasattr(composed.data, "chunks")
+
+
+def test_dask_support_rejects_nonbinary_values_when_computed():
+    pytest.importorskip("dask.array")
+    invalid = _layer([[1, 2], [1, 1]], name="product_valid").chunk({"y": 1, "x": 1})
+
+    support = build_support_dataset(product_valid=invalid)
+    composed = compose_support_mask(support, ["product_valid"])
+
+    assert hasattr(support.product_valid.data, "chunks")
+    assert hasattr(composed.data, "chunks")
+    with pytest.raises(
+        ValueError,
+        match=r"support layer 'product_valid'.*only 0, 1, or NaN",
+    ):
+        composed.compute()

@@ -163,7 +163,16 @@ def _build_phase_normalized_dataset(
     if source_granule_id is not None:
         attrs["source_granule_id"] = source_granule_id
     if source_metadata:
-        attrs.update(_serializable_attrs(source_metadata))
+        metadata_attrs = _serializable_attrs(source_metadata)
+        conflicts: dict[str, Any] = {}
+        reserved_attrs = set(attrs) | {"source_metadata_conflicts"}
+        for name, value in metadata_attrs.items():
+            if name in reserved_attrs:
+                conflicts[name] = value
+            else:
+                attrs[name] = value
+        if conflicts:
+            attrs["source_metadata_conflicts"] = json.dumps(conflicts, sort_keys=True)
 
     variables: dict[str, xr.DataArray] = {"phase": snowin_phase}
     native_grid_dimensions = native_grid_dimensions or {}
@@ -230,7 +239,9 @@ def normalize_gunw_pair(
 
     The source convention is deliberately required. A product adapter may
     supply a documented product-specific value, but this function never
-    infers it from phase values.
+    infers it from phase values. Source metadata cannot replace canonical
+    SnowIn attributes; colliding source values are serialized in
+    ``source_metadata_conflicts``.
     """
     if not isinstance(phase, xr.DataArray) or not isinstance(
         incidence_angle, xr.DataArray

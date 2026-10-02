@@ -65,6 +65,10 @@ the conversion to the SnowIn phase convention. If the source convention is
 missing or unsupported, the adapter raises an error; it never guesses the sign
 from phase values.
 
+Canonical SnowIn attributes cannot be replaced by values in `source_metadata`.
+Colliding source values are retained as a JSON object in the
+`source_metadata_conflicts` attribute.
+
 For the NISAR/ISCE3 source convention:
 
 ```text

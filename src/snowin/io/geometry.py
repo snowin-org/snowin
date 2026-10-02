@@ -42,6 +42,8 @@ _DEM_SOURCE_METADATA: dict[DEMSource, dict[str, str]] = {
     },
 }
 
+_METRE_UNITS = {"m", "meter", "meters", "metre", "metres"}
+
 
 def _require_rasterio():
     try:
@@ -70,6 +72,53 @@ def _dem_metadata_key(value: object) -> str:
     return " ".join(str(value).strip().casefold().replace("_", " ").split())
 
 
+def _validate_dem_units(
+    units: object,
+    *,
+    label: str,
+    required: bool,
+) -> None:
+    if units is None or (isinstance(units, str) and not units.strip()):
+        if required:
+            raise ValueError(f"{label} must declare elevation units of metres")
+        return
+    if not isinstance(units, str) or units.strip().casefold() not in _METRE_UNITS:
+        raise ValueError(f"{label} must use elevation units of metres; got {units!r}")
+
+
+def _regular_axis_spacing(name: str, coordinate: np.ndarray) -> float:
+    """Return signed spacing after checking a finite, regular 1-D axis."""
+    raw_coordinate = np.asarray(coordinate)
+    try:
+        values = np.asarray(raw_coordinate, dtype=float)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} coordinates must be finite numeric values") from exc
+    if values.ndim != 1 or values.size < 2:
+        raise ValueError(f"{name} coordinates must be 1-D with at least two values")
+    if not np.isfinite(values).all():
+        raise ValueError(f"{name} coordinates must contain only finite values")
+    differences = np.diff(values)
+    if not (np.all(differences > 0) or np.all(differences < 0)):
+        raise ValueError(f"{name} coordinates must be strictly monotonic")
+
+    spacing = float(np.median(differences))
+    coordinate_dtype = raw_coordinate.dtype
+    precision = (
+        np.finfo(coordinate_dtype).eps
+        if coordinate_dtype.kind == "f"
+        else np.finfo(float).eps
+    )
+    absolute_tolerance = precision * max(1.0, float(np.max(np.abs(values))))
+    if not np.allclose(
+        differences,
+        spacing,
+        rtol=1e-6,
+        atol=absolute_tolerance,
+    ):
+        raise ValueError(f"{name} coordinates must be regularly spaced")
+    return spacing
+
+
 def _integer_epsg_code(value: object) -> int:
     if isinstance(value, (bool, np.bool_)):
         raise ValueError("DEM DataArray epsg_code must be an integer EPSG code")
@@ -93,6 +142,7 @@ def _validate_dem_array_metadata(
     dem: xr.DataArray, dem_source: DEMSource
 ) -> dict[str, object]:
     """Reject source declarations that contradict metadata on a DEM array."""
+    _validate_dem_units(dem.attrs.get("units"), label="DEM DataArray", required=True)
     metadata = _DEM_SOURCE_METADATA[dem_source]
     allowed_values = {
         "dem_source": {
@@ -179,7 +229,9 @@ def compute_local_incidence(
     interpolates one output chunk at a time and returns a Dask-backed angle.
     The DEM, LOS lookup cube, and terrain normals are still loaded eagerly in
     that prototype; this option is intended for benchmarking and validation,
-    not yet as a distributed geometry implementation.
+    not yet as a distributed geometry implementation. The DEM must declare
+    metre elevation units, and its projected x/y coordinates must be finite,
+    monotonic, and regularly spaced.
     """
     dem_source = _validate_dem_source(dem_source)
     _progress("computing terrain-surface incidence from DEM and GUNW LOS", progress)
@@ -203,8 +255,8 @@ def compute_local_incidence(
     ):
         vertical_correction_m = _open_vertical_correction(
             vertical_correction_m,
-            x=np.asarray(dem.coords["x"].data, dtype=float),
-            y=np.asarray(dem.coords["y"].data, dtype=float),
+            x=np.asarray(dem.coords["x"].data),
+            y=np.asarray(dem.coords["y"].data),
             epsg_code=dem.attrs.get("epsg_code"),
         )
     correction_applied = vertical_correction_m is not None
@@ -234,9 +286,11 @@ def compute_local_incidence(
             raise ValueError("vertical_correction_m x coordinates must match the DEM")
         if not vertical_correction_m.coords["y"].equals(dem.coords["y"]):
             raise ValueError("vertical_correction_m y coordinates must match the DEM")
-        correction_units = vertical_correction_m.attrs.get("units")
-        if correction_units not in {"m", "meter", "meters"}:
-            raise ValueError("vertical_correction_m must declare units of metres")
+        _validate_dem_units(
+            vertical_correction_m.attrs.get("units"),
+            label="vertical_correction_m DataArray",
+            required=True,
+        )
         elevation = np.asarray(dem.data, dtype=float) + np.asarray(
             vertical_correction_m.data, dtype=float
         )
@@ -248,8 +302,12 @@ def compute_local_incidence(
             if dem_height_reference in {"ellipsoid", "ellipsoidal", "wgs84 ellipsoid"}
             else "mismatch_not_corrected"
         )
-    x = np.asarray(dem.coords["x"].data, dtype=float)
-    y = np.asarray(dem.coords["y"].data, dtype=float)
+    x_coordinate = np.asarray(dem.coords["x"].data)
+    y_coordinate = np.asarray(dem.coords["y"].data)
+    dx = _regular_axis_spacing("x", x_coordinate)
+    dy = _regular_axis_spacing("y", y_coordinate)
+    x = np.asarray(x_coordinate, dtype=float)
+    y = np.asarray(y_coordinate, dtype=float)
     if elevation.shape != (y.size, x.size) or x.size < 2 or y.size < 2:
         raise ValueError(
             f"{source_label} coordinates must match a 2-D grid with at least two cells"
@@ -286,10 +344,6 @@ def compute_local_incidence(
         sorted_arrays.append(values)
 
     _progress("deriving terrain normals and incidence angles", progress)
-    dx = float(x[1] - x[0])
-    dy = float(y[1] - y[0])
-    if dx == 0 or dy == 0:
-        raise ValueError(f"{source_label} coordinates must have nonzero spacing")
     dz_dy, dz_dx = np.gradient(elevation, dy, dx)
     normal_x = -dz_dx
     normal_y = -dz_dy
@@ -414,17 +468,12 @@ def _coordinate_transform(x: np.ndarray, y: np.ndarray):
     _require_rasterio()
     from rasterio.transform import from_origin
 
-    for name, coordinate in (("x", x), ("y", y)):
-        coordinate = np.asarray(coordinate, dtype=float)
-        if coordinate.ndim != 1 or coordinate.size < 2:
-            raise ValueError(f"{name} coordinates must be 1-D with at least two values")
-        difference = np.diff(coordinate)
-        if not (np.all(difference > 0) or np.all(difference < 0)):
-            raise ValueError(f"{name} coordinates must be strictly monotonic")
-    dx = float(np.median(np.abs(np.diff(x))))
-    dy = float(np.median(np.abs(np.diff(y))))
-    if not np.isfinite(dx) or not np.isfinite(dy) or dx <= 0 or dy <= 0:
-        raise ValueError("target grid coordinates must have finite nonzero spacing")
+    x = np.asarray(x)
+    y = np.asarray(y)
+    dx = abs(_regular_axis_spacing("x", x))
+    dy = abs(_regular_axis_spacing("y", y))
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
     return from_origin(float(np.min(x) - dx / 2), float(np.max(y) + dy / 2), dx, dy)
 
 
@@ -445,8 +494,11 @@ def _open_vertical_correction(
     if isinstance(correction, xr.DataArray):
         if correction.dims != ("y", "x"):
             raise ValueError("vertical_correction_m must use dimensions ('y', 'x')")
-        if correction.attrs.get("units") not in {"m", "meter", "meters"}:
-            raise ValueError("vertical_correction_m must declare units of metres")
+        _validate_dem_units(
+            correction.attrs.get("units"),
+            label="vertical_correction_m DataArray",
+            required=True,
+        )
         if epsg_code is None:
             raise ValueError(
                 "DEM must declare epsg_code when loading a vertical correction"
@@ -461,8 +513,8 @@ def _open_vertical_correction(
         ):
             return correction
         source_values = np.asarray(correction.data, dtype=float)
-        source_x = np.asarray(correction.coords["x"].data, dtype=float)
-        source_y = np.asarray(correction.coords["y"].data, dtype=float)
+        source_x = np.asarray(correction.coords["x"].data)
+        source_y = np.asarray(correction.coords["y"].data)
         source_crs = int(correction_epsg)
         source_transform = _coordinate_transform(source_x, source_y)
         source_label = "xarray.DataArray"
@@ -475,6 +527,12 @@ def _open_vertical_correction(
             source_crs = source.crs
             source_transform = source.transform
             source_nodata = source.nodata
+            source_units = source.units[0] if source.units else None
+            _validate_dem_units(
+                source_units,
+                label="vertical correction raster",
+                required=False,
+            )
             if source_crs is None:
                 raise ValueError("vertical correction raster is missing its CRS")
             if source_nodata is not None and np.isfinite(source_nodata):
@@ -541,7 +599,12 @@ def _open_dem(
     epsg_code: int,
     dem_source: DEMSource = "cop30",
 ) -> xr.DataArray:
-    """Read/reproject a named DEM onto the exact GUNW phase grid."""
+    """Read/reproject a named metre-elevation DEM onto the GUNW phase grid.
+
+    DataArray inputs must declare metre units. Raster unit metadata, when
+    present, must also declare metres; an untagged raster relies on the
+    explicitly selected ``dem_source`` product declaration.
+    """
     dem_source = _validate_dem_source(dem_source)
     metadata = _DEM_SOURCE_METADATA[dem_source]
     source_label = metadata["label"]
@@ -569,8 +632,8 @@ def _open_dem(
             result.attrs["dem_resampling_method"] = "none"
             return result
         source_values = np.asarray(dem.data, dtype=float)
-        source_x = np.asarray(dem.coords["x"].data, dtype=float)
-        source_y = np.asarray(dem.coords["y"].data, dtype=float)
+        source_x = np.asarray(dem.coords["x"].data)
+        source_y = np.asarray(dem.coords["y"].data)
         source_crs = dem_epsg
     else:
         source_attrs = {}
@@ -584,6 +647,12 @@ def _open_dem(
             source_crs = source.crs
             source_transform = source.transform
             source_nodata = source.nodata
+            source_units = source.units[0] if source.units else None
+            _validate_dem_units(
+                source_units,
+                label=f"{source_label} raster",
+                required=False,
+            )
             if source_crs is None:
                 raise ValueError(f"{source_label} raster is missing its CRS")
             if source_nodata is not None and np.isfinite(source_nodata):
