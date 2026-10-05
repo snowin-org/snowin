@@ -4,8 +4,8 @@
   "incidence_rad": [[0.6108652382, 0.6981317008], [0.7853981634, 0.8726646260]],
   "wavelength_m": 0.238403545,
   "source_definition": "reference_minus_secondary",
-  "snowin_definition": "secondary_minus_reference",
+  "snowin_definition": "reference_minus_secondary",
   "downstream_phase_sign": 1,
-  "expected_relation": "snowin_phase = -downstream_raw_phase",
+  "expected_relation": "snowin_phase = downstream_raw_phase",
   "purpose": "Compact sign-lineage characterization; not a Colorado data product."
 }

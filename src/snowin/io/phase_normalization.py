@@ -12,6 +12,7 @@ from typing import Any
 import numpy as np
 import xarray as xr
 
+from .._phase_contract import DSWE_DEFINITION, PHASE_DEFINITION
 from .._timestamps import iso_utc_timestamp, parse_utc_timestamp
 from ._nisar_hdf5 import decode_hdf5_scalar
 
@@ -24,10 +25,10 @@ __all__ = [
 NISAR_GUNW_SOURCE_PHASE_DEFINITION = "reference_minus_secondary"
 """The source phase orientation encoded by the NISAR/ISCE3 GUNW product."""
 
-NISAR_GUNW_PHASE_TRANSFORM = "multiply_by_-1"
+NISAR_GUNW_PHASE_TRANSFORM = "identity"
 """Transformation from source phase to the SnowIn phase convention."""
 
-_SNOWIN_PHASE_DEFINITION = "secondary_minus_reference"
+_SNOWIN_PHASE_DEFINITION = PHASE_DEFINITION
 _KNOWN_PHASE_DEFINITIONS = {
     "secondary_minus_reference",
     "reference_minus_secondary",
@@ -96,14 +97,29 @@ def _convert_source_phase(
 ) -> tuple[xr.DataArray, str]:
     """Convert a known source phase direction to the SnowIn convention."""
     source_definition = _validate_source_convention(source_definition)
-    if source_definition == "reference_minus_secondary":
-        snowin_phase = -phase
+    if (
+        phase.attrs.get("snowin_schema_version") == "0.1"
+        and source_definition == _SNOWIN_PHASE_DEFINITION
+    ):
+        raise ValueError(
+            "legacy SnowIn schema 0.1 phase cannot be relabeled; "
+            "declare its recorded secondary_minus_reference numeric convention "
+            "for explicit conversion; see docs/phase_migration.md"
+        )
+    declared = phase.attrs.get("phase_difference_definition")
+    if declared is not None and declared != source_definition:
+        raise ValueError(
+            "source convention conflicts with phase_difference_definition; "
+            "declare the current numeric phase convention, not its original source"
+        )
+    if source_definition == _SNOWIN_PHASE_DEFINITION:
+        snowin_phase = phase
         transform = NISAR_GUNW_PHASE_TRANSFORM
     else:
-        snowin_phase = phase
-        transform = "identity"
+        snowin_phase = -phase
+        transform = "multiply_by_-1"
 
-    snowin_phase = snowin_phase.rename("phase")
+    snowin_phase = snowin_phase.copy(deep=False).rename("phase")
     snowin_phase.attrs = _serializable_attrs(phase.attrs)
     snowin_phase.attrs.update(
         {
@@ -111,6 +127,7 @@ def _convert_source_phase(
             "phase_difference_definition": _SNOWIN_PHASE_DEFINITION,
             "source_phase_difference_definition": source_definition,
             "phase_transform": transform,
+            "snowin_schema_version": "0.2",
             "source_variable": phase.name or "unwrappedPhase",
             "grid_mapping": "spatial_ref",
         }
@@ -148,12 +165,13 @@ def _build_phase_normalized_dataset(
     reference_time = iso_utc_timestamp(reference_instant, "reference_time")
     secondary_time = iso_utc_timestamp(secondary_instant, "secondary_time")
     attrs: dict[str, Any] = {
-        "snowin_schema_version": "0.1",
+        "snowin_schema_version": "0.2",
         "snowin_data_state": "phase_normalized_product",
         "product_kind": "pairwise_interferogram",
         "reference_time": reference_time,
         "secondary_time": secondary_time,
         "temporal_edge": "reference_to_secondary",
+        "dswe_difference_definition": DSWE_DEFINITION,
         "phase_difference_definition": _SNOWIN_PHASE_DEFINITION,
         "source_phase_difference_definition": source_definition,
         "phase_transform": transform,
@@ -239,7 +257,10 @@ def normalize_gunw_pair(
 
     The source convention is deliberately required. A product adapter may
     supply a documented product-specific value, but this function never
-    infers it from phase values. Source metadata cannot replace canonical
+    infers it from phase values. Reference-minus-secondary is retained with
+    identity; secondary-minus-reference is multiplied by -1 exactly once.
+    The declaration describes the current numeric input. Schema 0.2 records
+    this contract without reversing acquisition roles. Source metadata cannot replace canonical
     SnowIn attributes; colliding source values are serialized in
     ``source_metadata_conflicts``.
     """
@@ -284,7 +305,7 @@ def normalize_gunw_pair(
         )
     _require_aligned(phase, incidence_angle)
 
-    incidence = incidence_angle.rename("incidence_angle")
+    incidence = incidence_angle.copy(deep=False).rename("incidence_angle")
     incidence_attrs = _serializable_attrs(incidence_angle.attrs)
     incidence_attrs.update({"units": "rad", "grid_mapping": "spatial_ref"})
     incidence.attrs = incidence_attrs

@@ -37,13 +37,19 @@ def test_weighted_reference_offset_matches_independent_weighted_residual(
         residuals + 1.25,
         dims=("station",),
         coords=coords,
-        attrs={"units": "rad"},
+        attrs={
+            "units": "rad",
+            "phase_difference_definition": "reference_minus_secondary",
+        },
     )
     expected = xr.DataArray(
         np.full(count, 1.25),
         dims=("station",),
         coords=coords,
-        attrs={"units": "rad"},
+        attrs={
+            "units": "rad",
+            "phase_difference_definition": "reference_minus_secondary",
+        },
     )
     weight = xr.DataArray(
         weights,

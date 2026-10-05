@@ -199,3 +199,15 @@ and [NumPy 1.26 release notes](https://numpy.org/doc/1.26/release/1.26.0-notes.h
 Static type checking is not a SnowIn 0.1 release gate. Do not add strict rules
 without evidence that they improve the public API without broad ignores or
 scientific API distortions.
+
+## Delivered phase regression (schema 0.2)
+
+Protect identity ingestion of signed NISAR phase, explicit opposite-convention
+conversion exactly once, and legacy-schema rejection. Independently evaluate
+all three dry-snow equations for positive, negative, and zero canonical phase,
+including each supported Guneriussen permittivity model. Reference contributor
+phase and offsets must be radians in reference-minus-secondary convention.
+An end-to-end synthetic case must retain chronological edges and signed
+accumulation through referencing and missing support, in eager and lazy forms.
+Optional real-product phase checks compare returned phase directly to delivered
+`unwrappedPhase` on shared valid support; they do not establish snow attribution.

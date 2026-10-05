@@ -60,13 +60,13 @@ def test_normalize_gunw_pair_applies_explicit_source_transform():
     assert result.sizes == {"y": 2, "x": 3}
     np.testing.assert_array_equal(result.coords["x"].values, phase.coords["x"].values)
     np.testing.assert_array_equal(result.coords["y"].values, phase.coords["y"].values)
-    np.testing.assert_allclose(result.phase.values, -phase.values, equal_nan=True)
-    assert result.attrs["phase_difference_definition"] == "secondary_minus_reference"
+    np.testing.assert_allclose(result.phase.values, phase.values, equal_nan=True)
+    assert result.attrs["phase_difference_definition"] == "reference_minus_secondary"
     assert result.attrs["source_phase_difference_definition"] == (
         "reference_minus_secondary"
     )
-    assert result.attrs["phase_transform"] == "multiply_by_-1"
-    assert result.attrs["snowin_schema_version"] == "0.1"
+    assert result.attrs["phase_transform"] == "identity"
+    assert result.attrs["snowin_schema_version"] == "0.2"
     assert result.attrs["source_granule_id"] == "test-granule"
     assert result.attrs["snowin_data_state"] == "retrieval_ready_pair"
     assert result.spatial_ref.attrs["epsg_code"] == 32611
@@ -90,9 +90,9 @@ def test_source_metadata_cannot_override_canonical_pair_attributes():
         },
     )
 
-    assert result.attrs["phase_difference_definition"] == "secondary_minus_reference"
+    assert result.attrs["phase_difference_definition"] == "reference_minus_secondary"
     assert result.phase.attrs["phase_difference_definition"] == (
-        "secondary_minus_reference"
+        "reference_minus_secondary"
     )
     assert result.attrs["wavelength_m"] == pytest.approx(0.24)
     assert result.attrs["temporal_edge"] == "reference_to_secondary"
@@ -315,7 +315,7 @@ def test_nisar_adapter_converts_phase_and_preserves_laziness(tmp_path):
             )
         assert returned is result
         assert result.attrs["snowin_data_state"] == "retrieval_ready_pair"
-        np.testing.assert_allclose(result.phase.values, [[-1.0, -2.0], [-3.0, -4.0]])
+        np.testing.assert_allclose(result.phase.values, [[1.0, 2.0], [3.0, 4.0]])
         assert result.phase.attrs["units"] == "rad"
         assert result.incidence_angle.attrs["units"] == "rad"
         assert result.incidence_angle.attrs["incidence_angle_reference"] == "local"
@@ -330,7 +330,7 @@ def test_nisar_adapter_converts_phase_and_preserves_laziness(tmp_path):
         assert result.attrs["source_phase_difference_definition"] == (
             "reference_minus_secondary"
         )
-        assert result.attrs["phase_transform"] == "multiply_by_-1"
+        assert result.attrs["phase_transform"] == "identity"
         assert result.attrs["reference_time"] == "2025-01-01T00:00:00Z"
         assert result.attrs["secondary_time"] == "2025-01-13T00:00:00Z"
         assert result.attrs["source_acquisition_time_zone"] == (
@@ -415,7 +415,7 @@ def test_nisar_adapter_reads_nondefault_frequency_and_grid_orientation(tmp_path)
         assert result.sizes["radar_height"] == 2
         np.testing.assert_array_equal(result.x, [110.0, 100.0])
         np.testing.assert_array_equal(result.y, [10.0, 20.0])
-        np.testing.assert_array_equal(result.phase, [[-1.0, -2.0], [-3.0, -4.0]])
+        np.testing.assert_array_equal(result.phase, [[1.0, 2.0], [3.0, 4.0]])
         np.testing.assert_array_equal(result.connected_component, [[4, 4], [8, 8]])
         assert result.attrs["wavelength_m"] == pytest.approx(299792458.0 / 1.25e9)
         assert result.phase.attrs["grid_mapping"] == "spatial_ref"
@@ -650,7 +650,7 @@ def test_nisar_adapter_preserves_dask_backing_when_available(tmp_path):
         assert hasattr(result.phase.data, "chunks")
         np.testing.assert_allclose(
             result.phase.compute().values,
-            [[-1.0, -2.0], [-3.0, -4.0]],
+            [[1.0, 2.0], [3.0, 4.0]],
         )
     finally:
         result.close()

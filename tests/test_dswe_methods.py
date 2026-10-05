@@ -33,7 +33,7 @@ def _inputs(
         coords=coords,
         attrs={
             "units": "rad",
-            "phase_difference_definition": "secondary_minus_reference",
+            "phase_difference_definition": "reference_minus_secondary",
             "source_product": "synthetic-test",
         },
         name="phase",
@@ -81,7 +81,7 @@ def test_named_methods_preserve_xarray_metadata_and_coordinates(function, extra_
     assert result.attrs["units"] == "m"
     assert result.attrs["quantity"] == "pairwise_dSWE"
     assert result.attrs["source_product"] == "synthetic-test"
-    assert result.attrs["phase_difference_definition"] == "secondary_minus_reference"
+    assert result.attrs["phase_difference_definition"] == "reference_minus_secondary"
     assert result.attrs["incidence_angle_reference"] == "local"
     assert result.attrs["wavelength_m"] == pytest.approx(WAVELENGTH_M)
     assert result.attrs["retrieval_method"] in {"leinss", "guneriussen", "oveisgharan"}
@@ -331,7 +331,7 @@ def test_guneriussen_requires_density_and_valid_density_metadata():
                 dims=("pixel",),
                 attrs={
                     "units": "rad",
-                    "phase_difference_definition": "secondary_minus_reference",
+                    "phase_difference_definition": "reference_minus_secondary",
                 },
             ),
             xr.DataArray(
@@ -463,7 +463,7 @@ def test_named_methods_preserve_dask_laziness_when_available(method):
         coords=coords,
         attrs={
             "units": "rad",
-            "phase_difference_definition": "secondary_minus_reference",
+            "phase_difference_definition": "reference_minus_secondary",
         },
     )
     incidence = xr.DataArray(

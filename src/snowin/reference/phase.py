@@ -7,6 +7,8 @@ import json
 import numpy as np
 import xarray as xr
 
+from .._phase_contract import PHASE_DEFINITION, require_canonical_phase
+
 REFERENCE_CONTRIBUTOR_DIM = "reference_contributor"
 MANUAL_OFFSET_METHOD = "manual_offset"
 SINGLE_STATION_METHOD = "single_station_offset"
@@ -62,6 +64,8 @@ def _reference_inputs(
         raise ValueError("observed_phase must declare radians in its units metadata")
     if expected.attrs.get("units") not in {"rad", "radian", "radians"}:
         raise ValueError("expected_phase must declare radians in its units metadata")
+    require_canonical_phase(observed.attrs, "observed_phase")
+    require_canonical_phase(expected.attrs, "expected_phase")
     if contributor_id is None:
         identifiers = xr.DataArray(
             [str(index) for index in range(observed.sizes[REFERENCE_CONTRIBUTOR_DIM])],
@@ -110,8 +114,9 @@ def estimate_reference_offset(
     explicit aggregation or operational-input policies.
 
     For contributor-based methods, ``observed_phase`` and ``expected_phase``
-    are radians.  Non-finite values, non-positive weights, and caller-marked
-    exclusions are retained in contributor-level metadata. If support is
+    are radians with explicit reference-minus-secondary metadata. Manual offsets
+    use that same convention. Non-finite values, non-positive weights, and
+    caller-marked exclusions are retained in contributor-level metadata. If support is
     insufficient, the result has a NaN offset and an explicit unsupported
     status rather than inventing zero support.
     """
@@ -132,6 +137,7 @@ def estimate_reference_offset(
             attrs={
                 "reference_method": method,
                 "reference_offset_units": "rad",
+                "phase_difference_definition": PHASE_DEFINITION,
                 "reference_status": "SUPPORTED_MANUAL",
                 "reference_formula": "caller-supplied reference_offset_rad",
                 "reference_weight_role": "not_used_manual",
@@ -139,7 +145,9 @@ def estimate_reference_offset(
                 "reference_eligible_count": 0,
             },
         )
-        result["reference_offset_rad"].attrs["units"] = "rad"
+        result["reference_offset_rad"].attrs.update(
+            units="rad", phase_difference_definition=PHASE_DEFINITION
+        )
         result["reference_total_weight"].attrs["units"] = "1"
         return result
 
@@ -261,6 +269,7 @@ def estimate_reference_offset(
         attrs={
             "reference_method": method,
             "reference_offset_units": "rad",
+            "phase_difference_definition": PHASE_DEFINITION,
             "reference_status": status,
             "reference_formula": formula,
             "reference_weight_role": weight_role,
@@ -275,7 +284,9 @@ def estimate_reference_offset(
     result["reference_residual"].attrs["units"] = "rad"
     result["reference_weighted_contribution"].attrs["units"] = "rad"
     result["reference_weight"].attrs["units"] = "1"
-    result["reference_offset_rad"].attrs["units"] = "rad"
+    result["reference_offset_rad"].attrs.update(
+        units="rad", phase_difference_definition=PHASE_DEFINITION
+    )
     result["reference_total_weight"].attrs["units"] = "1"
     return result
 
@@ -286,15 +297,16 @@ def apply_reference_offset(
 ) -> xr.Dataset:
     """Apply an estimated reference offset to a pair Dataset.
 
-    The phase already uses the SnowIn phase direction.
+    The phase, contributors, and offset must use reference-minus-secondary.
+    Subtraction preserves dSWE = SWE_secondary - SWE_reference.
     """
     if not isinstance(pair, xr.Dataset) or "phase" not in pair:
         raise TypeError("pair must be an xarray.Dataset containing 'phase'")
     phase = pair["phase"]
     if phase.attrs.get("units") not in {"rad", "radian", "radians"}:
         raise ValueError("pair phase must declare radians in its units metadata")
-    if pair.attrs.get("phase_difference_definition") != "secondary_minus_reference":
-        raise ValueError("pair phase must use the SnowIn phase convention")
+    require_canonical_phase(pair.attrs, "pair")
+    require_canonical_phase(phase.attrs, "pair phase")
     if not isinstance(estimate, xr.Dataset):
         raise TypeError("estimate must be an xarray.Dataset")
     required = {
@@ -305,6 +317,14 @@ def apply_reference_offset(
     if missing:
         raise ValueError(f"reference estimate is missing {sorted(missing)}")
 
+    require_canonical_phase(estimate.attrs, "reference estimate")
+    require_canonical_phase(estimate["reference_offset_rad"].attrs, "reference offset")
+    if estimate["reference_offset_rad"].attrs.get("units") not in {
+        "rad",
+        "radian",
+        "radians",
+    }:
+        raise ValueError("reference offset must declare radians")
     offset = _scalar_value(estimate["reference_offset_rad"])
     eligible_count = int(_scalar_value(estimate["reference_eligible_count"]))
     supported = np.isfinite(offset) and (

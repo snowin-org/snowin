@@ -16,10 +16,10 @@ def _validate_phase_metadata(attrs):
     phase_definition = attrs.get("phase_difference_definition")
     if phase_definition is None:
         raise ValueError("phase_difference_definition is missing")
-    if phase_definition != "secondary_minus_reference":
+    if phase_definition != "reference_minus_secondary":
         raise ValueError(
             "phase_difference_definition is unsupported; expected "
-            "secondary_minus_reference"
+            "reference_minus_secondary"
         )
 
     source = attrs.get("source_phase_difference_definition")
@@ -29,14 +29,14 @@ def _validate_phase_metadata(attrs):
         raise ValueError("source phase convention is unsupported")
 
     expected_transform = (
-        "identity" if source == "secondary_minus_reference" else "multiply_by_-1"
+        "identity" if source == "reference_minus_secondary" else "multiply_by_-1"
     )
     if attrs.get("phase_transform") != expected_transform:
         raise ValueError("phase transform does not match source convention")
 
 
 def _synthetic_pair_dataset(
-    *, phase_definition: str = "secondary_minus_reference"
+    *, phase_definition: str = "reference_minus_secondary"
 ) -> xr.Dataset:
     """Build a small pair Dataset without private product data."""
     y = np.array([4200.0, 4190.0])
@@ -98,7 +98,7 @@ def _synthetic_pair_dataset(
             )
         },
         attrs={
-            "snowin_schema_version": "0.1",
+            "snowin_schema_version": "0.2",
             "snowin_data_state": "retrieval_ready_pair",
             "product_kind": "pairwise_interferogram",
             "reference_time": "2025-01-01T00:00:00Z",
@@ -106,7 +106,7 @@ def _synthetic_pair_dataset(
             "temporal_edge": "reference_to_secondary",
             "phase_difference_definition": phase_definition,
             "source_phase_difference_definition": "reference_minus_secondary",
-            "phase_transform": "multiply_by_-1",
+            "phase_transform": "identity",
             "wavelength_m": 0.24,
         },
     )
@@ -135,12 +135,12 @@ def test_pair_direction_and_phase_definition_are_explicit():
 
     assert ds.attrs["temporal_edge"] == "reference_to_secondary"
     assert ds.attrs["reference_time"] < ds.attrs["secondary_time"]
-    assert ds.attrs["phase_difference_definition"] == "secondary_minus_reference"
-    assert ds.attrs["snowin_schema_version"] == "0.1"
+    assert ds.attrs["phase_difference_definition"] == "reference_minus_secondary"
+    assert ds.attrs["snowin_schema_version"] == "0.2"
     assert ds.attrs["source_phase_difference_definition"] == (
         "reference_minus_secondary"
     )
-    assert ds.attrs["phase_transform"] == "multiply_by_-1"
+    assert ds.attrs["phase_transform"] == "identity"
     _validate_phase_metadata(ds.attrs)
     assert ds.attrs["wavelength_m"] > 0
 

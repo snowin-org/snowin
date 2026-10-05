@@ -58,13 +58,17 @@ For a full local development environment, see
 SnowIn uses the convention
 
 ```text
-phase = φ_secondary - φ_reference
+phase = φ_reference - φ_secondary
 ΔSWE = SWE_secondary - SWE_reference
 ```
 
 Phase and incidence angle are in radians, and wavelength is in metres.
+Positive referenced snow-related phase means accumulation; negative means loss.
+Measured phase also contains atmosphere, reference offsets, and other signals.
+Schema 0.2 changes the earlier phase contract: see the
+[migration guide](docs/phase_migration.md), especially if you previously negated dSWE.
 
-```python
+```python snowin-quickstart
 import math
 import xarray as xr
 from snowin import compute_leinss_dswe
@@ -73,7 +77,7 @@ phase = xr.DataArray(
     1.2,
     attrs={
         "units": "rad",
-        "phase_difference_definition": "secondary_minus_reference",
+        "phase_difference_definition": "reference_minus_secondary",
     },
 )
 
@@ -85,13 +89,13 @@ incidence = xr.DataArray(
     },
 )
 
-delta_swe = compute_leinss_dswe(
+dswe = compute_leinss_dswe(
     phase,
     incidence,
     wavelength_m=0.2384,
 )
 
-print(f"Pairwise ΔSWE: {delta_swe.item():.3f} m")
+print(f"Pairwise ΔSWE: {dswe.item():.3f} m")
 ```
 
 The same xarray-based pattern applies to the other retrieval methods.
@@ -111,7 +115,8 @@ equations, density/permittivity options, assumptions, and additional references.
 
 ## NISAR GUNW workflow
 
-`open_gunw()` reads [NISAR Level-2 GUNW](https://nisar-docs.asf.alaska.edu/gunw/) products and metadata such
+`open_gunw()` preserves delivered `unwrappedPhase` values without inversion
+(`phase_transform="identity"`). It reads [NISAR Level-2 GUNW](https://nisar-docs.asf.alaska.edu/gunw/) products and metadata such
 as radar wavelength. Terrain-local incidence is a separate, explicit operation using
 a caller-prepared DEM.
 

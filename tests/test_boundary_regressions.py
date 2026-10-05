@@ -19,13 +19,13 @@ def _pair() -> xr.Dataset:
         name="phase",
         attrs={
             "units": "rad",
-            "phase_difference_definition": "secondary_minus_reference",
+            "phase_difference_definition": "reference_minus_secondary",
         },
     )
     return xr.Dataset(
         {"phase": phase},
         attrs={
-            "phase_difference_definition": "secondary_minus_reference",
+            "phase_difference_definition": "reference_minus_secondary",
             "reference_time": "2025-01-01T00:00:00Z",
             "secondary_time": "2025-01-13T00:00:00Z",
             "temporal_edge": "reference_to_secondary",
@@ -73,8 +73,22 @@ def test_incidence_at_or_above_ninety_degrees_is_unsupported(degrees):
 
 
 def test_reference_metadata_preserves_exclusion_class():
-    observed = xr.DataArray([1.0, 3.0], dims=("station",), attrs={"units": "rad"})
-    expected = xr.DataArray([0.0, 0.0], dims=("station",), attrs={"units": "rad"})
+    observed = xr.DataArray(
+        [1.0, 3.0],
+        dims=("station",),
+        attrs={
+            "units": "rad",
+            "phase_difference_definition": "reference_minus_secondary",
+        },
+    )
+    expected = xr.DataArray(
+        [0.0, 0.0],
+        dims=("station",),
+        attrs={
+            "units": "rad",
+            "phase_difference_definition": "reference_minus_secondary",
+        },
+    )
     weights = xr.DataArray([1.0, 1.0], dims=("station",), attrs={"units": "1"})
     ids = xr.DataArray(["380:CO:SNTL", "737:CO:SNTL"], dims=("station",))
     reasons = xr.DataArray(

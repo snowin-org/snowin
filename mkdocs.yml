@@ -8,6 +8,7 @@ nav:
   - Home: index.md
   - Scientific conventions: scientific_conventions.md
   - Data model: data_model.md
+  - Phase migration: phase_migration.md
   - DEM vertical datums: vertical_datums.md
   - Scientific sources: scientific_sources.md
 markdown_extensions:

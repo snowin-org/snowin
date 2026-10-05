@@ -30,7 +30,7 @@ def main() -> None:
         name="phase",
         attrs={
             "units": "rad",
-            "phase_difference_definition": "secondary_minus_reference",
+            "phase_difference_definition": "reference_minus_secondary",
         },
     )
     incidence = xr.DataArray(

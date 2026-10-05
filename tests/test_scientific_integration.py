@@ -32,7 +32,7 @@ def _pair_edge(
     true_phase = np.full((2, 2), true_phase_value, dtype=np.float64)
     measured_phase = true_phase
     source_phase = xr.DataArray(
-        -measured_phase,
+        measured_phase,
         dims=("y", "x"),
         coords=COORDS,
         name="unwrappedPhase",

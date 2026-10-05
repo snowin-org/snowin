@@ -9,6 +9,7 @@ from datetime import datetime
 import numpy as np
 import xarray as xr
 
+from ._phase_contract import DSWE_DEFINITION
 from ._timestamps import parse_utc_timestamp
 
 _TEMPORAL_EDGE = "reference_to_secondary"
@@ -66,11 +67,21 @@ def _edge_data(edge: xr.Dataset, dswe_variable: str) -> xr.DataArray:
         )
     if dswe.attrs.get("quantity") not in {None, "pairwise_dSWE"}:
         raise ValueError(f"{dswe_variable} does not declare pairwise dSWE")
+    if "0.1" in {
+        edge.attrs.get("snowin_schema_version"),
+        dswe.attrs.get("snowin_schema_version"),
+    }:
+        raise ValueError(
+            "legacy SnowIn schema 0.1 requires a provenance-aware migration; "
+            "see docs/phase_migration.md; do not automatically negate saved dSWE"
+        )
+    if dswe.attrs.get("dswe_difference_definition", DSWE_DEFINITION) != DSWE_DEFINITION:
+        raise ValueError("dSWE must use secondary_minus_reference")
     phase_definition = dswe.attrs.get("phase_difference_definition")
-    if phase_definition not in {None, "secondary_minus_reference"}:
+    if phase_definition not in {None, "reference_minus_secondary"}:
         raise ValueError(
             f"{dswe_variable} uses phase definition {phase_definition!r}; expected "
-            "the SnowIn convention 'secondary_minus_reference'"
+            "the SnowIn convention 'reference_minus_secondary'"
         )
     return dswe
 
@@ -193,6 +204,7 @@ def accumulate_dswe(
         {
             "units": "m",
             "quantity": "cumulative_dSWE",
+            "dswe_difference_definition": DSWE_DEFINITION,
             "path_start_time": records[0]["reference_time"],
             "path_end_time": records[-1]["secondary_time"],
             "temporal_edge_count": len(records),
@@ -214,6 +226,7 @@ def accumulate_dswe(
         },
         attrs={
             "temporal_accumulation": "strict_chronological_path",
+            "dswe_difference_definition": DSWE_DEFINITION,
             "temporal_edge": _TEMPORAL_EDGE,
             "path_start_time": records[0]["reference_time"],
             "path_end_time": records[-1]["secondary_time"],

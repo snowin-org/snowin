@@ -63,7 +63,7 @@ def _physical_inputs(draw):
         name="phase",
         attrs={
             "units": "rad",
-            "phase_difference_definition": "secondary_minus_reference",
+            "phase_difference_definition": "reference_minus_secondary",
         },
     )
     incidence = xr.DataArray(

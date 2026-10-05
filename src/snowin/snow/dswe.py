@@ -14,10 +14,12 @@ from typing import Literal
 import numpy as np
 import xarray as xr
 
+from .._phase_contract import DSWE_DEFINITION, PHASE_DEFINITION, require_canonical_phase
+
 LEINSS_SNOW_PATH_CONSTANT = 1.59
 """Empirical dry-snow path constant in the Leinss approximation."""
 
-SNOWIN_PHASE_DEFINITION = "secondary_minus_reference"
+SNOWIN_PHASE_DEFINITION = PHASE_DEFINITION
 """SnowIn's required phase orientation."""
 
 _VALID_ANGLE_UNITS = {"rad", "radian", "radians"}
@@ -170,14 +172,7 @@ def _validate_common_inputs(
             "expected 'local' or 'ellipsoid'"
         )
 
-    phase_definition = phase.attrs.get("phase_difference_definition")
-    if phase_definition is None:
-        raise ValueError("phase_difference_definition is missing")
-    if phase_definition != SNOWIN_PHASE_DEFINITION:
-        raise ValueError(
-            f"phase_difference_definition is {phase_definition!r}; this function "
-            "expects the SnowIn convention 'secondary_minus_reference'"
-        )
+    require_canonical_phase(phase.attrs, "phase")
 
     _validate_alignment(phase, incidence_angle)
     incidence_angle = _validate_incidence_domain(incidence_angle)
@@ -242,6 +237,7 @@ def _result(
         {
             "units": "m",
             "quantity": "pairwise_dSWE",
+            "dswe_difference_definition": DSWE_DEFINITION,
             "long_name": "pairwise change in snow water equivalent",
             "phase_difference_definition": SNOWIN_PHASE_DEFINITION,
             "incidence_angle_reference": incidence_reference,
@@ -267,12 +263,14 @@ def compute_leinss_dswe(
 ) -> xr.DataArray:
     r"""Compute pairwise dSWE with the Leinss et al. approximation.
 
-    ``phase`` must use SnowIn's secondary-minus-reference phase direction in
+    ``phase`` must use SnowIn's reference-minus-secondary phase direction in
     radians. ``incidence_angle`` must be aligned radians and declare whether it
     is local or ellipsoid-referenced. Supply wavelength explicitly in metres.
 
     The stock values are ``alpha=1`` and the empirical path constant ``1.59``.
     Product adapters should resolve wavelength from authoritative metadata.
+    Positive snow-related phase gives positive dSWE (secondary minus reference);
+    atmosphere and reference offsets must be handled explicitly.
     """
     phase, incidence_angle, wavelength_m, incidence_reference, wavelength_source = (
         _validate_common_inputs(
@@ -313,6 +311,10 @@ def compute_guneriussen_dswe(
     permittivity_model: DensityPermittivityModel = "guneriussen2001",
 ) -> xr.DataArray:
     r"""Compute pairwise dSWE with the density-dependent Guneriussen model.
+
+    Phase is reference-minus-secondary in radians. Positive snow-related phase
+    yields positive SWE_secondary - SWE_reference in metres; other measured
+    phase contributions require explicit correction and referencing.
 
     Snow density is required because the phase response depends on both snow
     permittivity and the snow-to-water density ratio. Scalar density values use
@@ -397,6 +399,10 @@ def compute_oveisgharan_dswe(
     wavelength_m: float,
 ) -> xr.DataArray:
     r"""Compute pairwise dSWE with the Oveisgharan et al. fitted model.
+
+    Phase is reference-minus-secondary in radians. Positive snow-related phase
+    yields positive SWE_secondary - SWE_reference in metres; other measured
+    phase contributions require explicit correction and referencing.
 
     This density-independent method uses the published incidence polynomial;
     it has no snow-density or Leinss ``alpha`` parameter. Supply a wavelength

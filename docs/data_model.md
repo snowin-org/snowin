@@ -42,13 +42,14 @@ The following attributes are required and must be scalar, serializable values:
 
 | Attribute | Meaning |
 | --- | --- |
-| `snowin_schema_version` | SnowIn Dataset layout version, currently `"0.1"`. |
+| `snowin_schema_version` | SnowIn Dataset layout version, currently `"0.2"`. |
 | `snowin_data_state` | `phase_normalized_product` before incidence is available; `retrieval_ready_pair` after incidence is added. |
 | `product_kind` | `"pairwise_interferogram"`. |
 | `reference_time` | Reference acquisition start time as an ISO 8601 UTC string with `Z` or a UTC offset. |
 | `secondary_time` | Secondary acquisition start time as an ISO 8601 UTC string with `Z` or a UTC offset. |
 | `temporal_edge` | Fixed value `"reference_to_secondary"`; this is the directed edge orientation. |
-| `phase_difference_definition` | Required value `"secondary_minus_reference"`; see [phase conventions](scientific_conventions.md). |
+| `dswe_difference_definition` | `"secondary_minus_reference"`: SWE change is independent of phase subtraction order. |
+| `phase_difference_definition` | Required value `"reference_minus_secondary"`; see [phase conventions](scientific_conventions.md). |
 | `wavelength_m` | Resolved radar wavelength in metres, positive and explicit. |
 
 `reference_time` and `secondary_time` identify the phase roles. A valid
@@ -73,8 +74,8 @@ For the NISAR/ISCE3 source convention:
 
 ```text
 source phase = phi_reference - phi_secondary
-SnowIn phase = phi_secondary - phi_reference = -source phase
-phase_transform = "multiply_by_-1"
+SnowIn phase = phi_reference - phi_secondary = source phase
+phase_transform = "identity"
 ```
 
 Product paths and mission metadata are Dataset attributes, not science
@@ -228,3 +229,10 @@ retains the input edge order, path interval, missing-support handling, and
 support at each endpoint. These values remain available in the returned
 xarray object. The `phase_reference_estimate_details` attribute records the
 reference method, offset, status, and number of eligible contributors.
+
+Schema 0.2 phase variables also record `snowin_schema_version="0.2"`, so
+extracted phase retains the compatibility contract. Retrieval results explicitly
+record `dswe_difference_definition="secondary_minus_reference"`; cumulative
+results use the same definition relative to the path start. Legacy schema 0.1
+pairs are rejected by referencing and accumulation, and legacy phase is rejected
+by retrievals. See [explicit migration](phase_migration.md).
