@@ -1,4 +1,9 @@
-"""Prepared-DEM geometry for SnowIn local-incidence calculations."""
+"""Prepared-DEM geometry for SnowIn local-incidence calculations.
+
+Private elevation, geoid, normal and LOS calculations retain Float64 for
+coordinate-based interpolation and Rasterio reprojection. Coordinates and
+affine transforms retain geospatial precision; public incidence is Float32.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +14,7 @@ from typing import Literal
 import numpy as np
 import xarray as xr
 
+from .._precision import SCIENCE_FLOAT_DTYPE
 from ._geometry_dask import _dask_incidence_array, _normalize_geometry_chunks
 
 DEMSource = Literal["nisar_cop30", "cop30", "tandem30", "srtm30"]
@@ -409,7 +415,7 @@ def compute_local_incidence(
         geometry_chunk_metadata = f"{chunk_shape[0]},{chunk_shape[1]}"
 
     result = xr.DataArray(
-        angle.astype("float32"),
+        angle.astype(SCIENCE_FLOAT_DTYPE),
         dims=("y", "x"),
         coords={"y": dem.coords["y"], "x": dem.coords["x"]},
         name="incidence_angle",
@@ -550,10 +556,10 @@ def _open_vertical_correction(
     from rasterio.warp import reproject
 
     target = np.full((y.size, x.size), np.nan, dtype=float)
-    valid_source = np.isfinite(source_values).astype("float32")
+    valid_source = np.isfinite(source_values).astype(SCIENCE_FLOAT_DTYPE)
     source_filled = np.where(np.isfinite(source_values), source_values, 0.0)
     target_transform = _coordinate_transform(x, y)
-    weights = np.zeros_like(target, dtype="float32")
+    weights = np.zeros_like(target, dtype=SCIENCE_FLOAT_DTYPE)
     reproject(
         source_filled,
         target,
@@ -667,11 +673,11 @@ def _open_dem(
         source_transform = _coordinate_transform(source_x, source_y)
         source_crs = CRS.from_epsg(int(source_crs))
     destination = np.full((y.size, x.size), np.nan, dtype=float)
-    valid_source = np.isfinite(source_values).astype("float32")
+    valid_source = np.isfinite(source_values).astype(SCIENCE_FLOAT_DTYPE)
     source_filled = np.where(np.isfinite(source_values), source_values, 0.0)
     target_transform = _coordinate_transform(x, y)
     target_crs = CRS.from_epsg(epsg_code)
-    weights = np.zeros_like(destination, dtype="float32")
+    weights = np.zeros_like(destination, dtype=SCIENCE_FLOAT_DTYPE)
     reproject(
         source_filled,
         destination,

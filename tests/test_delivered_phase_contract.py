@@ -26,7 +26,7 @@ ANGLE = math.radians(35)
 
 
 def _inputs(values, lazy=False):
-    values = np.asarray([values], dtype=float)
+    values = np.asarray([values], dtype=np.float32)
     if lazy:
         da = pytest.importorskip("dask.array")
         values = da.from_array(values, chunks=(1, 2))
@@ -80,7 +80,7 @@ def test_opposite_phase_converts_once_and_canonical_reingestion_is_identity(lazy
 def test_reader_preserves_delivered_signed_phase_and_file_cleanup(tmp_path, lazy):
     h5netcdf = pytest.importorskip("h5netcdf")
     path = tmp_path / "gunw.h5"
-    _write_synthetic_gunw(h5netcdf, path)
+    _write_synthetic_gunw(h5netcdf, path, science_dtype="f4")
     delivered = np.array([[1, -2], [0, np.nan]], dtype=np.float32)
     with h5netcdf.File(path, "a") as source:
         group = source["science/LSAR/GUNW/grids/frequencyA/unwrappedInterferogram/HH"]
@@ -98,6 +98,7 @@ def test_reader_preserves_delivered_signed_phase_and_file_cleanup(tmp_path, lazy
     try:
         if lazy:
             assert hasattr(pair.phase.data, "chunks")
+        assert pair.phase.dtype == np.float32
         np.testing.assert_allclose(
             pair.phase, delivered, rtol=0, atol=0, equal_nan=True
         )
@@ -146,12 +147,14 @@ def test_signed_retrievals_match_independent_physical_equations(method, model, l
     result = method(phase, angle, wavelength_m=WAVELENGTH, **kwargs)
     if lazy:
         assert hasattr(result.data, "chunks")
-    # Closed-form float64 equations agree to roundoff; no empirical tolerance.
+    assert result.dtype == np.float32
+    # Float32 input/constant rounding and the short equation, including the
+    # Guneriussen refraction subtraction, require a few parts per million.
     np.testing.assert_allclose(
         result,
         [[1.2 * coefficient, -1.2 * coefficient, 0, np.nan]],
-        rtol=1e-13,
-        atol=1e-15,
+        rtol=2e-6,
+        atol=2e-9,
         equal_nan=True,
     )
     assert result.attrs["dswe_difference_definition"] == OPPOSITE
@@ -187,13 +190,15 @@ def test_signed_ingestion_reference_support_retrieval_and_accumulation(lazy):
         referenced["pairwise_supported"] = mask
         edges.append(referenced)
     result = accumulate_dswe(edges)
+    assert result.cumulative_dswe.dtype == np.float32
     if lazy:
         assert hasattr(result.cumulative_dswe.data, "chunks")
     np.testing.assert_allclose(
         result.cumulative_dswe,
         [[[0.04, np.nan, 0.04, np.nan]], [[0.03, np.nan, 0.03, np.nan]]],
-        rtol=1e-13,
-        atol=1e-15,
+        # Input rounding, reference subtraction, retrieval and two additions.
+        rtol=2e-6,
+        atol=2e-9,
         equal_nan=True,
     )
     assert result.attrs["temporal_edge"] == "reference_to_secondary"
@@ -248,5 +253,9 @@ def test_explicit_legacy_conversion_preserves_dates_and_recomputes_dswe():
         pair.phase, pair.incidence_angle, wavelength_m=WAVELENGTH
     )
     np.testing.assert_allclose(
-        dswe, [[1.2 * coefficient, -1.2 * coefficient]], rtol=1e-13, atol=1e-15
+        # Float32 input rounding and Leinss arithmetic.
+        dswe,
+        [[1.2 * coefficient, -1.2 * coefficient]],
+        rtol=2e-6,
+        atol=2e-9,
     )

@@ -77,11 +77,9 @@ def _physical_inputs(draw):
 
 
 def _tolerances(dtype: np.dtype) -> tuple[float, float]:
-    # float32 arithmetic is rounded to about seven decimal digits; the absolute
-    # floor only covers values near zero. Float64 retains a much tighter oracle.
-    if dtype == np.dtype("float32"):
-        return 2e-6, 2e-8
-    return 2e-13, 2e-15
+    # All caller dtypes use Float32 kernels: allow accumulated roundoff in the
+    # short equation, with an absolute floor for results near zero.
+    return 2e-6, 2e-8
 
 
 def _with_values(template: xr.DataArray, values: np.ndarray) -> xr.DataArray:
@@ -100,6 +98,7 @@ def test_dswe_matches_independent_leinss_equation_over_small_shapes(inputs):
     dtype, phase, incidence = inputs
 
     actual = compute_leinss_dswe(phase, incidence, wavelength_m=WAVELENGTH_M)
+    assert actual.dtype == np.float32  # Also prove Float64 input canonicalization.
     phase64 = np.asarray(phase.data, dtype=np.float64)
     angle64 = np.asarray(incidence.data, dtype=np.float64)
     expected = phase64 * WAVELENGTH_M / (2.0 * math.pi * (1.59 + angle64**2.5))

@@ -8,6 +8,8 @@ from collections.abc import Mapping, Sequence
 import numpy as np
 import xarray as xr
 
+from .._precision import SCIENCE_FLOAT_DTYPE, as_science_float
+
 SUPPORT_CATEGORIES = (
     "product_valid",
     "geometry_valid",
@@ -55,13 +57,14 @@ def _validate_layer(name: str, layer: xr.DataArray) -> xr.DataArray:
             support_name=name,
             dtype=data.dtype,
         )
-        return layer.copy(data=checked_data)
+        checked = layer.copy(data=checked_data)
+        return as_science_float(checked) if layer.dtype.kind == "f" else checked
     if hasattr(data, "compute"):
         values = np.asarray(data.compute())
     else:
         values = np.asarray(data)
     _validate_binary_support_block(values, support_name=name)
-    return layer
+    return as_science_float(layer) if layer.dtype.kind == "f" else layer
 
 
 def _support_boolean(layer: xr.DataArray) -> xr.DataArray:
@@ -212,8 +215,12 @@ def summarize_support(
     known = np.asarray(known_counts, dtype=np.int64)
     supported = np.asarray(supported_counts, dtype=np.int64)
     with np.errstate(divide="ignore", invalid="ignore"):
-        support_fraction = supported / known
-        known_fraction = known / total
+        support_fraction = supported.astype(SCIENCE_FLOAT_DTYPE) / known.astype(
+            SCIENCE_FLOAT_DTYPE
+        )
+        known_fraction = known.astype(SCIENCE_FLOAT_DTYPE) / total.astype(
+            SCIENCE_FLOAT_DTYPE
+        )
     return xr.Dataset(
         {
             "total_count": xr.DataArray(total, dims=("support_category",)),

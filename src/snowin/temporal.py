@@ -10,6 +10,7 @@ import numpy as np
 import xarray as xr
 
 from ._phase_contract import DSWE_DEFINITION
+from ._precision import as_science_float
 from ._timestamps import parse_utc_timestamp
 
 _TEMPORAL_EDGE = "reference_to_secondary"
@@ -93,7 +94,7 @@ def _edge_data(edge: xr.Dataset, dswe_variable: str) -> xr.DataArray:
             f"{dswe_variable} uses phase definition {phase_definition!r}; expected "
             "the SnowIn convention 'reference_minus_secondary'"
         )
-    return dswe
+    return as_science_float(dswe)
 
 
 def _edge_support(edge: xr.Dataset, dswe: xr.DataArray) -> xr.DataArray:

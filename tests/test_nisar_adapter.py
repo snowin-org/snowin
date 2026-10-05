@@ -711,6 +711,7 @@ def _write_synthetic_gunw(
     x_coordinates=(100.0, 110.0),
     y_coordinates=(20.0, 10.0),
     center_frequency_hz=1.0e9,
+    science_dtype="f8",
     reference_time="2025-01-01T00:00:00.000000000",
     secondary_time="2025-01-13T00:00:00.000000000",
 ):
@@ -727,12 +728,12 @@ def _write_synthetic_gunw(
         phase_group.dimensions = {"y": 2, "x": 2}
         phase_group.create_variable("xCoordinates", ("x",), float)[:] = x_coordinates
         phase_group.create_variable("yCoordinates", ("y",), float)[:] = y_coordinates
-        phase = phase_group.create_variable("unwrappedPhase", ("y", "x"), float)
+        phase = phase_group.create_variable("unwrappedPhase", ("y", "x"), science_dtype)
         phase[:] = [[1.0, 2.0], [3.0, 4.0]]
         phase.attrs["units"] = "radians"
         if include_optional_layers:
             coherence = phase_group.create_variable(
-                "coherenceMagnitude", ("y", "x"), float
+                "coherenceMagnitude", ("y", "x"), science_dtype
             )
             coherence[:] = 0.8
             coherence.attrs["units"] = "1"
@@ -743,12 +744,12 @@ def _write_synthetic_gunw(
             components[:] = [[4, 4], [8, 8]]
         if include_correction_layers:
             ionosphere = phase_group.create_variable(
-                "ionospherePhaseScreen", ("y", "x"), float
+                "ionospherePhaseScreen", ("y", "x"), science_dtype
             )
             ionosphere[:] = [[0.1, 0.2], [0.3, 0.4]]
             ionosphere.attrs["units"] = "radians"
             ionosphere_uncertainty = phase_group.create_variable(
-                "ionospherePhaseScreenUncertainty", ("y", "x"), float
+                "ionospherePhaseScreenUncertainty", ("y", "x"), science_dtype
             )
             ionosphere_uncertainty[:] = 0.01
             ionosphere_uncertainty.attrs["units"] = "radians"
@@ -766,16 +767,18 @@ def _write_synthetic_gunw(
             -1.0,
             1.0,
         ]
-        incidence = radar.create_variable("incidenceAngle", ("height", "y", "x"), float)
+        incidence = radar.create_variable(
+            "incidenceAngle", ("height", "y", "x"), science_dtype
+        )
         incidence[:] = 30.0
         incidence.attrs["units"] = "degrees"
         hydro_tropo = radar.create_variable(
-            "hydrostaticTroposphericPhaseScreen", ("height", "y", "x"), float
+            "hydrostaticTroposphericPhaseScreen", ("height", "y", "x"), science_dtype
         )
         hydro_tropo[:] = 0.02
         hydro_tropo.attrs["units"] = "radians"
         wet_tropo = radar.create_variable(
-            "wetTroposphericPhaseScreen", ("height", "y", "x"), float
+            "wetTroposphericPhaseScreen", ("height", "y", "x"), science_dtype
         )
         wet_tropo[:] = 0.03
         wet_tropo.attrs["units"] = "radians"
@@ -874,7 +877,7 @@ def _write_synthetic_gunw(
 
 def _synthetic_dem() -> xr.DataArray:
     return xr.DataArray(
-        np.zeros((2, 2), dtype=float),
+        np.zeros((2, 2), dtype=np.float32),
         dims=("y", "x"),
         coords={"y": [20.0, 10.0], "x": [100.0, 110.0]},
         attrs={"units": "m", "epsg_code": 32611},

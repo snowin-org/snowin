@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 
@@ -23,4 +24,6 @@ def test_readme_quickstart_code_block_runs_and_matches_equation():
     theta = math.radians(35.0)
     expected = 1.2 * 0.2384 / (2 * math.pi * (1.59 + theta**2.5))
     dswe = namespace["dswe"]
-    assert dswe.item() == pytest.approx(expected, rel=1e-12, abs=0.0)
+    assert dswe.dtype == np.float32
+    # The example follows the canonical Float32 input and kernel roundoff.
+    assert dswe.item() == pytest.approx(expected, rel=2e-6, abs=2e-9)

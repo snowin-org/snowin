@@ -60,6 +60,7 @@ def _pair_edge(
         spatial_ref=spatial_ref,
         source_granule_id="synthetic-integration-pair",
     )
+    assert pair.phase.dtype == np.float32  # Float64 source is canonicalized.
     np.testing.assert_allclose(pair.phase.values, measured_phase)
 
     referenced = reference_phase(
@@ -72,8 +73,9 @@ def _pair_edge(
     np.testing.assert_allclose(
         referenced.phase_referenced.values,
         expected_referenced_phase,
-        rtol=0.0,
-        atol=1e-14,
+        # Float32 input rounding and reference subtraction at radian scale.
+        rtol=2e-6,
+        atol=1e-7,
     )
     pairwise_dswe = compute_leinss_dswe(
         referenced.phase_referenced,
@@ -134,8 +136,9 @@ def test_normalize_correct_reference_support_dswe_and_accumulate_pipeline():
     np.testing.assert_allclose(
         accumulated.cumulative_dswe.values[-1],
         expected_final,
-        rtol=1e-13,
-        atol=1e-14,
+        # Reference subtraction, Float32 retrieval and two-edge accumulation.
+        rtol=2e-6,
+        atol=2e-9,
         equal_nan=True,
     )
 

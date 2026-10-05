@@ -71,12 +71,16 @@ def test_weighted_reference_offset_matches_independent_weighted_residual(
         weight,
     )
 
+    assert estimate.reference_offset_rad.dtype == np.float32
+    assert shifted_estimate.reference_offset_rad.dtype == np.float32
+    # Float64 inputs are rounded before subtraction and a short weighted sum.
+    # The absolute floor covers cancellation of radian-scale contributor values.
     assert estimate.reference_offset_rad.item() == pytest.approx(
-        expected_offset, rel=2e-13, abs=2e-15
+        expected_offset, rel=2e-6, abs=4e-7
     )
     assert shifted_estimate.reference_offset_rad.item() == pytest.approx(
         expected_offset + common_shift,
-        rel=2e-13,
-        abs=2e-15,
+        rel=2e-6,
+        abs=4e-7,
     )
     assert estimate.attrs["reference_offset_units"] == "rad"

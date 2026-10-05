@@ -7,6 +7,10 @@ support operations, directed temporal accumulation, and optional NISAR GUNW
 phase conversion and local-incidence geometry. Pair Datasets use layout
 version `0.2`.
 
+Floating scientific arrays and kernel outputs now use canonical Float32,
+including Float64 caller inputs; coordinate precision and schema 0.2 remain
+unchanged. See [numerical precision](docs/scientific_conventions.md#numerical-precision).
+
 ### Breaking scientific contract: delivered NISAR phase
 
 Canonical phase is now `phi_reference - phi_secondary`, preserving delivered

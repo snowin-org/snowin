@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from .._precision import SCIENCE_FLOAT_DTYPE
+
 
 def _normalize_geometry_chunks(
     geometry_chunks: int | tuple[int, int], shape: tuple[int, int]
@@ -66,7 +68,7 @@ def _interpolate_incidence_chunk(
             1.0,
         )
         angle = np.where(dot > 0.0, np.arccos(dot), np.nan)
-    return angle.astype("float32")
+    return angle.astype(SCIENCE_FLOAT_DTYPE)
 
 
 def _dask_incidence_array(
@@ -115,7 +117,7 @@ def _dask_incidence_array(
                 da.from_delayed(
                     chunk,
                     shape=(row_end - row_start, column_end - column_start),
-                    dtype=np.float32,
+                    dtype=SCIENCE_FLOAT_DTYPE,
                 )
             )
         row_arrays.append(da.concatenate(column_arrays, axis=1))

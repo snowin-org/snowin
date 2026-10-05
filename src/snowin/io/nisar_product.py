@@ -16,6 +16,7 @@ from typing import Any, Literal
 import numpy as np
 import xarray as xr
 
+from .._precision import as_science_float
 from ._nisar_hdf5 import (
     IDENTIFICATION_GROUP,
     RADAR_GRID_GROUP,
@@ -497,7 +498,7 @@ def compute_gunw_incidence(
                 "incidence_angle_radar_cube_index": radar_cube_index,
             }
         )
-        return incidence.rename("incidence_angle")
+        return as_science_float(incidence).rename("incidence_angle")
 
     _progress("preparing DEM for local incidence", progress)
     target_x = np.asarray(target.coords["x"].data)
@@ -612,6 +613,12 @@ def add_gunw_incidence(
     _progress("starting explicit GUNW incidence calculation", progress)
     incidence = compute_gunw_incidence(gunw_file, target, **kwargs)
     _require_aligned(target["phase"], incidence)
+    # Caller-created pairs follow the same precision contract as open_gunw.
+    # Mutate the owner to preserve its lazy file-resource close callback.
+    for name, variable in target.data_vars.items():
+        if name != "spatial_ref" and variable.dtype.kind == "f":
+            target[name] = as_science_float(variable)
+    target["phase"] = as_science_float(target["phase"])
     target["incidence_angle"] = incidence
     target["incidence_angle"].attrs = _serializable_attrs(incidence.attrs)
     geometry_valid = (

@@ -103,6 +103,17 @@ explicit geoid-undulation correction.
 
 ## Required and optional variables
 
+Floating science variables use Float32 (`np.float32`): `phase`,
+`incidence_angle`, coherence, correction and uncertainty screens, floating
+reference contributors, residuals, weighted contributions, reference offsets,
+density arrays used by retrievals, pairwise `dswe`, `cumulative_dswe`, and
+floating support layers and diagnostic fractions. Scientific boundaries
+canonicalize Float64 inputs without casting coordinates or computing lazy
+rasters. Coordinates, CRS/transform machinery, datetimes, integer labels and
+masks, and boolean support retain their native types. Scalar attributes such
+as `wavelength_m` remain serializable Python values. See
+[numerical precision](scientific_conventions.md#numerical-precision).
+
 The pair Dataset requires `phase`. A retrieval-ready pair also requires
 `incidence_angle` with explicit radians and an
 `incidence_angle_reference` value of `local` or `ellipsoid`:

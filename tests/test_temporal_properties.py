@@ -60,12 +60,21 @@ def _edge(value: float, index: int, *, supported: bool = True) -> xr.Dataset:
 def test_cumulative_dswe_equals_analytical_prefix_sum(increments):
     result = accumulate_dswe([_edge(value, i) for i, value in enumerate(increments)])
     expected = np.cumsum(np.asarray(increments, dtype=np.float64))[:, None, None]
+    assert result.cumulative_dswe.dtype == np.float32
+    # Input rounding plus at most n additions has absolute error bounded by
+    # (n+1)*eps*sum(abs(increments)), including cancellation near zero. Include
+    # subnormal rounding, for which a relative error bound does not apply.
+    precision = np.finfo(np.float32)
+    absolute_error = max(
+        len(increments) * float(precision.smallest_subnormal),
+        (len(increments) + 1) * precision.eps * sum(abs(x) for x in increments),
+    )
 
     np.testing.assert_allclose(
         result.cumulative_dswe.values,
         expected,
-        rtol=1e-13,
-        atol=1e-14,
+        rtol=0,
+        atol=absolute_error,
     )
     assert result.cumulative_dswe.dims == ("time", "y", "x")
     assert result.attrs["temporal_edge_count"] == len(increments)
@@ -93,17 +102,13 @@ def test_appending_zero_dswe_adds_a_time_step_without_changing_values(increments
         ]
     )
 
-    np.testing.assert_allclose(
+    np.testing.assert_array_equal(
         with_zero.cumulative_dswe.values[:-1],
         ordinary.cumulative_dswe.values,
-        rtol=1e-13,
-        atol=1e-14,
     )
-    np.testing.assert_allclose(
+    np.testing.assert_array_equal(
         with_zero.cumulative_dswe.values[-1],
         ordinary.cumulative_dswe.values[-1],
-        rtol=1e-13,
-        atol=1e-14,
     )
     assert with_zero.sizes["time"] == ordinary.sizes["time"] + 1
 

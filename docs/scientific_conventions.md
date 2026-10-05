@@ -4,6 +4,30 @@ This page states SnowIn's phase and dSWE signs, required units, grid behavior,
 and temporal direction. SnowIn raises an error when a required scientific
 convention is missing or unsupported.
 
+## Numerical precision
+
+SnowIn uses Float32 (`np.float32`) for floating-point scientific arrays and
+numerical science outputs, including phase, correction screens, incidence
+rasters, reference contributors and offsets, density arrays, and pairwise and
+cumulative dSWE. Scientific boundaries convert caller-supplied Float64 science
+arrays to Float32 while preserving dimensions, coordinates, attributes,
+missing values, and Dask laziness. Reference estimation still computes its
+documented scalar reduction.
+
+This matches common SAR product storage and gives a consistent numerical
+contract. Conversion rounds numerical representations; it does not create or
+remove physical measurement information. Coordinates and indexing, CRS and
+affine transforms, datetimes, integer labels and masks, boolean support, and
+metadata identifiers retain their appropriate native types. Scalar metadata
+may remain Python scalars. Geospatial libraries may use higher precision
+internally for coordinate transformations, DEM reprojection, and LOS geometry;
+returned floating science rasters follow the Float32 contract.
+
+Users requiring a different numerical-precision policy must implement it
+explicitly outside the current SnowIn contract, rather than relying on
+accidental dtype promotion. This policy does not change schema 0.2, equations,
+units, or phase and dSWE conventions.
+
 ## Quantities and direction
 
 SnowIn distinguishes pairwise change from an absolute state:

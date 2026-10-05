@@ -15,6 +15,7 @@ import numpy as np
 import xarray as xr
 
 from .._phase_contract import DSWE_DEFINITION, PHASE_DEFINITION, require_canonical_phase
+from .._precision import SCIENCE_FLOAT_DTYPE, as_science_float
 
 LEINSS_SNOW_PATH_CONSTANT = 1.59
 """Empirical dry-snow path constant in the Leinss approximation."""
@@ -93,7 +94,8 @@ def _validate_domain_block(
     upper_exclusive: float | None,
     message: str,
 ) -> np.ndarray:
-    values = np.asarray(data, dtype=float)
+    # Check the supplied domain before rounding to canonical science precision.
+    values = np.asarray(data)
     invalid = ~np.isnan(values) & ~np.isfinite(values)
     if lower_bound is not None:
         invalid |= values < lower_bound if lower_inclusive else values <= lower_bound
@@ -101,7 +103,7 @@ def _validate_domain_block(
         invalid |= values >= upper_exclusive
     if np.any(invalid):
         raise ValueError(message)
-    return values
+    return values.astype(SCIENCE_FLOAT_DTYPE, copy=False)
 
 
 def _validate_domain(
@@ -124,7 +126,7 @@ def _validate_domain(
             lower_inclusive=lower_inclusive,
             upper_exclusive=upper_exclusive,
             message=message,
-            dtype=float,
+            dtype=SCIENCE_FLOAT_DTYPE,
         )
         return value.copy(data=checked_data)
     try:
@@ -175,6 +177,7 @@ def _validate_common_inputs(
     require_canonical_phase(phase.attrs, "phase")
 
     _validate_alignment(phase, incidence_angle)
+    phase = as_science_float(phase)
     incidence_angle = _validate_incidence_domain(incidence_angle)
     resolved_wavelength = _validate_positive_scalar("wavelength_m", wavelength_m)
     wavelength_source = "explicit wavelength_m"
@@ -205,7 +208,7 @@ def _validate_density(
         )
         if density_value >= 917.0:
             raise ValueError("snow_density_kg_m3 values must be in (0, 917)")
-        density = xr.full_like(phase, density_value, dtype=float)
+        density = xr.full_like(phase, density_value, dtype=SCIENCE_FLOAT_DTYPE)
 
     density = _validate_domain(
         density,
@@ -231,7 +234,7 @@ def _result(
     scientific_reference: str,
     method_attrs: dict[str, object] | None = None,
 ) -> xr.DataArray:
-    result = dswe.rename("dswe")
+    result = as_science_float(dswe).rename("dswe")
     attrs = dict(source_phase.attrs)
     attrs.update(
         {
@@ -280,10 +283,15 @@ def compute_leinss_dswe(
         )
     )
     alpha = _validate_positive_scalar("alpha", alpha)
+    # Typed scalars also preserve Float32 for 0-D arrays on NumPy 1.x.
+    scalar = SCIENCE_FLOAT_DTYPE.type
     dswe = (
         phase
-        * wavelength_m
-        / (2.0 * math.pi * alpha * (LEINSS_SNOW_PATH_CONSTANT + incidence_angle**2.5))
+        * scalar(wavelength_m)
+        / (
+            scalar(2.0 * math.pi * alpha)
+            * (scalar(LEINSS_SNOW_PATH_CONSTANT) + incidence_angle ** scalar(2.5))
+        )
     )
     result = _result(
         phase,
@@ -338,28 +346,43 @@ def compute_guneriussen_dswe(
         )
 
     density = _validate_density(phase, snow_density_kg_m3)
-    density_g_cm3 = density / 1000.0
+    scalar = SCIENCE_FLOAT_DTYPE.type
+    density_g_cm3 = density / scalar(1000.0)
     if permittivity_model == "guneriussen2001":
-        permittivity = 1.0 + 1.6 * density_g_cm3 + 1.8 * density_g_cm3**3
+        permittivity = (
+            scalar(1.0)
+            + scalar(1.6) * density_g_cm3
+            + scalar(1.8) * density_g_cm3 ** scalar(3)
+        )
         permittivity_reference = (
             "Mätzler (1996) and Wiesmann & Mätzler (1999) density relation"
         )
     elif permittivity_model == "webb2021":
-        permittivity = 1.0 + 0.0014 * density + 2.0e-7 * density**2
+        permittivity = (
+            scalar(1.0)
+            + scalar(0.0014) * density
+            + scalar(2.0e-7) * density ** scalar(2)
+        )
         permittivity_reference = "Webb et al. (2021), Eq. 5; corrected in 2022"
     else:
         permittivity = xr.where(
-            density_g_cm3 < 0.4,
-            1.0 + 1.5995 * density_g_cm3 + 1.861 * density_g_cm3**3,
-            ((1.0 - density_g_cm3 / 0.917) + 1.4759 * (density_g_cm3 / 0.917)) ** 3,
+            density_g_cm3 < scalar(0.4),
+            scalar(1.0)
+            + scalar(1.5995) * density_g_cm3
+            + scalar(1.861) * density_g_cm3 ** scalar(3),
+            (
+                (scalar(1.0) - density_g_cm3 / scalar(0.917))
+                + scalar(1.4759) * (density_g_cm3 / scalar(0.917))
+            )
+            ** scalar(3),
         )
         permittivity_reference = "Mätzler (1987), piecewise model reproduced in Oveisgharan et al. (2024), Eq. 1"
 
     theta = incidence_angle
-    refraction = np.cos(theta) - np.sqrt(permittivity - np.sin(theta) ** 2)
-    kappa = 2.0 * math.pi / wavelength_m
-    density_ratio = density / GUNERIUSSEN_WATER_DENSITY_KG_M3
-    snow_depth_change = phase / (-2.0 * kappa * refraction)
+    refraction = np.cos(theta) - np.sqrt(permittivity - np.sin(theta) ** scalar(2))
+    kappa = scalar(2.0 * math.pi / wavelength_m)
+    density_ratio = density / scalar(GUNERIUSSEN_WATER_DENSITY_KG_M3)
+    snow_depth_change = phase / (scalar(-2.0) * kappa * refraction)
     dswe = snow_depth_change * density_ratio
     density_source = (
         f"DataArray:{snow_density_kg_m3.name or 'snow_density'}"
@@ -415,10 +438,11 @@ def compute_oveisgharan_dswe(
             wavelength_m,
         )
     )
-    c2, c1, c0 = OVEISGHARAN_A_THETA_COEFFICIENTS
-    a_theta = c2 * incidence_angle**2 + c1 * incidence_angle + c0
-    kappa = 2.0 * math.pi / wavelength_m
-    dswe = phase / (-2.0 * kappa * a_theta)
+    scalar = SCIENCE_FLOAT_DTYPE.type
+    c2, c1, c0 = map(scalar, OVEISGHARAN_A_THETA_COEFFICIENTS)
+    a_theta = c2 * incidence_angle ** scalar(2) + c1 * incidence_angle + c0
+    kappa = scalar(2.0 * math.pi / wavelength_m)
+    dswe = phase / (scalar(-2.0) * kappa * a_theta)
     return _result(
         phase,
         dswe,

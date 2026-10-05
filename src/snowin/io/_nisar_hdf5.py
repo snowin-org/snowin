@@ -8,6 +8,8 @@ from typing import Any
 
 import numpy as np
 
+from .._precision import SCIENCE_FLOAT_DTYPE
+
 RADAR_GRID_GROUP = "/science/LSAR/GUNW/metadata/radarGrid"
 IDENTIFICATION_GROUP = "/science/LSAR/identification"
 
@@ -83,6 +85,8 @@ def _read_radar_los(gunw_file: Path) -> tuple[np.ndarray, ...]:
             raise ValueError(
                 f"GUNW radar grid is missing LOS datasets: {', '.join(missing)}"
             )
+        # Private geometry inputs retain Float64 for 3-D coordinate/LOS
+        # interpolation. Public incidence rasters use canonical science precision.
         heights = np.asarray(group["heightAboveEllipsoid"][...], dtype=float)
         x_radar = np.asarray(group["xCoordinates"][...], dtype=float)
         y_radar = np.asarray(group["yCoordinates"][...], dtype=float)
@@ -126,7 +130,7 @@ def _read_radar_grid_incidence(
             )
         x = np.asarray(group["xCoordinates"][...], dtype=float)
         y = np.asarray(group["yCoordinates"][...], dtype=float)
-        values = np.asarray(source[radar_cube_index, ...], dtype=float)
+        values = np.asarray(source[radar_cube_index, ...], dtype=SCIENCE_FLOAT_DTYPE)
         if values.shape != (y.size, x.size):
             raise ValueError(
                 "GUNW incidenceAngle plane shape does not match radar-grid coordinates"

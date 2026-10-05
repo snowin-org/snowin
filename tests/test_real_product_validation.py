@@ -24,7 +24,7 @@ def test_real_gunw_phase_lineage_is_explicit():
         "science/LSAR/GUNW/grids/frequencyA/unwrappedInterferogram/HH/unwrappedPhase"
     )
     with h5py.File(path, "r") as source:
-        raw = np.asarray(source[phase_path][...], dtype=float)
+        raw = np.asarray(source[phase_path][...])
         units = source[phase_path].attrs["units"]
         height_attrs = dict(
             source["science/LSAR/GUNW/metadata/radarGrid/heightAboveEllipsoid"].attrs

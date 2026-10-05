@@ -13,6 +13,7 @@ import numpy as np
 import xarray as xr
 
 from .._phase_contract import DSWE_DEFINITION, PHASE_DEFINITION
+from .._precision import as_science_float
 from .._timestamps import iso_utc_timestamp, parse_utc_timestamp
 from ._nisar_hdf5 import decode_hdf5_scalar
 
@@ -112,6 +113,7 @@ def _convert_source_phase(
             "source convention conflicts with phase_difference_definition; "
             "declare the current numeric phase convention, not its original source"
         )
+    phase = as_science_float(phase)
     if source_definition == _SNOWIN_PHASE_DEFINITION:
         snowin_phase = phase
         transform = NISAR_GUNW_PHASE_TRANSFORM
@@ -221,6 +223,8 @@ def _build_phase_normalized_dataset(
                         f"coordinate for dimension {dim!r}"
                     )
         copied = variable.rename(name)
+        if copied.dtype.kind == "f":
+            copied = as_science_float(copied)
         copied.attrs = _serializable_attrs(variable.attrs)
         copied.attrs.setdefault("grid_mapping", "spatial_ref")
         variables[name] = copied
@@ -305,7 +309,7 @@ def normalize_gunw_pair(
         )
     _require_aligned(phase, incidence_angle)
 
-    incidence = incidence_angle.copy(deep=False).rename("incidence_angle")
+    incidence = as_science_float(incidence_angle).rename("incidence_angle")
     incidence_attrs = _serializable_attrs(incidence_angle.attrs)
     incidence_attrs.update({"units": "rad", "grid_mapping": "spatial_ref"})
     incidence.attrs = incidence_attrs

@@ -346,12 +346,13 @@ def test_explicit_schema_02_definition_preserves_signed_accumulation():
     for edge in (first, second):
         edge.attrs["snowin_schema_version"] = "0.2"
     result = accumulate_dswe([first, second])
-    # Independent two-edge prefix sums; float64 addition tolerance.
+    assert result.cumulative_dswe.dtype == np.float32
+    # Independent two-edge prefix sums: Float32 input rounding and addition.
     np.testing.assert_allclose(
         result.cumulative_dswe,
         [[[0.04, -0.01], [0.0, np.nan]], [[0.03, 0.01], [0.0, np.nan]]],
-        rtol=1e-13,
-        atol=1e-15,
+        rtol=2e-7,
+        atol=2e-9,
         equal_nan=True,
     )
     assert (

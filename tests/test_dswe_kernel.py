@@ -104,7 +104,7 @@ def test_known_scalar_calculation_matches_leinss_equation():
     )
 
     assert result.item() == pytest.approx(expected)
-    assert result.item() == pytest.approx(0.01512359431622293)
+    assert result.dtype == np.float32
 
 
 def test_wavelength_dependence_is_linear():
@@ -238,7 +238,7 @@ def test_colorado_phase_lineage_fixture_is_explicit_and_identical():
     fixture_path = Path(__file__).parent / "fixtures" / "colorado_phase_lineage.json"
     fixture = json.loads(fixture_path.read_text())
     raw_phase = xr.DataArray(
-        np.asarray(fixture["raw_phase_rad"], dtype=float),
+        np.asarray(fixture["raw_phase_rad"], dtype=np.float32),
         dims=("y", "x"),
         attrs={
             "units": "rad",
@@ -246,7 +246,7 @@ def test_colorado_phase_lineage_fixture_is_explicit_and_identical():
         },
     )
     incidence = xr.DataArray(
-        np.asarray(fixture["incidence_rad"], dtype=float),
+        np.asarray(fixture["incidence_rad"], dtype=np.float32),
         dims=("y", "x"),
         attrs={"units": "rad", "incidence_angle_reference": "local"},
     )

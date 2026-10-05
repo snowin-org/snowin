@@ -8,6 +8,7 @@ import numpy as np
 import xarray as xr
 
 from .._phase_contract import PHASE_DEFINITION, require_canonical_phase
+from .._precision import SCIENCE_FLOAT_DTYPE, as_science_float
 
 REFERENCE_CONTRIBUTOR_DIM = "reference_contributor"
 MANUAL_OFFSET_METHOD = "manual_offset"
@@ -66,6 +67,9 @@ def _reference_inputs(
         raise ValueError("expected_phase must declare radians in its units metadata")
     require_canonical_phase(observed.attrs, "observed_phase")
     require_canonical_phase(expected.attrs, "expected_phase")
+    observed = as_science_float(observed)
+    expected = as_science_float(expected)
+    weight = as_science_float(weight)
     if contributor_id is None:
         identifiers = xr.DataArray(
             [str(index) for index in range(observed.sizes[REFERENCE_CONTRIBUTOR_DIM])],
@@ -130,8 +134,12 @@ def estimate_reference_offset(
             raise ValueError("manual_offset requires a finite offset_rad")
         result = xr.Dataset(
             {
-                "reference_offset_rad": xr.DataArray(float(offset_rad)),
-                "reference_total_weight": xr.DataArray(np.nan),
+                "reference_offset_rad": xr.DataArray(
+                    SCIENCE_FLOAT_DTYPE.type(offset_rad)
+                ),
+                "reference_total_weight": xr.DataArray(
+                    SCIENCE_FLOAT_DTYPE.type(np.nan)
+                ),
                 "reference_eligible_count": xr.DataArray(0),
             },
             attrs={
@@ -205,9 +213,11 @@ def estimate_reference_offset(
         (weight * residual).where(eligible).rename("reference_weighted_contribution")
     )
     total_weight = weight.where(eligible).sum(
-        dim=REFERENCE_CONTRIBUTOR_DIM, skipna=True
+        dim=REFERENCE_CONTRIBUTOR_DIM, skipna=True, dtype=SCIENCE_FLOAT_DTYPE
     )
-    numerator = contribution.sum(dim=REFERENCE_CONTRIBUTOR_DIM, skipna=True)
+    numerator = contribution.sum(
+        dim=REFERENCE_CONTRIBUTOR_DIM, skipna=True, dtype=SCIENCE_FLOAT_DTYPE
+    )
     eligible_count = eligible.sum(dim=REFERENCE_CONTRIBUTOR_DIM)
     total_weight_value = _scalar_value(total_weight)
     eligible_count_value = int(_scalar_value(eligible_count))
@@ -216,13 +226,28 @@ def estimate_reference_offset(
         status = "UNSUPPORTED_SINGLE_STATION_REQUIRES_ONE_ELIGIBLE_CONTRIBUTOR"
     elif eligible_count_value:
         if method == SINGLE_STATION_METHOD:
-            offset = _scalar_value(residual.where(eligible).sum())
+            offset = _scalar_value(
+                residual.where(eligible).sum(
+                    dim=REFERENCE_CONTRIBUTOR_DIM, dtype=SCIENCE_FLOAT_DTYPE
+                )
+            )
         elif method == MEAN_OFFSET_METHOD:
-            offset = _scalar_value(residual.where(eligible).mean())
+            offset = _scalar_value(
+                residual.where(eligible).mean(
+                    dim=REFERENCE_CONTRIBUTOR_DIM, dtype=SCIENCE_FLOAT_DTYPE
+                )
+            )
         elif method == MEDIAN_OFFSET_METHOD:
-            offset = _scalar_value(residual.where(eligible).median())
+            # Xarray's nanmedian rewrites a full-dimensional reduction to
+            # axis=None, which Dask rejects. Contributors are a validated 1-D
+            # vector; reducing its named axis directly preserves the same median.
+            offset = _scalar_value(
+                residual.where(eligible).reduce(
+                    np.nanmedian, dim=REFERENCE_CONTRIBUTOR_DIM
+                )
+            )
         elif total_weight_value > 0:
-            offset = _scalar_value(numerator) / total_weight_value
+            offset = _scalar_value(numerator / total_weight)
         else:  # pragma: no cover - positive eligibility implies positive weight
             offset = float("nan")
         status = "SUPPORTED"
@@ -261,8 +286,10 @@ def estimate_reference_offset(
             "reference_eligible": eligible,
             "reference_exclusion_reason": reasons,
             "reference_caller_exclusion_reason": caller_reasons,
-            "reference_offset_rad": xr.DataArray(offset),
-            "reference_total_weight": xr.DataArray(total_weight_value),
+            "reference_offset_rad": xr.DataArray(SCIENCE_FLOAT_DTYPE.type(offset)),
+            "reference_total_weight": xr.DataArray(
+                SCIENCE_FLOAT_DTYPE.type(total_weight_value)
+            ),
             "reference_eligible_count": xr.DataArray(eligible_count_value),
         },
         coords={REFERENCE_CONTRIBUTOR_DIM: coordinate},
@@ -325,14 +352,17 @@ def apply_reference_offset(
         "radians",
     }:
         raise ValueError("reference offset must declare radians")
-    offset = _scalar_value(estimate["reference_offset_rad"])
+    phase = as_science_float(phase)
+    offset = _scalar_value(as_science_float(estimate["reference_offset_rad"]))
     eligible_count = int(_scalar_value(estimate["reference_eligible_count"]))
     supported = np.isfinite(offset) and (
         eligible_count > 0
         or estimate.attrs.get("reference_status") == "SUPPORTED_MANUAL"
     )
     if supported:
-        referenced = (phase - offset).rename("phase_referenced")
+        referenced = (phase - SCIENCE_FLOAT_DTYPE.type(offset)).rename(
+            "phase_referenced"
+        )
     else:
         referenced = xr.full_like(phase, np.nan).rename("phase_referenced")
     referenced.attrs = dict(phase.attrs)
@@ -345,6 +375,10 @@ def apply_reference_offset(
         }
     )
     result = pair.copy(deep=False)
+    for name, variable in result.data_vars.items():
+        if name != "spatial_ref" and variable.dtype.kind == "f":
+            result[name] = as_science_float(variable)
+    result["phase"] = phase
     result["phase_referenced"] = referenced
     result["reference_estimate_supported"] = xr.DataArray(
         bool(supported),
@@ -377,7 +411,9 @@ def apply_reference_offset(
     )
     for name, variable in estimate.data_vars.items():
         if name.startswith("reference_"):
-            result[name] = variable
+            result[name] = (
+                as_science_float(variable) if variable.dtype.kind == "f" else variable
+            )
     return result
 
 

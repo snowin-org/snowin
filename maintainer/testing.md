@@ -115,9 +115,11 @@ zero-phase result or a boolean support mask). Never widen a tolerance merely
 to make CI pass. A widened tolerance requires a test comment explaining the
 roundoff, interpolation, or reference-data precision that necessitates it.
 
-There is no universal tolerance for all SnowIn products. Float32 interpolation,
-float64 closed-form kernels, raster reprojection, and external reference
-statistics have different error sources and must be justified separately.
+There is no universal tolerance for all SnowIn products. Float32 closed-form
+kernels, reference reductions, temporal sums, raster reprojection, and external
+reference statistics have different error sources and must be justified
+separately. Test Float32 science outputs even for Float64 caller inputs, while
+protecting native coordinate precision and eager/lazy equivalence.
 
 ## Oracle, characterization, and regression cases
 
