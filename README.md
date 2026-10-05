@@ -7,8 +7,6 @@
 
 **Snow-focused, xarray-native tools for InSAR snow analysis.**
 
-> :warning: **NOTICE**: SnowIn is in early development. Its features and scope are subject to change. Please check the [`CHANGELOG.md`](CHANGELOG.md) for a summary of updates.
-
 SnowIn is a Python package for estimating pairwise changes in snow water equivalent
 (**ΔSWE**) from repeat-pass interferometric SAR phase. It is built around
 [xarray](https://xarray.dev/) `DataArray` and `Dataset` objects so that snow-specific
@@ -24,6 +22,8 @@ The package currently includes retrievals based on
 optional adapter for NASA-ISRO SAR
 [Geocoded Unwrapped Interferogram (GUNW)](https://nisar-docs.asf.alaska.edu/gunw/)
 products.
+
+> :warning: **NOTICE**: SnowIn is in early development. Its features and scope are subject to change. Please check the [`CHANGELOG.md`](CHANGELOG.md) for a summary of updates.
 
 ## What SnowIn does
 
