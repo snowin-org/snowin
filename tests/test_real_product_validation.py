@@ -36,30 +36,17 @@ def test_real_gunw_phase_lineage_is_explicit():
     }
     assert "WGS84" in str(height_attrs["description"])
 
-    # The real-product geometry input is deliberately omitted here. This keeps
-    # the phase-lineage check independent of DEM availability and expensive
-    # incidence computation.
-    import xarray as xr
-
-    from snowin.io import normalize_gunw_pair
-
-    phase = xr.DataArray(raw, dims=("y", "x"), attrs={"units": "radians"})
-    incidence = xr.DataArray(
-        np.full(raw.shape, np.deg2rad(35.0)),
-        dims=("y", "x"),
-        attrs={"units": "rad", "incidence_angle_reference": "local"},
-    )
-    result = normalize_gunw_pair(
-        phase,
-        incidence,
-        wavelength_m=0.238403545,
-        reference_time="2025-01-01T00:00:00Z",
-        secondary_time="2025-01-13T00:00:00Z",
-        source_phase_difference_definition="reference_minus_secondary",
-        spatial_ref=xr.DataArray(0, attrs={"epsg_code": 32613}),
-    )
-    np.testing.assert_allclose(result["phase"].values, -raw, equal_nan=True)
-    assert result.attrs["phase_transform"] == "multiply_by_-1"
+    # Check the public reader directly, without geometry or corrections.
+    with open_gunw(path, chunks=None, progress=False) as result:
+        phase = result.phase.values
+        support = np.isfinite(raw) & np.isfinite(phase)
+        assert support.any(), "real product has no shared valid phase support"
+        np.testing.assert_allclose(phase[support], raw[support], rtol=0, atol=0)
+        assert result.attrs["phase_transform"] == "identity"
+        assert (
+            result.attrs["phase_difference_definition"] == "reference_minus_secondary"
+        )
+        assert result.attrs["correction_layers_applied"] is False
 
 
 @pytest.mark.integration

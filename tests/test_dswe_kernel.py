@@ -31,7 +31,7 @@ def _inputs(
         "units": phase_units,
         "phase_kind": "unwrapped_interferometric_phase",
         "grid_mapping": "spatial_ref",
-        "phase_difference_definition": "secondary_minus_reference",
+        "phase_difference_definition": "reference_minus_secondary",
     }
     incidence_attrs = {
         "units": incidence_units,
@@ -163,7 +163,7 @@ def test_dimensions_coordinates_and_relevant_attrs_are_preserved():
     assert result.attrs["source_granule_id"] == "synthetic-granule"
     assert result.attrs["units"] == "m"
     assert result.attrs["quantity"] == "pairwise_dSWE"
-    assert result.attrs["phase_difference_definition"] == ("secondary_minus_reference")
+    assert result.attrs["phase_difference_definition"] == ("reference_minus_secondary")
     assert result.attrs["incidence_angle_reference"] == "local"
     assert result.attrs["wavelength_m"] == pytest.approx(WAVELENGTH_M)
     assert result.attrs["scientific_reference"] == "Leinss et al. (2015), Eq. 18"
@@ -233,7 +233,7 @@ def test_representative_l_band_wavelength_matches_equation():
     assert result.item() == pytest.approx(expected)
 
 
-def test_colorado_phase_lineage_fixture_is_explicit_and_opposite():
+def test_colorado_phase_lineage_fixture_is_explicit_and_identical():
     fixture_path = Path(__file__).parent / "fixtures" / "colorado_phase_lineage.json"
     fixture = json.loads(fixture_path.read_text())
     raw_phase = xr.DataArray(
@@ -250,13 +250,13 @@ def test_colorado_phase_lineage_fixture_is_explicit_and_opposite():
         attrs={"units": "rad", "incidence_angle_reference": "local"},
     )
 
-    snowin_phase = (-raw_phase).rename("phase")
+    snowin_phase = raw_phase.copy(deep=False).rename("phase")
     snowin_phase.attrs = {
         "units": "rad",
         "phase_difference_definition": fixture["snowin_definition"],
-        "phase_transform": "multiply_by_-1",
+        "phase_transform": "identity",
     }
-    downstream_phase = raw_phase.rename("phase")
+    downstream_phase = raw_phase.copy(deep=False).rename("phase")
     downstream_phase.attrs = {
         "units": "rad",
         "phase_difference_definition": fixture["snowin_definition"],
@@ -273,9 +273,9 @@ def test_colorado_phase_lineage_fixture_is_explicit_and_opposite():
         incidence,
         wavelength_m=fixture["wavelength_m"],
     )
-    assert snowin_phase.attrs["phase_transform"] == "multiply_by_-1"
+    assert snowin_phase.attrs["phase_transform"] == "identity"
     assert downstream_phase.attrs["phase_sign"] == 1
-    np.testing.assert_allclose(snowin_dswe.values, -downstream_dswe.values)
+    np.testing.assert_allclose(snowin_dswe.values, downstream_dswe.values)
 
 
 def test_dask_backed_inputs_remain_lazy_and_match_eager_result():

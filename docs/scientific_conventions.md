@@ -16,7 +16,7 @@ interferometric phase
 ```
 
 ```text
-phase = phi_secondary - phi_reference
+phase = phi_reference - phi_secondary
 dSWE = SWE_secondary - SWE_reference
 temporal edge = reference -> secondary
 ```
@@ -27,7 +27,10 @@ Accumulation checks that edges are chronological and contiguous. It does not
 sort edges, fill missing values, or interpolate between acquisitions.
 
 When the source uses the known opposite definition,
-`phi_reference - phi_secondary`, the adapter multiplies phase by -1.
+`phi_secondary - phi_reference`, the adapter multiplies phase by -1 exactly once.
+Delivered NISAR GUNW phase already uses the canonical definition and is retained
+without inversion. Positive snow-related phase gives accumulation and negative
+snow-related phase gives loss; measured phase need not be snow alone.
 SnowIn raises an error if the source phase definition is missing or
 unsupported; it does not infer the sign from phase values.
 
@@ -91,7 +94,8 @@ functions require matching dimensions and coordinates.
 ## Reference phase and correction layers
 
 Reference estimation requires an explicit manual offset or caller-supplied
-contributors. For contributor residuals `r_i = observed_i - expected_i`, the
+contributors. Observed phase, expected phase, and offset all use the canonical
+convention. For contributor residuals `r_i = observed_i - expected_i`, the
 weighted offset is `sum(w_i*r_i)/sum(w_i)`, and the referenced phase is
 `phase - offset`. Contributor IDs, weights, exclusions, eligibility, and
 status remain in the returned xarray object. SnowIn does not choose stations,
@@ -101,3 +105,6 @@ The GUNW adapter may expose ionospheric and tropospheric phase layers with
 source metadata, but does not apply them. SnowIn 0.1 has no correction
 function. Callers who apply correction screens must handle their units, signs,
 and source-grid alignment explicitly.
+
+See the [phase sign audit](scientific_sources.md#phase-sign-audit) for source
+evidence and the [migration guide](phase_migration.md) for schema 0.1 inputs.

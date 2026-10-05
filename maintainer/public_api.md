@@ -77,3 +77,17 @@ generic evaluation metrics, and study-specific validation remain caller-owned.
 The GUNW adapter may expose correction layers but does not apply them. Callers
 choose reference observations and support variables and explicitly reproject or
 resample grids when needed.
+
+## Phase contract compatibility (schema 0.2)
+
+Public function names remain unchanged. Phase now requires
+`phase_difference_definition="reference_minus_secondary"`; dSWE remains
+`SWE_secondary - SWE_reference`, explicitly recorded as
+`dswe_difference_definition="secondary_minus_reference"`. NISAR ingestion uses
+identity, while explicitly declared opposite numeric phase converts once at
+`normalize_gunw_pair`. Observed/expected reference contributors and offsets
+require the canonical convention. This is a breaking scientific contract change
+within the unreleased 0.1.0 package; package version alone cannot identify the
+old behavior. Pin the reviewed commit and inspect schema/provenance. See
+[the migration guide](../docs/phase_migration.md). Saved dSWE must not be
+implicitly inverted.

@@ -143,7 +143,7 @@ def open_gunw(
     chunks: dict[str, int] | str | None = "auto",
     progress: bool = True,
 ) -> xr.Dataset:
-    """Open a NISAR GUNW and convert its phase without calculating incidence.
+    """Open a NISAR GUNW and preserve its delivered phase without calculating incidence.
 
     This fast product-inspection step opens the phase, coherence, connected
     components, ionospheric screens, tropospheric screens, coordinates,
@@ -339,7 +339,7 @@ def open_gunw(
         )
         source_metadata = {
             "source_dataset_paths": json.dumps(source_paths, sort_keys=True),
-            "source_reader": "nisar_pytools.open_nisar; SnowIn phase conversion",
+            "source_reader": "nisar_pytools.open_nisar; SnowIn identity phase normalization",
             "source_acquisition_time_zone": (
                 "UTC per NISAR L2 Product Format Document v1.2.1"
             ),

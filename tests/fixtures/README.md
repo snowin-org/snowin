@@ -55,3 +55,7 @@ statistics and input granule name are frozen in `real_product_geometry.json`;
 the public DEM tile URL and independent Colorado implementation commit used to
 establish those values are recorded in this guide. These values are a
 characterization/regression reference, not an independent SWE validation.
+
+Schema 0.2 uses identity for the signed synthetic lineage fixture. The optional
+phase check compares `open_gunw().phase` directly with delivered `unwrappedPhase`
+on shared finite product support; correction screens are not applied.

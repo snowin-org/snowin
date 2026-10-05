@@ -206,7 +206,7 @@ def test_accumulation_rejects_invalid_units_and_phase_definition():
         accumulate_dswe([edge])
 
     edge.dswe.attrs["units"] = "m"
-    edge.dswe.attrs["phase_difference_definition"] = "reference_minus_secondary"
+    edge.dswe.attrs["phase_difference_definition"] = "secondary_minus_reference"
     with pytest.raises(ValueError, match="SnowIn convention"):
         accumulate_dswe([edge])
 

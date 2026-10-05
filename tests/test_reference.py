@@ -23,13 +23,13 @@ def _pair() -> xr.Dataset:
         name="phase",
         attrs={
             "units": "rad",
-            "phase_difference_definition": "secondary_minus_reference",
+            "phase_difference_definition": "reference_minus_secondary",
         },
     )
     return xr.Dataset(
         {"phase": phase},
         coords={"spatial_ref": xr.DataArray(0)},
-        attrs={"phase_difference_definition": "secondary_minus_reference"},
+        attrs={"phase_difference_definition": "reference_minus_secondary"},
     )
 
 
@@ -37,7 +37,7 @@ def _contributors(
     observed: list[float], expected: list[float], weights: list[float]
 ) -> tuple[xr.DataArray, xr.DataArray, xr.DataArray, xr.DataArray]:
     coords = {"station": ["a", "b", "c"][: len(observed)]}
-    attrs = {"units": "rad"}
+    attrs = {"units": "rad", "phase_difference_definition": "reference_minus_secondary"}
     return (
         xr.DataArray(observed, dims=("station",), coords=coords, attrs=attrs),
         xr.DataArray(expected, dims=("station",), coords=coords, attrs=attrs),
@@ -214,7 +214,7 @@ def test_missing_contributors_are_excluded_and_recorded():
 
 def test_reference_exclusions_never_mark_invalid_contributors_eligible():
     coords = {"station": ["a", "b", "c", "d"]}
-    attrs = {"units": "rad"}
+    attrs = {"units": "rad", "phase_difference_definition": "reference_minus_secondary"}
     observed = xr.DataArray(
         [np.nan, 2.0, 3.0, 4.0], dims=("station",), coords=coords, attrs=attrs
     )

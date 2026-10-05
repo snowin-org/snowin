@@ -21,7 +21,7 @@ Do not place credentials or local data paths in tests or commits.
 
 ## Scientific and implementation rules
 
-- Preserve phase `secondary_minus_reference`, dSWE
+- Preserve phase `reference_minus_secondary`, dSWE
   `SWE_secondary - SWE_reference`, and temporal edge `reference_to_secondary`.
 - Never guess phase sign, angle units, metadata, or source conventions.
 - Preserve xarray labels, coordinates, metadata, missing support, and Dask
