@@ -236,3 +236,18 @@ record `dswe_difference_definition="secondary_minus_reference"`; cumulative
 results use the same definition relative to the path start. Legacy schema 0.1
 pairs are rejected by referencing and accumulation, and legacy phase is rejected
 by retrievals. See [explicit migration](phase_migration.md).
+
+## Pairwise dSWE entering accumulation
+
+Every pairwise dSWE variable passed to `accumulate_dswe()` must explicitly carry
+`dswe_difference_definition="secondary_minus_reference"` and metre units.
+This includes schema 0.2 pairs and caller-created edges without a schema label.
+Dataset-level dSWE metadata does not substitute for the variable attribute.
+Missing, empty, or unsupported definitions raise an actionable error; no sign
+is inferred from a schema version, phase definition, or numeric values.
+
+All three retrieval methods set the required definition. Preserve their
+attributes through support masking and other processing. For externally
+produced or saved dSWE, verify processing provenance before declaring this
+attribute; adding metadata does not validate or convert the numeric sign.
+See [migration](phase_migration.md) for saved products.

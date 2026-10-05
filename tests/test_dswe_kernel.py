@@ -163,6 +163,7 @@ def test_dimensions_coordinates_and_relevant_attrs_are_preserved():
     assert result.attrs["source_granule_id"] == "synthetic-granule"
     assert result.attrs["units"] == "m"
     assert result.attrs["quantity"] == "pairwise_dSWE"
+    assert result.attrs["dswe_difference_definition"] == "secondary_minus_reference"
     assert result.attrs["phase_difference_definition"] == ("reference_minus_secondary")
     assert result.attrs["incidence_angle_reference"] == "local"
     assert result.attrs["wavelength_m"] == pytest.approx(WAVELENGTH_M)

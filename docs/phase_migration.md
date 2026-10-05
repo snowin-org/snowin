@@ -80,3 +80,23 @@ reader revision, phase transform, retrieval, referencing, and subsequent signs
 before deciding whether to recompute. Keep the original artifact and migration
 history. No automatic migration of saved dSWE is provided. Chronological edges
 and cumulative changes retain secondary-minus-reference SWE semantics.
+
+## Explicit dSWE definition for temporal inputs
+
+`accumulate_dswe()` requires
+`edge.dswe.attrs["dswe_difference_definition"] == "secondary_minus_reference"`.
+This is mandatory for schema 0.2 and schema-unlabeled edges; declaring it only on
+the Dataset does not suffice. Retrieval functions supply it automatically.
+Preserve output attributes when preparing pairwise edges.
+
+For caller-produced dSWE, assign the definition only after verifying that its
+numeric values represent `SWE_secondary - SWE_reference` from processing
+provenance:
+
+```python
+# After checking the source computation and any sign compensation:
+edge.dswe.attrs["dswe_difference_definition"] = "secondary_minus_reference"
+```
+
+This assignment changes metadata only. It must never be used to bypass the
+legacy provenance audit or to silently relabel opposite/unknown signed values.

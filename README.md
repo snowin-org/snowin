@@ -98,7 +98,10 @@ dswe = compute_leinss_dswe(
 print(f"Pairwise ΔSWE: {dswe.item():.3f} m")
 ```
 
-The same xarray-based pattern applies to the other retrieval methods.
+The same xarray-based pattern applies to the other retrieval methods. All
+retrievals record `dswe_difference_definition="secondary_minus_reference"`.
+Preserve that variable attribute when preparing edges for `accumulate_dswe()`;
+missing or unsupported dSWE definitions raise an error.
 
 ## Retrieval methods
 

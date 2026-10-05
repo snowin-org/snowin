@@ -48,6 +48,8 @@ def main() -> None:
     np.testing.assert_allclose(result.values, expected, rtol=2e-13, atol=2e-15)
     if result.attrs.get("units") != "m" or result.dims != ("y", "x"):
         raise AssertionError("installed wheel returned an invalid dSWE result")
+    if result.attrs.get("dswe_difference_definition") != "secondary_minus_reference":
+        raise AssertionError("installed wheel did not declare the dSWE definition")
     print(f"wheel smoke passed: {installed_path}")
 
 

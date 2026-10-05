@@ -80,6 +80,7 @@ def test_named_methods_preserve_xarray_metadata_and_coordinates(function, extra_
     assert result.coords.equals(phase.coords)
     assert result.attrs["units"] == "m"
     assert result.attrs["quantity"] == "pairwise_dSWE"
+    assert result.attrs["dswe_difference_definition"] == "secondary_minus_reference"
     assert result.attrs["source_product"] == "synthetic-test"
     assert result.attrs["phase_difference_definition"] == "reference_minus_secondary"
     assert result.attrs["incidence_angle_reference"] == "local"
@@ -132,6 +133,7 @@ def test_guneriussen_matches_density_and_permittivity_equation(
     assert result.attrs["water_density_kg_m3"] == 1000.0
     assert result.attrs["units"] == "m"
     assert result.attrs["quantity"] == "pairwise_dSWE"
+    assert result.attrs["dswe_difference_definition"] == "secondary_minus_reference"
     assert "snow_depth_change" in result.attrs["equation"]
     assert "Guneriussen et al. (2001)" in result.attrs["scientific_reference"]
 

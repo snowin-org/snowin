@@ -24,7 +24,11 @@ def _edge(
         dims=("y", "x"),
         coords=coords or COORDS,
         name="dswe",
-        attrs={"units": "m", "quantity": "pairwise_dSWE"},
+        attrs={
+            "units": "m",
+            "quantity": "pairwise_dSWE",
+            "dswe_difference_definition": "secondary_minus_reference",
+        },
     )
     variables = {"dswe": dswe}
     if support is not None:
@@ -286,3 +290,72 @@ def test_accumulation_rejects_missing_different_or_malformed_d_swe_layers():
     edge["dswe"] = xr.DataArray(1.0, attrs={"units": "m"})
     with pytest.raises(ValueError, match="at least one spatial dimension"):
         accumulate_dswe([edge])
+
+
+@pytest.mark.parametrize("schema_location", [None, "dataset", "variable"])
+@pytest.mark.parametrize("lazy", [False, True])
+def test_accumulation_requires_definition_on_dswe_variable(schema_location, lazy):
+    edge = _edge(
+        [[0.04, -0.01], [0.0, np.nan]],
+        "2025-01-01T00:00:00Z",
+        "2025-01-13T00:00:00Z",
+    )
+    if schema_location == "dataset":
+        edge.attrs["snowin_schema_version"] = "0.2"
+    elif schema_location == "variable":
+        edge.dswe.attrs["snowin_schema_version"] = "0.2"
+    # Dataset metadata must not silently stand in for the variable's definition.
+    edge.attrs["dswe_difference_definition"] = "secondary_minus_reference"
+    edge.dswe.attrs.pop("dswe_difference_definition")
+    edge = edge.rename({"dswe": "snow_change"})
+    if lazy:
+        pytest.importorskip("dask.array")
+        edge = edge.chunk({"y": 1, "x": 1})
+    with pytest.raises(
+        ValueError, match="snow_change dswe_difference_definition is missing"
+    ):
+        accumulate_dswe([edge], dswe_variable="snow_change")
+
+
+@pytest.mark.parametrize(
+    "definition", [None, "", "unknown", "reference_minus_secondary"]
+)
+def test_accumulation_rejects_invalid_dswe_definition(definition):
+    edge = _edge(
+        [[0.04, -0.01], [0.0, np.nan]],
+        "2025-01-01T00:00:00Z",
+        "2025-01-13T00:00:00Z",
+    )
+    edge.attrs["snowin_schema_version"] = "0.2"
+    edge.dswe.attrs["dswe_difference_definition"] = definition
+    with pytest.raises(ValueError, match="dswe_difference_definition"):
+        accumulate_dswe([edge])
+
+
+def test_explicit_schema_02_definition_preserves_signed_accumulation():
+    first = _edge(
+        [[0.04, -0.01], [0.0, np.nan]],
+        "2025-01-01T00:00:00Z",
+        "2025-01-13T00:00:00Z",
+    )
+    second = _edge(
+        [[-0.01, 0.02], [0.0, 1.0]],
+        "2025-01-13T00:00:00Z",
+        "2025-01-25T00:00:00Z",
+    )
+    for edge in (first, second):
+        edge.attrs["snowin_schema_version"] = "0.2"
+    result = accumulate_dswe([first, second])
+    # Independent two-edge prefix sums; float64 addition tolerance.
+    np.testing.assert_allclose(
+        result.cumulative_dswe,
+        [[[0.04, -0.01], [0.0, np.nan]], [[0.03, 0.01], [0.0, np.nan]]],
+        rtol=1e-13,
+        atol=1e-15,
+        equal_nan=True,
+    )
+    assert (
+        result.cumulative_dswe.attrs["dswe_difference_definition"]
+        == "secondary_minus_reference"
+    )
+    assert result.attrs["dswe_difference_definition"] == "secondary_minus_reference"

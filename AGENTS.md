@@ -23,6 +23,8 @@ Do not place credentials or local data paths in tests or commits.
 
 - Preserve phase `reference_minus_secondary`, dSWE
   `SWE_secondary - SWE_reference`, and temporal edge `reference_to_secondary`.
+- Pairwise dSWE variables entering accumulation must explicitly declare
+  `dswe_difference_definition="secondary_minus_reference"`.
 - Never guess phase sign, angle units, metadata, or source conventions.
 - Preserve xarray labels, coordinates, metadata, missing support, and Dask
   laziness where promised. Do not silently align or resample science grids.

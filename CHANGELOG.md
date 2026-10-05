@@ -21,3 +21,12 @@ negation used with the old reader. Never automatically invert saved dSWE;
 first audit its processing provenance. Public function names and the unreleased
 package version 0.1.0 remain unchanged; downstream environments must pin a
 reviewed revision.
+
+### Explicit dSWE metadata for accumulation
+
+`accumulate_dswe()` now requires
+`dswe_difference_definition="secondary_minus_reference"` on each pairwise dSWE
+variable, including schema 0.2 and schema-unlabeled inputs. Missing or invalid
+definitions fail; Dataset metadata no longer substitutes for a variable
+contract. Retrievals already provide the attribute. Repository fixtures,
+examples, documentation, and regression tests now declare and protect it.

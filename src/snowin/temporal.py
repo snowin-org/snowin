@@ -75,8 +75,18 @@ def _edge_data(edge: xr.Dataset, dswe_variable: str) -> xr.DataArray:
             "legacy SnowIn schema 0.1 requires a provenance-aware migration; "
             "see docs/phase_migration.md; do not automatically negate saved dSWE"
         )
-    if dswe.attrs.get("dswe_difference_definition", DSWE_DEFINITION) != DSWE_DEFINITION:
-        raise ValueError("dSWE must use secondary_minus_reference")
+    dswe_definition = dswe.attrs.get("dswe_difference_definition")
+    if dswe_definition is None:
+        raise ValueError(
+            f"{dswe_variable} dswe_difference_definition is missing; explicitly "
+            "declare 'secondary_minus_reference' on the dSWE variable after "
+            "verifying processing provenance. See docs/phase_migration.md."
+        )
+    if dswe_definition != DSWE_DEFINITION:
+        raise ValueError(
+            f"{dswe_variable} dswe_difference_definition is {dswe_definition!r}; "
+            "expected 'secondary_minus_reference'"
+        )
     phase_definition = dswe.attrs.get("phase_difference_definition")
     if phase_definition not in {None, "reference_minus_secondary"}:
         raise ValueError(
@@ -110,6 +120,9 @@ def accumulate_dswe(
     ``reference_to_secondary`` direction, and be contiguous in time: the next
     edge's reference acquisition must equal the prior edge's secondary
     acquisition. Cumulative values are emitted at each edge's secondary time.
+    Each dSWE variable must explicitly declare
+    ``dswe_difference_definition='secondary_minus_reference'``; this convention
+    is never inferred from schema, Dataset attributes, or numeric values.
 
     Missing or unsupported edge samples remain missing. A cumulative sample is
     supported only when every edge in the path so far is supported at that

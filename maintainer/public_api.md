@@ -68,7 +68,12 @@ authoritative metadata when available. There is no generic model selector,
 sensor wavelength registry, or Leinss alias. Reference estimation requires
 explicit contributors or a manual offset. Support layers remain separately
 named and are combined only when the caller names them. Temporal accumulation
-accepts an explicitly ordered, contiguous chronological path.
+accepts an explicitly ordered, contiguous chronological path. Each input dSWE
+variable must explicitly declare
+`dswe_difference_definition="secondary_minus_reference"`, including schema 0.2
+pairs and edges without a schema label. Dataset-level metadata is insufficient;
+missing or unsupported definitions fail before accumulation. All retrieval
+methods provide this attribute.
 
 ## Caller responsibilities
 

@@ -104,6 +104,7 @@ def _synthetic_pair_dataset(
             "reference_time": "2025-01-01T00:00:00Z",
             "secondary_time": "2025-01-13T00:00:00Z",
             "temporal_edge": "reference_to_secondary",
+            "dswe_difference_definition": "secondary_minus_reference",
             "phase_difference_definition": phase_definition,
             "source_phase_difference_definition": "reference_minus_secondary",
             "phase_transform": "identity",

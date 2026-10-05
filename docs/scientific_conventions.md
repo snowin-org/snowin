@@ -24,7 +24,10 @@ temporal edge = reference -> secondary
 Phase is in radians and dSWE is in metres. The reference and secondary names
 identify the phase roles; a valid pair also has a later secondary acquisition.
 Accumulation checks that edges are chronological and contiguous. It does not
-sort edges, fill missing values, or interpolate between acquisitions.
+sort edges, fill missing values, or interpolate between acquisitions. Each
+pairwise dSWE variable must declare
+`dswe_difference_definition="secondary_minus_reference"` before accumulation.
+Dataset-level metadata or a schema label cannot replace this declaration.
 
 When the source uses the known opposite definition,
 `phi_secondary - phi_reference`, the adapter multiplies phase by -1 exactly once.

@@ -100,7 +100,13 @@ def _pair_edge(
         name="pairwise_supported",
     )
     referenced["dswe"] = pairwise_dswe.where(pairwise_supported)
-    referenced["dswe"].attrs.update({"units": "m", "quantity": "pairwise_dSWE"})
+    referenced["dswe"].attrs.update(
+        {
+            "units": "m",
+            "quantity": "pairwise_dSWE",
+            "dswe_difference_definition": "secondary_minus_reference",
+        }
+    )
     referenced["pairwise_supported"] = pairwise_supported
     return referenced
 

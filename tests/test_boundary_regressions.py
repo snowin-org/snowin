@@ -118,7 +118,11 @@ def test_temporal_missing_support_is_propagated_not_zero_filled():
     dswe = xr.DataArray(
         [[1.0, np.nan]],
         dims=("y", "x"),
-        attrs={"units": "m", "quantity": "pairwise_dSWE"},
+        attrs={
+            "units": "m",
+            "quantity": "pairwise_dSWE",
+            "dswe_difference_definition": "secondary_minus_reference",
+        },
     )
     edge = xr.Dataset(
         {"dswe": dswe},

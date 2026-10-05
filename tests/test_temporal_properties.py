@@ -21,7 +21,11 @@ def _edge(value: float, index: int, *, supported: bool = True) -> xr.Dataset:
         dims=("y", "x"),
         coords={"y": [4200.0], "x": [500000.0]},
         name="dswe",
-        attrs={"units": "m", "quantity": "pairwise_dSWE"},
+        attrs={
+            "units": "m",
+            "quantity": "pairwise_dSWE",
+            "dswe_difference_definition": "secondary_minus_reference",
+        },
     )
     return xr.Dataset(
         {

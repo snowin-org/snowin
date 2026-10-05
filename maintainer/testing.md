@@ -211,3 +211,10 @@ An end-to-end synthetic case must retain chronological edges and signed
 accumulation through referencing and missing support, in eager and lazy forms.
 Optional real-product phase checks compare returned phase directly to delivered
 `unwrappedPhase` on shared valid support; they do not establish snow attribution.
+
+Temporal input regressions must require an explicit
+`dswe_difference_definition="secondary_minus_reference"` on every dSWE
+variable, including schema 0.2 and schema-unlabeled inputs. Dataset metadata
+must not substitute for it. Cover missing/unsupported definitions, custom
+variable names, and eager/lazy rejection, while retaining signed analytical
+prefix sums and retrieval-produced metadata.
