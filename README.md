@@ -7,21 +7,9 @@
 
 **Snow-focused, xarray-native tools for InSAR snow analysis.**
 
-SnowIn is a Python package for estimating pairwise changes in snow water equivalent
-(**ΔSWE**) from repeat-pass interferometric SAR phase. It is built around
-[xarray](https://xarray.dev/) `DataArray` and `Dataset` objects so that snow-specific
-operations remain interoperable with the broader scientific Python ecosystem.
+**SnowIn** is a Python package for estimating pairwise changes in snow water equivalent (**ΔSWE**) from repeat-pass InSAR phase. It is built around [xarray](https://xarray.dev/) `DataArray` and `Dataset` objects so that snow-specific operations remain interoperable with the broader scientific Python ecosystem.
 
-SnowIn implements published dry-snow phase-to-ΔSWE retrievals and the supporting
-operations needed to use them reproducibly: phase normalization and referencing,
-named support-mask composition, incidence geometry, and strict temporal accumulation.
-The package currently includes retrievals based on
-[Leinss et al. (2015)](https://doi.org/10.1109/JSTARS.2015.2432031),
-[Guneriussen et al. (2001)](https://doi.org/10.1109/36.957273), and
-[Oveisgharan et al. (2024)](https://doi.org/10.5194/tc-18-559-2024), together with an
-optional adapter for NASA-ISRO SAR
-[Geocoded Unwrapped Interferogram (GUNW)](https://nisar-docs.asf.alaska.edu/gunw/)
-products.
+SnowIn implements published dry-snow phase-to-ΔSWE retrievals and the supporting operations needed to apply them reproducibly, including phase referencing, terrain-local incidence angle generation, access to correction and quality layers, and temporal accumulation of pairwise ΔSWE. The package currently includes retrievals based on [Leinss et al. (2015)](https://doi.org/10.1109/JSTARS.2015.2432031), [Guneriussen et al. (2001)](https://doi.org/10.1109/36.957273), and [Oveisgharan et al. (2024)](https://doi.org/10.5194/tc-18-559-2024). SnowIn currently works natively with NISAR [Geocoded Unwrapped Interferogram (GUNW)](https://nisar-docs.asf.alaska.edu/gunw/) products, with planned support for additional NISAR products and other satellite InSAR datasets.
 
 > :warning: **NOTICE**: SnowIn is in early development. Its features and scope are subject to change. Please check the [`CHANGELOG.md`](CHANGELOG.md) for a summary of updates.
 
@@ -32,12 +20,12 @@ SnowIn provides an explicit scientific layer for snow InSAR workflows:
 - **Phase-to-ΔSWE retrievals** using published methods with clear documentation and testing.
 - **xarray-native inputs and outputs** that preserve labeled dimensions, coordinates, metadata, and Dask-backed arrays where supported.
 - **NISAR GUNW ingestion** that reads and standardizes snow-relevant InSAR layers, including unwrapped phase, coherence, connected components, ionospheric and tropospheric correction layers, correction uncertainty, coordinates, radar wavelength, and source metadata.
-- **80 m local incidence generation** for NISAR GUNW products using a user-supplied DEM.
-- **Chronological ΔSWE accumulation** along an explicit sequence of reference-to-secondary interferometric pairs.
+- **Local incidence angle generation** for NISAR GUNW products using a user-supplied DEM, with the result aligned to the GUNW phase grid.
+- **Chronological ΔSWE accumulation** along an explicit sequence of InSAR pairs.
 
-SnowIn provides the software layer for conducting InSAR snow science in a reproducible, transparent, and robust way. It brings the scientific conventions, published ΔSWE retrieval methods, NISAR product interpretation, phase referencing, incidence geometry, quality information, correction layers, and temporal accumulation needed for snow applications into a consistent xarray-based framework. This reduces the amount of study-specific processing code required for each analysis and makes the assumptions, units, phase conventions, metadata, and processing history easier to inspect and reproduce.
+SnowIn provides the software layer for conducting InSAR snow science in a reproducible and transparent fashion. It brings the scientific conventions, published ΔSWE retrieval methods, NISAR product interpretation, phase referencing, incidence geometry, quality information, correction layers, and temporal accumulation needed for snow applications into a consistent xarray-based framework. This reduces the amount of study-specific processing code required for each analysis and makes assumptions, units, phase conventions, metadata, and processing history easier to inspect and reproduce.
 
-SnowIn is designed to work within the broader Earth-science software ecosystem rather than replace it. Users can obtain NISAR products with tools such as `nisar-pytools`, `asf_search`, or NASA Earthdata Search, then use SnowIn to translate those products into analysis-ready inputs for InSAR snow retrieval. Correction layers remain explicit so that users can evaluate and apply the appropriate corrections for their specific application.
+SnowIn is designed to work within the broader Earth-science software ecosystem rather than replace it. Users can obtain NISAR products with tools such as `nisar-pytools`, `asf_search`, or NASA Earthdata Search, then use SnowIn to translate those products into analysis-ready inputs for InSAR snow retrieval. SnowIn exposes correction layers and their associated metadata without automatically applying them, allowing users to evaluate and select corrections appropriate for their scientific application while retaining a clear record of their source and treatment.
 
 ## Installation
 
