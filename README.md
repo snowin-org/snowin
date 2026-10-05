@@ -19,13 +19,13 @@ SnowIn provides an explicit scientific layer for snow InSAR workflows:
 
 - **Phase-to-ΔSWE retrievals** using published methods with clear documentation and testing.
 - **xarray-native inputs and outputs** that preserve labeled dimensions, coordinates, metadata, and Dask-backed arrays where supported.
-- **NISAR GUNW ingestion** that reads and standardizes snow-relevant InSAR layers, including unwrapped phase, coherence, connected components, ionospheric and tropospheric correction layers, correction uncertainty, coordinates, radar wavelength, and source metadata.
-- **Local incidence angle generation** for NISAR GUNW products using a user-supplied DEM, with the result aligned to the GUNW phase grid.
-- **Chronological ΔSWE accumulation** along an explicit sequence of InSAR pairs.
+- **NISAR GUNW ingestion** that reads and standardizes snow-relevant InSAR layers and information, including unwrapped phase, coherence, connected components, ionospheric and tropospheric correction layers, correction uncertainty, coordinates, radar wavelength, and source metadata.
+- **Local incidence angle data generation** for NISAR GUNW products using a user-supplied DEM, with the result aligned to the GUNW grid.
+- **Time-series ΔSWE accumulation** along an explicit sequence of InSAR pairs.
 
-SnowIn provides the software layer for conducting InSAR snow science in a reproducible and transparent fashion. It brings the scientific conventions, published ΔSWE retrieval methods, NISAR product interpretation, phase referencing, incidence geometry, quality information, correction layers, and temporal accumulation needed for snow applications into a consistent xarray-based framework. This reduces the amount of study-specific processing code required for each analysis and makes assumptions, units, phase conventions, metadata, and processing history easier to inspect and reproduce.
+SnowIn provides the software layer for conducting InSAR snow science in a reproducible, transparent, and tested fashion. It brings the published ΔSWE retrieval methods, NISAR product interpretation, phase referencing, local incidence angle data generation, quality information, correction layers, and temporal accumulation methods needed for snow applications into a consistent xarray-based framework. This reduces the amount of study-specific processing code required for each analysis and makes assumptions, units, phase conventions, metadata, and processing history easier to inspect and reproduce.
 
-SnowIn is designed to work within the broader Earth-science software ecosystem rather than replace it. Users can obtain NISAR products with tools such as `nisar-pytools`, `asf_search`, or NASA Earthdata Search, then use SnowIn to translate those products into analysis-ready inputs for InSAR snow retrieval. SnowIn exposes correction layers and their associated metadata without automatically applying them, allowing users to evaluate and select corrections appropriate for their scientific application while retaining a clear record of their source and treatment.
+Users can obtain NISAR products with tools such as `nisar-pytools`, `asf_search`, or NASA Earthdata Search, then use SnowIn to translate those products into analysis-ready inputs for InSAR snow retrieval. SnowIn exposes correction layers and their associated metadata without automatically applying them, allowing users to evaluate and select corrections appropriate for their scientific application while retaining a clear record of their source and usage.
 
 ## Installation
 
@@ -55,18 +55,16 @@ For a full local development environment, see
 
 ## Quick start
 
-SnowIn uses the convention
+SnowIn uses the phase convention:
 
 ```text
 phase = φ_reference - φ_secondary
 ΔSWE = SWE_secondary - SWE_reference
 ```
 
-Phase and incidence angle are in radians, and wavelength is in metres.
+Phase and incidence angle are in radians, and wavelength is in meters.
 Positive referenced snow-related phase means accumulation; negative means loss.
 Measured phase also contains atmosphere, reference offsets, and other signals.
-Schema 0.2 changes the earlier phase contract: see the
-[migration guide](docs/phase_migration.md), especially if you previously negated dSWE.
 
 ```python snowin-quickstart
 import math
@@ -97,12 +95,6 @@ dswe = compute_leinss_dswe(
 
 print(f"Pairwise ΔSWE: {dswe.item():.3f} m")
 ```
-
-The same xarray-based pattern applies to the other retrieval methods. All
-retrievals record `dswe_difference_definition="secondary_minus_reference"`.
-Preserve that variable attribute when preparing edges for `accumulate_dswe()`;
-missing or unsupported dSWE definitions raise an error.
-
 ## Retrieval methods
 
 All current retrievals estimate **pairwise dry-snow ΔSWE**, not absolute SWE.
@@ -118,10 +110,8 @@ equations, density/permittivity options, assumptions, and additional references.
 
 ## NISAR GUNW workflow
 
-`open_gunw()` preserves delivered `unwrappedPhase` values without inversion
-(`phase_transform="identity"`). It reads [NISAR Level-2 GUNW](https://nisar-docs.asf.alaska.edu/gunw/) products and metadata such
-as radar wavelength. Terrain-local incidence is a separate, explicit operation using
-a caller-prepared DEM.
+`open_gunw()` reads [NISAR Level-2 GUNW](https://nisar-docs.asf.alaska.edu/gunw/) products and metadata such
+as radar wavelength. Terrain-local incidence is a separate, explicit operation using a user-prepared DEM.
 
 ```python
 from snowin import compute_leinss_dswe
@@ -149,7 +139,7 @@ GUNW and matching NISAR DEM.
 
 ## Getting NISAR data
 
-SnowIn does **not** provide mission-product discovery or download as part of its core
+SnowIn does **not** provide data search or download as part of its core
 API. Acquire a GUNW product with the tool that best fits your workflow, then pass the
 local product to SnowIn.
 
@@ -173,7 +163,7 @@ local GUNW into SnowIn.
 
 ### DEM for terrain-local incidence
 
-For NISAR terrain-local incidence, SnowIn recommends the official
+For NISAR local incidence, SnowIn recommends the official
 [Modified Copernicus DEM for NISAR](https://nisar-docs.asf.alaska.edu/nisar-dem/)
 with:
 
