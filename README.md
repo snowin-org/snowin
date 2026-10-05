@@ -7,11 +7,9 @@
 
 **InSAR-based snow water equivalent retrievals, built on xarray**
 
-**SnowIn** is a Python package for estimating pairwise changes in snow water equivalent (**ΔSWE**) from repeat-pass InSAR phase. It is built around [xarray](https://xarray.dev/) `DataArray` and `Dataset` objects so that snow-specific operations remain interoperable with the broader scientific Python ecosystem.
+**SnowIn** is a Python package for estimating pairwise changes (**ΔSWE**) and cumulative **SWE** from repeat-pass InSAR phase. It is built on [xarray](https://xarray.dev/) `DataArray` and `Dataset` objects, allowing SnowIn to preserve labeled dimensions, coordinates, metadata, and Dask-backed arrays.
 
-**SnowIn** is a Python package for estimating pairwise and cumulative changes in snow water equivalent (**SWE**) from repeat-pass InSAR phase. It is built on [xarray](https://xarray.dev/) `DataArray` and `Dataset` objects
-
-SnowIn implements published dry-snow phase-to-ΔSWE retrievals and the supporting operations needed to apply them reproducibly, including phase referencing, terrain-local incidence angle generation, access to correction and quality layers, and temporal accumulation of pairwise ΔSWE. The package currently includes retrievals based on [Leinss et al. (2015)](https://doi.org/10.1109/JSTARS.2015.2432031), [Guneriussen et al. (2001)](https://doi.org/10.1109/36.957273), and [Oveisgharan et al. (2024)](https://doi.org/10.5194/tc-18-559-2024). SnowIn currently works natively with NISAR [Geocoded Unwrapped Interferogram (GUNW)](https://nisar-docs.asf.alaska.edu/gunw/) products, with planned support for additional NISAR products and other satellite InSAR datasets.
+SnowIn implements published dry-snow phase-to-ΔSWE retrievals and the supporting operations needed to apply them reproducibly, including phase referencing, local incidence angle data generation, access to correction and quality information, and time-series accumulation of pairwise ΔSWE. The package currently includes retrievals based on [Leinss et al. (2015)](https://doi.org/10.1109/JSTARS.2015.2432031), [Guneriussen et al. (2001)](https://doi.org/10.1109/36.957273), and [Oveisgharan et al. (2024)](https://doi.org/10.5194/tc-18-559-2024). SnowIn currently works natively with NISAR [Geocoded Unwrapped Interferogram (GUNW)](https://nisar-docs.asf.alaska.edu/gunw/) products, with planned support for additional NISAR products and other satellite InSAR datasets.
 
 > :warning: **NOTICE**: SnowIn is in early development. Its features and scope are subject to change. Please check the [`CHANGELOG.md`](CHANGELOG.md) for a summary of updates.
 
