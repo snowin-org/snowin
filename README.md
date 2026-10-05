@@ -5,7 +5,7 @@
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](#installation)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-**Tools for InSAR snow analysis based on xarray**
+**A Python package for InSAR-based retrievals of snow water equivalent change built on xarray**
 
 **SnowIn** is a Python package for estimating pairwise changes in snow water equivalent (**ΔSWE**) from repeat-pass InSAR phase. It is built around [xarray](https://xarray.dev/) `DataArray` and `Dataset` objects so that snow-specific operations remain interoperable with the broader scientific Python ecosystem.
 
