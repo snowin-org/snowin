@@ -45,7 +45,11 @@ def main() -> None:
         np.asarray(phase) * 0.24 / (2.0 * math.pi * (1.59 + math.radians(35.0) ** 2.5))
     )
 
-    np.testing.assert_allclose(result.values, expected, rtol=2e-13, atol=2e-15)
+    if result.dtype != np.dtype("float32"):
+        raise AssertionError("installed wheel did not return Float32 dSWE")
+    # Float32 input rounding and the power/division operations accumulate a
+    # few machine epsilons of error against the independent Float64 equation.
+    np.testing.assert_allclose(result.values, expected, rtol=5e-7, atol=0.0)
     if result.attrs.get("units") != "m" or result.dims != ("y", "x"):
         raise AssertionError("installed wheel returned an invalid dSWE result")
     if result.attrs.get("dswe_difference_definition") != "secondary_minus_reference":
