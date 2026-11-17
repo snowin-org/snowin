@@ -458,3 +458,82 @@ def compute_oveisgharan_dswe(
         scientific_reference="Oveisgharan et al. (2024)",
         method_attrs={"a_theta_coefficients": list(OVEISGHARAN_A_THETA_COEFFICIENTS)},
     )
+
+
+def compute_oveisgharan_2026_dswe(
+    phase: xr.DataArray,
+    incidence_angle: xr.DataArray,
+    *,
+    wavelength_m: float,
+) -> xr.DataArray:
+    """Convert canonical phase to dSWE using Oveisgharan et al. (2026), Eq. 1.
+
+    Phase and aligned incidence must declare radians. Positive phase produces
+    positive secondary-minus-reference dSWE in metres. This function uses the
+    separately printed 2026 coefficients and requires wavelength in metres.
+    """
+    phase, incidence_angle, wavelength_m, incidence_reference, wavelength_source = (
+        _validate_common_inputs(phase, incidence_angle, wavelength_m)
+    )
+    scalar = SCIENCE_FLOAT_DTYPE.type
+    coefficients = (-0.3385, 0.0486, -0.8647)
+    c2, c1, c0 = map(scalar, coefficients)
+    a_theta = c2 * incidence_angle ** scalar(2) + c1 * incidence_angle + c0
+    kappa = scalar(2.0 * math.pi / wavelength_m)
+    dswe = phase / (scalar(-2.0) * kappa * a_theta)
+    return _result(
+        phase,
+        dswe,
+        incidence_reference,
+        wavelength_m,
+        wavelength_source,
+        method="oveisgharan_2026",
+        equation=(
+            "dSWE = phase / (-2*kappa*A(theta)); "
+            "A(theta)=-0.3385*theta**2+0.0486*theta-0.8647; "
+            "kappa=2*pi/wavelength_m"
+        ),
+        scientific_reference="Oveisgharan et al. (2026), Eq. 1",
+        method_attrs={"a_theta_coefficients": list(coefficients)},
+    )
+
+
+def project_swe_to_vertical(
+    swe: xr.DataArray,
+    slope_angle: xr.DataArray,
+) -> xr.DataArray:
+    """Convert explicit slope-normal SWE thickness to vertical SWE thickness.
+
+    For a snow layer parallel to the terrain, vertical thickness equals normal
+    thickness divided by cos(slope). Input SWE must declare metre or millimetre
+    units and ``swe_thickness_reference='slope_normal'``. Aligned terrain slope
+    must be radians in [0, pi/2). See Eppler et al. (2022), Eqs. 1-3.
+    """
+    swe = _require_data_array("swe", swe)
+    slope_angle = _require_data_array("slope_angle", slope_angle)
+    _require_radians("slope_angle", slope_angle)
+    _validate_alignment(swe, slope_angle)
+    if swe.attrs.get("units") not in {"m", "mm"}:
+        raise ValueError("swe must declare units='m' or units='mm'")
+    if swe.attrs.get("swe_thickness_reference") != "slope_normal":
+        raise ValueError("swe must declare swe_thickness_reference='slope_normal'")
+    slope_angle = _validate_domain(
+        slope_angle,
+        name="slope_angle",
+        lower_bound=0.0,
+        lower_inclusive=True,
+        upper_exclusive=math.pi / 2.0,
+        message="slope_angle values must be in [0, pi/2); NaN is allowed",
+    )
+    result = as_science_float(swe) / np.cos(slope_angle)
+    result.name = swe.name
+    result.attrs = dict(swe.attrs)
+    result.attrs.update(
+        {
+            "swe_thickness_reference": "vertical",
+            "swe_projection_equation": "SWE_vertical = SWE_slope_normal / cos(slope_angle_rad)",
+            "swe_projection_reference": "Eppler et al. (2022), Eqs. 1-3",
+            "snow_layer_geometry": "parallel to terrain",
+        }
+    )
+    return result

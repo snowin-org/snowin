@@ -15,7 +15,9 @@ from snowin import (
     compose_support_mask,
     compute_guneriussen_dswe,
     compute_leinss_dswe,
+    compute_oveisgharan_2026_dswe,
     compute_oveisgharan_dswe,
+    project_swe_to_vertical,
     reference_phase,
     summarize_support,
 )
@@ -24,7 +26,8 @@ from snowin import (
 The complete supported module exports are:
 
 - `snowin.snow`: `compute_leinss_dswe`, `compute_guneriussen_dswe`,
-  `compute_oveisgharan_dswe`.
+  `compute_oveisgharan_dswe`, `compute_oveisgharan_2026_dswe`,
+  `project_swe_to_vertical`.
 - `snowin.io`: `DEMSource`, `NISAR_GUNW_PHASE_TRANSFORM`,
   `NISAR_GUNW_SOURCE_PHASE_DEFINITION`, `open_gunw`, `normalize_gunw_pair`,
   `read_gunw_wavelength_m`, `compute_gunw_incidence`, `add_gunw_incidence`,
@@ -62,6 +65,22 @@ Each dSWE equation has one explicit public function:
 - `compute_leinss_dswe`
 - `compute_guneriussen_dswe`
 - `compute_oveisgharan_dswe`
+- `compute_oveisgharan_2026_dswe`
+
+`compute_oveisgharan_dswe` retains the polynomial printed in the 2024 paper.
+The separately named 2026 function uses coefficients
+`[-0.3385, 0.0486, -0.8647]` in descending powers of incidence in radians.
+Both return signed pairwise dSWE in metres with the canonical phase contract.
+
+`project_swe_to_vertical(swe, slope_angle)` divides slope-normal SWE by
+`cos(slope_angle)` for a layer parallel to terrain. The caller must declare
+`swe_thickness_reference="slope_normal"`, metre or millimetre units, and an
+aligned slope in radians. The result declares vertical thickness. This
+operation preserves signed dSWE, NaNs, coordinates, metadata, and Dask laziness.
+The caller determines whether the input retrieval represents normal thickness
+and recomputes any in situ phase reference consistently with the chosen
+geometry. The geometric relation follows
+[Eppler et al. (2022), Eqs. 1–3](https://tc.copernicus.org/articles/16/1497/2022/).
 
 All require `wavelength_m`; product adapters should obtain it from
 authoritative metadata when available. There is no generic model selector,

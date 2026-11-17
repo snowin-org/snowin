@@ -11,7 +11,9 @@ from snowin.reference import reference_phase
 from snowin.snow import (
     compute_guneriussen_dswe,
     compute_leinss_dswe,
+    compute_oveisgharan_2026_dswe,
     compute_oveisgharan_dswe,
+    project_swe_to_vertical,
 )
 from snowin.temporal import accumulate_dswe
 
@@ -25,7 +27,9 @@ __all__ = [
     "compose_support_mask",
     "compute_guneriussen_dswe",
     "compute_leinss_dswe",
+    "compute_oveisgharan_2026_dswe",
     "compute_oveisgharan_dswe",
+    "project_swe_to_vertical",
     "reference_phase",
     "summarize_support",
 ]
